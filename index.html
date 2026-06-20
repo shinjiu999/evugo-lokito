@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script id="fetch-patch">
+      (function() {
+        try {
+          var originalFetch = window.fetch;
+          var currentFetch = originalFetch;
+          
+          var defineFetchOn = function(obj) {
+            if (!obj) return;
+            try {
+              Object.defineProperty(obj, 'fetch', {
+                get: function() {
+                  return currentFetch;
+                },
+                set: function(val) {
+                  console.warn("Attempt to override fetch on object intercepted:", val);
+                  currentFetch = val;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            } catch (err) {
+              console.warn("Could not define fetch on", obj, err);
+            }
+          };
+
+          defineFetchOn(window);
+          if (typeof globalThis !== 'undefined') defineFetchOn(globalThis);
+          if (typeof self !== 'undefined') defineFetchOn(self);
+        } catch (e) {
+          console.error("Failed to apply patch for window.fetch:", e);
+        }
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
