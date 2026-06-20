@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Player, TacticalItem, DrawingStroke } from "../types";
+import { Player, TacticalItem, DrawingStroke, AnimationFrame } from "../types";
 import { Trash2, AlertCircle, Sparkles, Plus, X } from "lucide-react";
 
 interface PitchProps {
@@ -24,7 +24,18 @@ interface PitchProps {
   onPromotePlayer: (sidelinePlayerId: string, x: number, y: number) => void;
   onDemotePlayer: (id: string) => void;
   onAddBenchPlayer?: (name: string, number: number, role: "GK" | "DEF" | "MID" | "FWD") => void;
+  onSwapPlayers?: (
+    id1: string,
+    id2: string,
+    id1OriginalCoords: { x: number; y: number },
+    id2OriginalCoords: { x: number; y: number }
+  ) => void;
   pitchTheme?: "emerald-grass" | "neon-hologram" | "dark-slate" | "aurora-stadium";
+  frames?: AnimationFrame[];
+  activeFrameIndex?: number;
+  showMovementTrails?: boolean;
+  playSpeed?: "slow" | "normal" | "fast" | "superfast";
+  transitionType?: "spring" | "linear" | "stealth";
 }
 
 export default function Pitch({
@@ -48,7 +59,13 @@ export default function Pitch({
   onPromotePlayer,
   onDemotePlayer,
   onAddBenchPlayer,
-  pitchTheme = "emerald-grass"
+  onSwapPlayers,
+  pitchTheme = "emerald-grass",
+  frames = [],
+  activeFrameIndex = 0,
+  showMovementTrails = true,
+  playSpeed = "normal",
+  transitionType = "spring"
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -56,6 +73,10 @@ export default function Pitch({
   const [lastPoint, setLastPoint] = useState<{ x: number; y: number } | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<"player" | "item" | null>(null);
+  
+  // Track starting position & swap target for on-field player swapping
+  const [dragStartCoords, setDragStartCoords] = useState<{ x: number; y: number } | null>(null);
+  const [activeSwapTargetId, setActiveSwapTargetId] = useState<string | null>(null);
 
   // Bench substitute drag status tracking states
   const [activeSidelineDragId, setActiveSidelineDragId] = useState<string | null>(null);
@@ -90,6 +111,42 @@ export default function Pitch({
   // Active starting XI vs substitutes
   const starters = players.filter((p) => p.isStarting);
 
+  // Set transition dynamically based on playSpeed and transitionType
+  let dynamicTransition: any = { type: "spring", stiffness: 180, damping: 24 };
+  if (transitionType === "linear") {
+    const duration = playSpeed === "slow" ? 2.5 : playSpeed === "fast" ? 0.8 : playSpeed === "superfast" ? 0.4 : 1.6;
+    dynamicTransition = {
+      type: "tween",
+      ease: "linear",
+      duration: duration
+    };
+  } else if (transitionType === "stealth") {
+    const duration = playSpeed === "slow" ? 2.5 : playSpeed === "fast" ? 0.8 : playSpeed === "superfast" ? 0.4 : 1.6;
+    dynamicTransition = {
+      type: "tween",
+      ease: "anticipate",
+      duration: duration
+    };
+  } else {
+    // spring
+    const stiffness = playSpeed === "slow" ? 50 : playSpeed === "fast" ? 245 : playSpeed === "superfast" ? 420 : 130;
+    const damping = playSpeed === "slow" ? 16 : playSpeed === "fast" ? 22 : playSpeed === "superfast" ? 28 : 19;
+    dynamicTransition = {
+      type: "spring",
+      stiffness,
+      damping
+    };
+  }
+
+  const getRoleThemeColor = (role: string) => {
+    if (pitchTheme === "neon-hologram") return "#22d3ee";
+    if (pitchTheme === "aurora-stadium") return "#f472b6";
+    if (role === "GK") return "#f59e0b";
+    if (role === "DEF") return "#10b981";
+    if (role === "MID") return "#3b82f6";
+    return "#f43f5e";
+  };
+
   // Calculate nearest starting player for quick swap highlight during sideline drag
   let swapTargetPlayerId: string | null = null;
   if (activeSidelineDragId && sidelineDragCoords) {
@@ -101,6 +158,8 @@ export default function Pitch({
         swapTargetPlayerId = starter.id;
       }
     });
+  } else if (draggedType === "player" && draggedId) {
+    swapTargetPlayerId = activeSwapTargetId;
   }
 
   // Reset/Resize canvas & trace width using a ResizeObserver to fit exact dimensions of pitch wrapper
@@ -346,6 +405,12 @@ export default function Pitch({
     if (activeTool !== "select") return;
     setDraggedId(id);
     setDraggedType(type);
+    if (type === "player") {
+      const p = players.find((player) => player.id === id);
+      if (p) {
+        setDragStartCoords({ x: p.x, y: p.y });
+      }
+    }
   };
 
   const handleContainerMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
@@ -364,6 +429,21 @@ export default function Pitch({
     if (draggedType === "player") {
       const x = Math.max(2, Math.min(98, parseFloat(rawX.toFixed(1))));
       const y = Math.max(2, Math.min(98, parseFloat(rawY.toFixed(1))));
+
+      // Find nearest starting player (different from current dragged player)
+      let targetId: string | null = null;
+      let nearestDist = 9; // distance threshold in percentage coordinates
+      starters.forEach((starter) => {
+        if (starter.id !== draggedId) {
+          const dist = Math.hypot(starter.x - x, starter.y - y);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            targetId = starter.id;
+          }
+        }
+      });
+      setActiveSwapTargetId(targetId);
+
       onUpdatePlayerPosition(draggedId, x, y);
     } else {
       // Items are allowed to go further outside for interactive trash-out functionality
@@ -388,6 +468,21 @@ export default function Pitch({
     if (draggedType === "player") {
       const x = Math.max(2, Math.min(98, parseFloat(rawX.toFixed(1))));
       const y = Math.max(2, Math.min(98, parseFloat(rawY.toFixed(1))));
+
+      // Find nearest starting player (different from current dragged player)
+      let targetId: string | null = null;
+      let nearestDist = 9; // distance threshold in percentage coordinates
+      starters.forEach((starter) => {
+        if (starter.id !== draggedId) {
+          const dist = Math.hypot(starter.x - x, starter.y - y);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            targetId = starter.id;
+          }
+        }
+      });
+      setActiveSwapTargetId(targetId);
+
       onUpdatePlayerPosition(draggedId, x, y);
     } else {
       // Items are allowed to go further outside for interactive trash-out functionality
@@ -400,10 +495,17 @@ export default function Pitch({
   const handleDragEnd = () => {
     if (draggedId) {
       if (draggedType === "player") {
-        const activePlayer = players.find((p) => p.id === draggedId);
-        // Auto demote to bench if dragged to bottom sidebar zone (y > 85%)
-        if (activePlayer && activePlayer.isStarting && activePlayer.y > 84) {
-          onDemotePlayer(draggedId);
+        if (activeSwapTargetId && dragStartCoords && onSwapPlayers) {
+          const swapTarget = players.find((p) => p.id === activeSwapTargetId);
+          if (swapTarget) {
+            onSwapPlayers(draggedId, activeSwapTargetId, dragStartCoords, { x: swapTarget.x, y: swapTarget.y });
+          }
+        } else {
+          const activePlayer = players.find((p) => p.id === draggedId);
+          // Auto demote to bench if dragged to bottom sidebar zone (y > 85%)
+          if (activePlayer && activePlayer.isStarting && activePlayer.y > 84) {
+            onDemotePlayer(draggedId);
+          }
         }
       } else if (draggedType === "item") {
         const activeItem = items.find((itm) => itm.id === draggedId);
@@ -423,6 +525,8 @@ export default function Pitch({
     }
     setDraggedId(null);
     setDraggedType(null);
+    setDragStartCoords(null);
+    setActiveSwapTargetId(null);
   };
 
   // Drag sideline substitute to the pitch
@@ -691,6 +795,150 @@ export default function Pitch({
           }`}
         />
 
+        {/* DYNAMIC TACTICAL MOVEMENT TRAILS */}
+        {showMovementTrails && activeFrameIndex > 0 && frames && frames[activeFrameIndex - 1] && (
+          <svg
+            className="absolute inset-0 w-full h-[84%] pointer-events-none z-15"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <marker
+                id="movement-trail-arrow"
+                viewBox="0 0 10 10"
+                refX="7"
+                refY="5"
+                markerWidth="5"
+                markerHeight="5"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="rgba(255, 255, 255, 0.85)" />
+              </marker>
+              <filter id="trail-glowing-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="0.5" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            {/* Players movement trajectories */}
+            {starters.map((player) => {
+              if (draggedId === player.id) return null;
+              const prevFrame = frames[activeFrameIndex - 1];
+              if (!prevFrame || !prevFrame.players) return null;
+              const prevPos = prevFrame.players.find((p) => p.id === player.id);
+              if (!prevPos) return null;
+
+              const dx = player.x - prevPos.x;
+              const dy = player.y - prevPos.y;
+              const dist = Math.hypot(dx, dy);
+
+              if (dist > 2.5) {
+                // Curved flow calculations
+                const midX = (prevPos.x + player.x) / 2;
+                const midY = (prevPos.y + player.y) / 2;
+                
+                const len = dist || 1;
+                const nx = -dy / len;
+                const ny = dx / len;
+                
+                const curvature = Math.min(6, len * 0.18);
+                const controlX = midX + nx * curvature;
+                const controlY = midY + ny * curvature;
+
+                const pathData = `M ${prevPos.x} ${prevPos.y} Q ${controlX} ${controlY} ${player.x} ${player.y}`;
+                const trailColor = getRoleThemeColor(player.role);
+
+                return (
+                  <g key={`trail-player-${player.id}`}>
+                    {/* Shadow/Backing line */}
+                    <path
+                      d={pathData}
+                      fill="none"
+                      stroke="rgba(0,0,0,0.3)"
+                      strokeWidth="1.2"
+                    />
+                    {/* Pulsing trail path */}
+                    <path
+                      d={pathData}
+                      fill="none"
+                      stroke={trailColor}
+                      strokeWidth="0.8"
+                      strokeDasharray="2, 2.5"
+                      markerEnd="url(#movement-trail-arrow)"
+                      filter={pitchTheme !== "emerald-grass" ? "url(#trail-glowing-glow)" : "none"}
+                      className="opacity-80"
+                    />
+                    {/* Animated running dot representing phase progress */}
+                    <circle r="0.75" fill="#ffffff" filter="url(#trail-glowing-glow)">
+                      <animateMotion
+                        dur={playSpeed === "slow" ? "2.4s" : playSpeed === "fast" ? "0.8s" : playSpeed === "superfast" ? "0.4s" : "1.5s"}
+                        repeatCount="indefinite"
+                        path={pathData}
+                      />
+                    </circle>
+                  </g>
+                );
+              }
+              return null;
+            })}
+
+            {/* Ball movement trajectory */}
+            {items
+              .filter((item) => item.type === "ball")
+              .map((ball) => {
+                if (draggedId === ball.id) return null;
+                const prevFrame = frames[activeFrameIndex - 1];
+                if (!prevFrame || !prevFrame.items) return null;
+                const prevPos = prevFrame.items.find((i) => i.id === ball.id);
+                if (!prevPos) return null;
+
+                const dx = ball.x - prevPos.x;
+                const dy = ball.y - prevPos.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > 3) {
+                  const midX = (prevPos.x + ball.x) / 2;
+                  const midY = (prevPos.y + ball.y) / 2;
+                  const len = dist || 1;
+                  const nx = -dy / len;
+                  const ny = dx / len;
+                  const curvature = Math.min(8, len * 0.22);
+                  const controlX = midX + nx * curvature;
+                  const controlY = midY + ny * curvature;
+
+                  const pathData = `M ${prevPos.x} ${prevPos.y} Q ${controlX} ${controlY} ${ball.x} ${ball.y}`;
+
+                  return (
+                    <g key={`trail-ball-${ball.id}`}>
+                      {/* Orange glowing trajectory path */}
+                      <path
+                        d={pathData}
+                        fill="none"
+                        stroke="#f97316"
+                        strokeWidth="1.0"
+                        strokeDasharray="4, 2"
+                        markerEnd="url(#movement-trail-arrow)"
+                        filter="url(#trail-glowing-glow)"
+                      />
+                      {/* Little ball-running dot */}
+                      <circle r="0.9" fill="#facc15" stroke="#7c2d12" strokeWidth="0.25">
+                        <animateMotion
+                          dur={playSpeed === "slow" ? "1.8s" : playSpeed === "fast" ? "0.6s" : playSpeed === "superfast" ? "0.3s" : "1.1s"}
+                          repeatCount="indefinite"
+                          path={pathData}
+                        />
+                      </circle>
+                    </g>
+                  );
+                }
+                return null;
+              })}
+          </svg>
+        )}
+
         {/* INTERACTIVE PLAYERS AND DRAGGABLE BALLS & CONES */}
         <div className="absolute inset-0 w-full h-[84%] z-30 pointer-events-none">
           <AnimatePresence>
@@ -709,9 +957,7 @@ export default function Pitch({
                     top: `${player.y}%`
                   }}
                   transition={{
-                    type: "spring",
-                    stiffness: 180,
-                    damping: 24,
+                    ...dynamicTransition,
                     layout: { duration: 0.2 }
                   }}
                   onMouseDown={() => handleDragStart(player.id, "player")}
@@ -799,11 +1045,7 @@ export default function Pitch({
                      left: `${item.x}%`,
                      top: `${item.y}%`
                    }}
-                   transition={{
-                     type: "spring",
-                     stiffness: 180,
-                     damping: 24
-                   }}
+                   transition={dynamicTransition}
                    onMouseDown={() => handleDragStart(item.id, "item")}
                    onTouchStart={() => handleDragStart(item.id, "item")}
                    onDoubleClick={() => onRemoveItem(item.id)}

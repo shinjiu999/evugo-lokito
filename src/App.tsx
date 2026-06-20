@@ -104,6 +104,97 @@ const PRESET_FORMATIONS = {
     { role: "MID", x: 50, y: 36 },
     { role: "MID", x: 80, y: 38 },
     { role: "FWD", x: 50, y: 18 }
+  ],
+  "3-4-3": [
+    { role: "GK", x: 50, y: 88 },
+    { role: "DEF", x: 25, y: 72 },
+    { role: "DEF", x: 50, y: 76 },
+    { role: "DEF", x: 75, y: 72 },
+    { role: "MID", x: 18, y: 52 },
+    { role: "MID", x: 38, y: 54 },
+    { role: "MID", x: 62, y: 54 },
+    { role: "MID", x: 82, y: 52 },
+    { role: "FWD", x: 22, y: 28 },
+    { role: "FWD", x: 50, y: 22 },
+    { role: "FWD", x: 78, y: 28 }
+  ],
+  "4-5-1": [
+    { role: "GK", x: 50, y: 88 },
+    { role: "DEF", x: 18, y: 68 },
+    { role: "DEF", x: 38, y: 74 },
+    { role: "DEF", x: 62, y: 74 },
+    { role: "DEF", x: 82, y: 68 },
+    { role: "MID", x: 15, y: 48 },
+    { role: "MID", x: 33, y: 50 },
+    { role: "MID", x: 50, y: 56 },
+    { role: "MID", x: 67, y: 50 },
+    { role: "MID", x: 85, y: 48 },
+    { role: "FWD", x: 50, y: 20 }
+  ],
+  "5-3-2": [
+    { role: "GK", x: 50, y: 88 },
+    { role: "DEF", x: 15, y: 68 },
+    { role: "DEF", x: 32, y: 72 },
+    { role: "DEF", x: 50, y: 75 },
+    { role: "DEF", x: 68, y: 72 },
+    { role: "DEF", x: 85, y: 68 },
+    { role: "MID", x: 32, y: 48 },
+    { role: "MID", x: 50, y: 55 },
+    { role: "MID", x: 68, y: 48 },
+    { role: "FWD", x: 38, y: 24 },
+    { role: "FWD", x: 62, y: 24 }
+  ],
+  "5-4-1": [
+    { role: "GK", x: 50, y: 88 },
+    { role: "DEF", x: 15, y: 68 },
+    { role: "DEF", x: 32, y: 72 },
+    { role: "DEF", x: 50, y: 75 },
+    { role: "DEF", x: 68, y: 72 },
+    { role: "DEF", x: 85, y: 68 },
+    { role: "MID", x: 20, y: 48 },
+    { role: "MID", x: 40, y: 52 },
+    { role: "MID", x: 60, y: 52 },
+    { role: "MID", x: 80, y: 48 },
+    { role: "FWD", x: 50, y: 22 }
+  ],
+  "4-1-2-1-2": [
+    { role: "GK", x: 50, y: 88 },
+    { role: "DEF", x: 18, y: 68 },
+    { role: "DEF", x: 38, y: 74 },
+    { role: "DEF", x: 62, y: 74 },
+    { role: "DEF", x: 82, y: 68 },
+    { role: "MID", x: 50, y: 60 },
+    { role: "MID", x: 30, y: 48 },
+    { role: "MID", x: 70, y: 48 },
+    { role: "MID", x: 50, y: 36 },
+    { role: "FWD", x: 38, y: 22 },
+    { role: "FWD", x: 62, y: 22 }
+  ],
+  "4-1-4-1": [
+    { role: "GK", x: 50, y: 88 },
+    { role: "DEF", x: 18, y: 68 },
+    { role: "DEF", x: 38, y: 74 },
+    { role: "DEF", x: 62, y: 74 },
+    { role: "DEF", x: 82, y: 68 },
+    { role: "MID", x: 50, y: 62 },
+    { role: "MID", x: 20, y: 44 },
+    { role: "MID", x: 38, y: 44 },
+    { role: "MID", x: 62, y: 44 },
+    { role: "MID", x: 80, y: 44 },
+    { role: "FWD", x: 50, y: 20 }
+  ],
+  "3-2-4-1": [
+    { role: "GK", x: 50, y: 88 },
+    { role: "DEF", x: 28, y: 72 },
+    { role: "DEF", x: 50, y: 76 },
+    { role: "DEF", x: 72, y: 72 },
+    { role: "MID", x: 38, y: 58 },
+    { role: "MID", x: 62, y: 58 },
+    { role: "MID", x: 18, y: 42 },
+    { role: "MID", x: 38, y: 38 },
+    { role: "MID", x: 62, y: 38 },
+    { role: "MID", x: 82, y: 42 },
+    { role: "FWD", x: 50, y: 20 }
   ]
 };
 
@@ -160,6 +251,11 @@ export default function App() {
   const [activeFrameIndex, setActiveFrameIndex] = useState(0);
   const [isPlayingTactic, setIsPlayingTactic] = useState(false);
 
+  // Detailed Movement Simulation States
+  const [showMovementTrails, setShowMovementTrails] = useState(true);
+  const [playSpeed, setPlaySpeed] = useState<"slow" | "normal" | "fast" | "superfast">("normal");
+  const [transitionType, setTransitionType] = useState<"spring" | "linear" | "stealth">("spring");
+
   // Selected player for Modal Editor
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
 
@@ -184,6 +280,47 @@ export default function App() {
           updated[activeFrameIndex].players[pIdx] = { id, x, y };
         } else {
           updated[activeFrameIndex].players.push({ id, x, y });
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleSwapPlayers = (
+    id1: string,
+    id2: string,
+    id1OriginalCoords: { x: number; y: number },
+    id2OriginalCoords: { x: number; y: number }
+  ) => {
+    setPlayers((prev) =>
+      prev.map((p) => {
+        if (p.id === id1) {
+          return { ...p, x: id2OriginalCoords.x, y: id2OriginalCoords.y };
+        }
+        if (p.id === id2) {
+          return { ...p, x: id1OriginalCoords.x, y: id1OriginalCoords.y };
+        }
+        return p;
+      })
+    );
+
+    setFrames((prev) => {
+      const updated = [...prev];
+      if (updated[activeFrameIndex]) {
+        // Player 1 update in current frame
+        const p1Idx = updated[activeFrameIndex].players.findIndex((cp) => cp.id === id1);
+        if (p1Idx !== -1) {
+          updated[activeFrameIndex].players[p1Idx] = { id: id1, x: id2OriginalCoords.x, y: id2OriginalCoords.y };
+        } else {
+          updated[activeFrameIndex].players.push({ id: id1, x: id2OriginalCoords.x, y: id2OriginalCoords.y });
+        }
+
+        // Player 2 update in current frame
+        const p2Idx = updated[activeFrameIndex].players.findIndex((cp) => cp.id === id2);
+        if (p2Idx !== -1) {
+          updated[activeFrameIndex].players[p2Idx] = { id: id2, x: id1OriginalCoords.x, y: id1OriginalCoords.y };
+        } else {
+          updated[activeFrameIndex].players.push({ id: id2, x: id1OriginalCoords.x, y: id1OriginalCoords.y });
         }
       }
       return updated;
@@ -606,23 +743,28 @@ export default function App() {
             <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
               <LayoutGrid className="w-3.5 h-3.5 text-blue-400" /> Formasi Default
             </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.keys(PRESET_FORMATIONS) as Array<keyof typeof PRESET_FORMATIONS>).map((key) => {
-                const isActive = formation === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => applyPresetFormation(key)}
-                    className={`py-2 rounded-xl text-xs font-bold transition-all border ${
-                      isActive
-                        ? "bg-blue-600 text-white border-blue-400/30 shadow-md shadow-blue-500/10"
-                        : "bg-white/5 hover:bg-white/10 text-gray-300 border-white/10"
-                    }`}
-                  >
-                    {key}
-                  </button>
-                );
-              })}
+            <div className="relative">
+              {/* Horizontal scroll container with beautiful custom styling */}
+              <div className="flex gap-1.5 overflow-x-auto py-1 pb-2.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent snap-x select-none">
+                {(Object.keys(PRESET_FORMATIONS) as Array<keyof typeof PRESET_FORMATIONS>).map((key) => {
+                  const isActive = formation === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => applyPresetFormation(key)}
+                      className={`px-3.5 py-2 shrink-0 snap-center rounded-xl text-xs font-black transition-all border cursor-pointer uppercase ${
+                        isActive
+                          ? "bg-gradient-to-r from-blue-600 to-indigo-650 text-white border-blue-400/30 shadow-md shadow-blue-500/15 scale-95"
+                          : "bg-white/5 hover:bg-white/10 text-gray-300 border-white/5 hover:border-white/15"
+                      }`}
+                    >
+                      {key}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Subtle visual glow indicating scrollable on right edge */}
+              <div className="pointer-events-none absolute right-0 top-0 bottom-2.5 w-8 bg-gradient-to-l from-[#15151a] to-transparent"></div>
             </div>
           </div>
 
@@ -855,7 +997,13 @@ export default function App() {
                 onPromotePlayer={handlePromotePlayer}
                 onDemotePlayer={handleDemotePlayer}
                 onAddBenchPlayer={handleAddBenchDirect}
+                onSwapPlayers={handleSwapPlayers}
                 pitchTheme={pitchTheme}
+                frames={frames}
+                activeFrameIndex={activeFrameIndex}
+                showMovementTrails={showMovementTrails}
+                playSpeed={playSpeed}
+                transitionType={transitionType}
               />
             </div>
 
@@ -936,6 +1084,12 @@ export default function App() {
             onPlayStateChange={setIsPlayingTactic}
             onResetFrames={handleResetFrames}
             onSaveCurrentFrameAsNew={handleSaveCurrentAsNewFrame}
+            playSpeed={playSpeed}
+            setPlaySpeed={setPlaySpeed}
+            transitionType={transitionType}
+            setTransitionType={setTransitionType}
+            showMovementTrails={showMovementTrails}
+            setShowMovementTrails={setShowMovementTrails}
           />
 
           {/* AI Formation Image Generator (Gemini Imagen) */}

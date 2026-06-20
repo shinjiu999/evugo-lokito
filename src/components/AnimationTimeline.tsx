@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimationFrame } from "../types";
-import { Play, Pause, ChevronRight, BookmarkPlus, RotateCcw, AlertCircle } from "lucide-react";
+import { Play, Pause, BookmarkPlus, RotateCcw, AlertCircle, Eye, EyeOff, Gauge, Zap } from "lucide-react";
 
 interface AnimationTimelineProps {
   frames: AnimationFrame[];
@@ -9,6 +9,12 @@ interface AnimationTimelineProps {
   onPlayStateChange: (isPlaying: boolean) => void;
   onResetFrames: () => void;
   onSaveCurrentFrameAsNew: () => void;
+  playSpeed: "slow" | "normal" | "fast" | "superfast";
+  setPlaySpeed: (speed: "slow" | "normal" | "fast" | "superfast") => void;
+  transitionType: "spring" | "linear" | "stealth";
+  setTransitionType: (type: "spring" | "linear" | "stealth") => void;
+  showMovementTrails: boolean;
+  setShowMovementTrails: (show: boolean) => void;
 }
 
 export default function AnimationTimeline({
@@ -17,15 +23,26 @@ export default function AnimationTimeline({
   setActiveFrameIndex,
   onPlayStateChange,
   onResetFrames,
-  onSaveCurrentFrameAsNew
+  onSaveCurrentFrameAsNew,
+  playSpeed,
+  setPlaySpeed,
+  transitionType,
+  setTransitionType,
+  showMovementTrails,
+  setShowMovementTrails
 }: AnimationTimelineProps) {
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Playback timer cycle
+  // Playback timer cycle with dynamic calculation based on speed
   useEffect(() => {
     let intervalId: any;
     if (isPlaying) {
       onPlayStateChange(true);
+      const playDelayMs = 
+        playSpeed === "slow" ? 3000 :
+        playSpeed === "fast" ? 1200 :
+        playSpeed === "superfast" ? 600 : 2000;
+
       intervalId = setInterval(() => {
         const nextIdx = activeFrameIndex >= frames.length - 1 ? 0 : activeFrameIndex + 1;
         if (nextIdx === 0) {
@@ -33,7 +50,7 @@ export default function AnimationTimeline({
           onPlayStateChange(false);
         }
         setActiveFrameIndex(nextIdx);
-      }, 2000); // 2 seconds per frame transition
+      }, playDelayMs);
     } else {
       onPlayStateChange(false);
     }
@@ -41,7 +58,7 @@ export default function AnimationTimeline({
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isPlaying, activeFrameIndex, frames.length]);
+  }, [isPlaying, activeFrameIndex, frames.length, playSpeed]);
 
   const handleTogglePlay = () => {
     if (frames.length <= 1) return;
@@ -108,6 +125,82 @@ export default function AnimationTimeline({
         })}
       </div>
 
+      {/* Detail Kontrol Simulasi (Simulation Settings Details) Grid */}
+      <div className="bg-black/25 p-3 rounded-xl border border-white/5 flex flex-col gap-3">
+        {/* Toggle Trails */}
+        <div className="flex justify-between items-center">
+          <span className="text-[11px] font-semibold text-gray-200 flex items-center gap-1.5">
+            {showMovementTrails ? <Eye className="w-3.5 h-3.5 text-blue-400 animate-pulse" /> : <EyeOff className="w-3.5 h-3.5 text-gray-500" />}
+            Visualisasi Lintasan Gerak (Trails)
+          </span>
+          <button
+            onClick={() => setShowMovementTrails(!showMovementTrails)}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              showMovementTrails ? "bg-blue-600" : "bg-zinc-700"
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                showMovementTrails ? "translate-x-4" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Playback Speed Select */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-bold uppercase text-gray-400 tracking-wider flex items-center gap-1">
+            <Gauge className="w-3 h-3 text-cyan-400" /> Kecepatan Simulasi Fasa
+          </label>
+          <div className="grid grid-cols-4 gap-1">
+            {(["slow", "normal", "fast", "superfast"] as const).map((speed) => {
+              const label = speed === "slow" ? "Lambat" : speed === "normal" ? "Normal" : speed === "fast" ? "Cepat" : "Instan";
+              const isSelected = playSpeed === speed;
+              return (
+                <button
+                  key={speed}
+                  onClick={() => setPlaySpeed(speed)}
+                  className={`py-1 text-[10px] rounded-lg font-semibold border transition-all truncate ${
+                    isSelected
+                      ? "bg-cyan-500/10 border-cyan-400 text-cyan-300 font-bold shadow-sm"
+                      : "bg-white/5 border-transparent text-gray-400 hover:bg-white/10"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Transition Style Select */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-bold uppercase text-gray-400 tracking-wider flex items-center gap-1">
+            <Zap className="w-3 h-3 text-amber-400" /> Model Fisik Gerakan Pemain
+          </label>
+          <div className="grid grid-cols-3 gap-1">
+            {(["spring", "linear", "stealth"] as const).map((style) => {
+              const label = style === "spring" ? "Pegas" : style === "linear" ? "Uniform" : "Stealth";
+              const isSelected = transitionType === style;
+              return (
+                <button
+                  key={style}
+                  onClick={() => setTransitionType(style)}
+                  className={`py-1 text-[10px] rounded-lg font-semibold border transition-all truncate ${
+                    isSelected
+                      ? "bg-amber-500/10 border-amber-400 text-amber-300 font-bold shadow-sm"
+                      : "bg-white/5 border-transparent text-gray-400 hover:bg-white/10"
+                  }`}
+                  title={style === "spring" ? "Bouncing natural spring" : style === "linear" ? "Pergerakan linear konstan" : "Akselerasi taktis halus"}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Active Stage Instructional Ticker */}
       <div className="bg-black/40 p-3 rounded-xl border border-white/5 flex gap-2.5 items-start">
         <AlertCircle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
@@ -131,17 +224,17 @@ export default function AnimationTimeline({
             frames.length <= 1
               ? "bg-[#15151a]/40 text-gray-600 cursor-not-allowed border border-white/5"
               : isPlaying
-              ? "bg-yellow-600 text-white font-extrabold"
+              ? "bg-yellow-600 text-white font-extrabold shadow-lg shadow-yellow-900/15"
               : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xl shadow-blue-900/20"
           }`}
         >
           {isPlaying ? (
             <>
-              <Pause className="w-4 h-4 fill-current animate-pulse" /> Jeda Simulasi
+              <Pause className="w-4 h-4 fill-current animate-pulse text-amber-200" /> Jeda Simulasi
             </>
           ) : (
             <>
-              <Play className="w-4 h-4 fill-current" /> Jalankan Playbook
+              <Play className="w-4 h-4 fill-current text-white/90" /> Jalankan Playbook
             </>
           )}
         </button>

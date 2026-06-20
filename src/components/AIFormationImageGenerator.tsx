@@ -675,280 +675,35 @@ export default function AIFormationImageGenerator({
 
   return (
     <div className="bg-[#15151a] border border-white/5 rounded-2xl p-4 shadow-xl space-y-4">
-      
-      {/* Tab Selectors */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg text-white">
-            <Image className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wide">
-              Poster Formasi 3D Studio
-            </h3>
-            <p className="text-[10px] text-gray-400">Jana visualisasi jersi dan stadium taktis mewah</p>
-          </div>
+      {/* Clean minimal Header, no description or explanations */}
+      <div className="flex items-center gap-2 border-b border-white/5 pb-2.5">
+        <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg text-white">
+          <Image className="w-4 h-4" />
         </div>
-
-        {/* Tab Controls */}
-        <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 self-start sm:self-auto">
-          <button
-            onClick={() => setActiveTab("instant")}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "instant"
-                ? "bg-blue-600 text-white shadow-md font-extrabold"
-                : "text-gray-400 hover:text-white bg-transparent border-0"
-            }`}
-          >
-            <MonitorPlay className="w-3.5 h-3.5" /> Instan 3D Vector
-          </button>
-          <button
-            onClick={() => setActiveTab("gemini")}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "gemini"
-                ? "bg-purple-600 text-white shadow-md font-extrabold"
-                : "text-gray-400 hover:text-white bg-transparent border-0"
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" /> Gemini Imagen AI
-          </button>
-        </div>
+        <h3 className="text-xs font-black text-white uppercase tracking-wider">
+          Poster Formasi 3D
+        </h3>
       </div>
 
-      {/* RENDER TAB 1: INSTANT VECTOR GRAPHIC GENERATOR */}
-      {activeTab === "instant" && (
-        <div className="space-y-4">
-          <div className="bg-emerald-950/20 border border-emerald-500/10 rounded-xl p-3 text-[11px] leading-relaxed text-gray-400">
-            <p className="font-semibold text-emerald-400 flex items-center gap-1 mb-1">
-              🎉 Mod Poster Digital 3D Aktif (Percuma & Sepatutnya Seminit!)
-            </p>
-            Mod ini melukis secara dinamik seluruh formasi anda secara digital 3D mengikut susunan jersi pada padang malam premium. Sebarang rombakan pemain atau pertukaran nama pasukan akan dikemaskini dalam masa nyata!
-          </div>
-
-          {instantImageUrl && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-black/60 rounded-2xl overflow-hidden border border-emerald-500/20 p-3 space-y-3"
-            >
-              <div className="flex items-center justify-between text-[10px] text-gray-400 px-1 font-mono uppercase tracking-wider border-b border-white/5 pb-2">
-                <span className="flex items-center gap-1 text-emerald-400 font-bold">
-                  <Eye className="w-3.5 h-3.5" /> Sedia Dimuatturun (Vector Render)
-                </span>
-                <span>1200 x 900px</span>
-              </div>
-
-              <div className="relative group overflow-hidden rounded-xl border border-white/10 aspect-[4/3] bg-zinc-950 flex items-center justify-center">
-                <img
-                  src={instantImageUrl}
-                  alt="Poster Formasi 3D Instan"
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-
-              <button
-                onClick={() => handleDownload(instantImageUrl)}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/10"
-              >
-                <Download className="w-4 h-4" /> Download Poster Formasi 3D (PNG)
-              </button>
-            </motion.div>
-          )}
-        </div>
-      )}
-
-      {/* RENDER TAB 2: GEMINI IMAGEN CLOUD GENERATOR */}
-      {activeTab === "gemini" && (
-        <div className="space-y-4">
-          {!customApiKey.trim() ? (
-            <div className="bg-amber-950/20 border border-amber-500/20 rounded-xl p-3 text-xs space-y-2.5">
-              <div className="flex gap-2 text-amber-400 font-bold items-start">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 animate-bounce" />
-                <span>Kunci API Studio Diperlukan</span>
-              </div>
-              <p className="text-gray-400 leading-relaxed text-[11px]">
-                Ciri penjanaan imej kecerdasan buatan Gemini Imagen memerlukan **Google AI Studio API Key** anda sendiri. Masukkan API Key anda dalam kotak di bawah untuk memulakan rekaan seni lukis stadium hibrid.
-              </p>
-              <div className="flex gap-1.5">
-                <div className="relative flex-1">
-                  <Key className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-500" />
-                  <input
-                    type="password"
-                    placeholder="Masukkan AI Studio API Key anda..."
-                    value={customApiKey}
-                    onChange={(e) => {
-                      setCustomApiKey(e.target.value);
-                      localStorage.setItem("tactigen_custom_key", e.target.value);
-                    }}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 placeholder-gray-600"
-                  />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-blue-950/20 border border-blue-500/15 rounded-xl px-3 py-2 text-[10px] text-blue-300 flex items-center gap-2 justify-between">
-              <div className="flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5 text-blue-400" />
-                <span>API Key Kustom Dimuatkan</span>
-              </div>
-              <button
-                onClick={() => {
-                  setCustomApiKey("");
-                  localStorage.removeItem("tactigen_custom_key");
-                }}
-                className="text-red-400 hover:text-red-300 font-bold uppercase hover:underline text-[9px] bg-transparent cursor-pointer border-0"
-              >
-                Alih Keluar
-              </button>
-            </div>
-          )}
-
-          {/* Generation Input Panel */}
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider flex items-center gap-1">
-                Prompt Kustomisasi <span className="text-gray-600 font-normal">(Opsional)</span>
-              </label>
-              <button
-                onClick={() => setShowPromptHelp(!showPromptHelp)}
-                className="p-1 hover:bg-white/5 text-gray-500 hover:text-gray-300 rounded cursor-pointer border-0 bg-transparent"
-                title="Panduan Prompt"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {showPromptHelp && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                className="bg-black/40 p-2.5 rounded-xl border border-white/5 text-[10px] text-gray-400 leading-relaxed"
-              >
-                Secara lalai, Gemini Imagen akan menjana diagram 3D formasi {formation} dengan stadium di malam hari berserta jersi bola sepak bewarna **{primaryColor}**. Anda boleh memasukkan butiran tambahan seperti: *"stadium bersalji", "stadium di bawah langit aurora ungu merah jambu"* dsb.
-              </motion.div>
-            )}
-
-            <textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder={`Contoh: Cinematic neon esports style background for ${formation} soccer layout...`}
-              rows={2}
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 resize-none"
+      {instantImageUrl && (
+        <div className="space-y-3">
+          <div className="relative group overflow-hidden rounded-xl border border-white/10 aspect-[4/3] bg-zinc-950 flex items-center justify-center">
+            <img
+              src={instantImageUrl}
+              alt="Poster Formasi 3D"
+              className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.01]"
+              referrerPolicy="no-referrer"
             />
-
-            <button
-              onClick={handleGenerateImage}
-              disabled={loading || !customApiKey.trim()}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:opacity-90 text-white font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-40 select-none cursor-pointer border-0"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Menggambar AI Formasi...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 animate-pulse" />
-                  Jana 3D Formasi via Gemini Imagen
-                </>
-              )}
-            </button>
           </div>
 
-          {/* Error and suggestion alert panel */}
-          {error && (
-            <div className="bg-red-950/35 border border-red-500/20 text-red-300 p-3 rounded-xl text-xs space-y-1.5">
-              <div className="flex gap-2 items-center text-red-400 font-bold">
-                <span>⚠️</span>
-                <p className="font-bold text-[12px]">Pengehadan Quota Gemini Dilanggar</p>
-              </div>
-              <p className="text-[11px] text-gray-400 leading-relaxed">{error}</p>
-              
-              {/* Proactively offer the user to swap to the free instant renderer */}
-              <div className="pt-2 border-t border-red-900/20 flex justify-end">
-                <button
-                  onClick={() => {
-                    setActiveTab("instant");
-                    setError(null);
-                  }}
-                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold uppercase transition-colors cursor-pointer border-0"
-                >
-                  Guna Mod Instan (Percuma & Cepat!) →
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Visual Result Preview */}
-          <AnimatePresence>
-            {loading && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="border border-purple-500/15 bg-purple-950/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-3 animate-pulse"
-              >
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
-                  <Sparkles className="w-5 h-5 text-purple-400 absolute inset-0 m-auto animate-ping" />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-purple-300">Sila tunggu sebentar...</span>
-                  <p className="text-[10.5px] text-gray-400 leading-relaxed max-w-xs mx-auto">
-                    Menjana set jersi bola sepak {formation}, merancang bayangan 3D mengikut rujukan imej dimuatnaik pada grid, dan melakukan rendering visual stadium.
-                  </p>
-                </div>
-              </motion.div>
-            )}
-
-            {generatedImageUrl && !loading && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-black/60 rounded-2xl overflow-hidden border border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.15)] space-y-3 p-3 text-center"
-              >
-                <div className="flex items-center justify-between text-[10px] text-gray-400 px-1 font-mono uppercase tracking-wider border-b border-white/5 pb-2">
-                  <span className="flex items-center gap-1 text-purple-400 font-bold">
-                    <Eye className="w-3.5 h-3.5" /> Output Rendering Imagen
-                  </span>
-                  <span>1024 x 768px</span>
-                </div>
-
-                <div className="relative group overflow-hidden rounded-xl border border-white/10 aspect-[4/3] bg-zinc-950 flex items-center justify-center">
-                  <img
-                    src={generatedImageUrl}
-                    alt="Hasil Formasi 3D"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
-                    <span className="text-[10px] bg-black/60 text-white px-2.5 py-1.5 rounded-xl border border-white/10 flex items-center gap-1 font-bold">
-                      Google Gemini AI Model active
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 justify-center pt-1.5">
-                  <button
-                    onClick={() => handleDownload(generatedImageUrl)}
-                    className="flex-1 py-2 px-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-purple-600/10 border-0"
-                  >
-                    <Download className="w-4 h-4" /> Download Imej (AI)
-                  </button>
-                  <button
-                    onClick={handleGenerateImage}
-                    className="py-2 px-3 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 border border-white/10 cursor-pointer"
-                    title="Regenerate"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <button
+            onClick={() => handleDownload(instantImageUrl)}
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/10 border-0 uppercase tracking-wider active:scale-95"
+          >
+            <Download className="w-4 h-4" /> Save Formation (PNG)
+          </button>
         </div>
       )}
-
     </div>
   );
 }
