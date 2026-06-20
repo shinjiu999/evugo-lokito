@@ -715,113 +715,270 @@ export default function App() {
           </div>
 
           {/* Dynamic Board Theme Selector and Modern Inline Reset All Widget */}
-          <div className="w-full flex flex-col sm:flex-row justify-between items-center gap-3 bg-[#15151a] border border-white/10 p-4 rounded-2xl shadow-xl">
-            <div className="flex flex-col gap-1 w-full sm:w-auto">
-              <span className="text-[9px] text-gray-400 uppercase font-extrabold tracking-wider block">🎨 Tema Lapangan Modern</span>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { key: "emerald-grass", label: "🌿 Classic", color: "bg-emerald-500" },
-                  { key: "neon-hologram", label: "⚡ Neon Holo", color: "bg-cyan-400" },
-                  { key: "dark-slate", label: "📓 Dark Slate", color: "bg-slate-400" },
-                  { key: "aurora-stadium", label: "🌌 Aurora", color: "bg-violet-500" }
-                ].map((th) => {
-                  const isActive = pitchTheme === th.key;
-                  return (
+          <div className="w-full flex flex-col gap-3.5 bg-[#15151a] border border-white/10 p-4 rounded-2xl shadow-xl">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
+                <span className="text-[9px] text-gray-400 uppercase font-extrabold tracking-wider block">🎨 Tema Lapangan Modern</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { key: "emerald-grass", label: "🌿 Classic", color: "bg-emerald-500" },
+                    { key: "neon-hologram", label: "⚡ Neon Holo", color: "bg-cyan-400" },
+                    { key: "dark-slate", label: "📓 Dark Slate", color: "bg-slate-400" },
+                    { key: "aurora-stadium", label: "🌌 Aurora", color: "bg-violet-500" }
+                  ].map((th) => {
+                    const isActive = pitchTheme === th.key;
+                    return (
+                      <button
+                        key={th.key}
+                        onClick={() => setPitchTheme(th.key as any)}
+                        className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                          isActive
+                            ? "bg-blue-600/20 text-blue-400 border-blue-500/50 shadow-md"
+                            : "bg-black/30 text-gray-400 hover:bg-black/50 border-white/5"
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${th.color} ${isActive ? "animate-pulse" : "opacity-60"}`} />
+                        {th.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="w-full sm:w-auto shrink-0 flex justify-end">
+                {showResetConfirm ? (
+                  <div className="flex items-center gap-1.5 bg-red-950/20 px-2 py-1.5 rounded-xl border border-red-500/40">
+                    <span className="text-[9px] text-red-400 font-bold">Yakin reset?</span>
                     <button
-                      key={th.key}
-                      onClick={() => setPitchTheme(th.key as any)}
-                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
-                        isActive
-                          ? "bg-blue-600/20 text-blue-400 border-blue-500/50 shadow-md"
-                          : "bg-black/30 text-gray-400 hover:bg-black/50 border-white/5"
-                      }`}
+                      onClick={() => {
+                        // Execute full reset
+                        setTeamName("GARUDA FC");
+                        setFormation("4-3-3");
+                        setPlayers(DEFAULT_PLAYERS);
+                        setItems(DEFAULT_ITEMS);
+                        setPrimaryColor("#dc2626");
+                        setGkColor("#eab308");
+                        setNumberColor("#ffffff");
+                        setActiveTool("draw");
+                        setBrushColor("#ffffff");
+                        setBrushSize(4);
+                        setBrushStyle("solid");
+                        setCustomBackgroundUrl(null);
+                        setPitchTheme("emerald-grass");
+                        setDrawHistory([]);
+                        setFrames([
+                          {
+                            id: "frame-init",
+                            name: "Fasa 1: Posisi Standard",
+                            players: DEFAULT_PLAYERS.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
+                            items: DEFAULT_ITEMS.map((item) => ({ id: item.id, x: item.x, y: item.y })),
+                            instruction: "Lakukan organisasi pemain pada posisi standard dan siapkan pola build up."
+                          }
+                        ]);
+                        setActiveFrameIndex(0);
+                        setShowResetConfirm(false);
+                      }}
+                      className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-[9px] font-extrabold uppercase transition-colors cursor-pointer"
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${th.color} ${isActive ? "animate-pulse" : "opacity-60"}`} />
-                      {th.label}
+                      Ya
                     </button>
-                  );
-                })}
+                    <button
+                      onClick={() => setShowResetConfirm(false)}
+                      className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-gray-300 text-[9px] font-extrabold uppercase transition-colors cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowResetConfirm(true)}
+                    className="px-3.5 py-2 rounded-xl bg-red-950/30 hover:bg-red-950/60 text-red-400 hover:text-red-300 border border-red-900/30 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Reset All
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="w-full sm:w-auto shrink-0 flex justify-end">
-              {showResetConfirm ? (
-                <div className="flex items-center gap-1.5 bg-red-950/20 px-2 py-1.5 rounded-xl border border-red-500/40">
-                  <span className="text-[9px] text-red-400 font-bold">Yakin reset?</span>
-                  <button
-                    onClick={() => {
-                      // Execute full reset
-                      setTeamName("GARUDA FC");
-                      setFormation("4-3-3");
-                      setPlayers(DEFAULT_PLAYERS);
-                      setItems(DEFAULT_ITEMS);
-                      setPrimaryColor("#dc2626");
-                      setGkColor("#eab308");
-                      setNumberColor("#ffffff");
+            {/* Alat Coret & Marker Taktik Panel */}
+            <div className="border-t border-white/5 pt-3">
+              <div className="w-full flex flex-wrap items-center gap-x-5 gap-y-2.5 bg-black/20 p-2.5 rounded-xl border border-white/5">
+                {/* Gaya Garis (Lurus / Panah) */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[8px] text-gray-400 font-extrabold uppercase tracking-wider">Style Coretan</span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        setBrushStyle("solid");
+                        setActiveTool("draw");
+                      }}
+                      className={`px-2 py-1 text-[10px] rounded border font-semibold transition-all cursor-pointer ${
+                        brushStyle === "solid" && activeTool === "draw"
+                          ? "bg-blue-600 text-white border-blue-400/30"
+                          : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      Lurus
+                    </button>
+                    <button
+                      onClick={() => {
+                        setBrushStyle("arrow");
+                        setActiveTool("draw");
+                      }}
+                      className={`px-2 py-1 text-[10px] rounded border font-semibold transition-all cursor-pointer ${
+                        brushStyle === "arrow" && activeTool === "draw"
+                          ? "bg-blue-600 text-white border-blue-400/30"
+                          : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      Panah
+                    </button>
+                  </div>
+                </div>
+
+                {/* Warna Papan */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[8px] text-gray-400 font-extrabold uppercase tracking-wider">Warna</span>
+                  <div className="flex gap-1">
+                    {["#ffffff", "#eab308", "#3b82f6", "#dc2626"].map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => {
+                          setBrushColor(color);
+                          setActiveTool("draw");
+                        }}
+                        className={`w-5 h-5 rounded-full border border-black/40 transition-all cursor-pointer ${
+                          brushColor === color && activeTool === "draw" ? "scale-110 ring-2 ring-blue-500" : "hover:scale-105"
+                        }`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ketebalan */}
+                <div className="flex flex-col gap-1 min-w-[100px]">
+                  <div className="flex justify-between items-center text-[8px] text-gray-400 font-extrabold uppercase tracking-wider">
+                    <span>Tebal</span>
+                    <span className="text-white font-mono text-[9px]">{brushSize}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={2}
+                    max={10}
+                    value={brushSize}
+                    onChange={(e) => {
+                      setBrushSize(parseInt(e.target.value));
                       setActiveTool("draw");
-                      setBrushColor("#ffffff");
-                      setBrushSize(4);
-                      setBrushStyle("solid");
-                      setCustomBackgroundUrl(null);
-                      setPitchTheme("emerald-grass");
-                      setDrawHistory([]);
-                      setFrames([
-                        {
-                          id: "frame-init",
-                          name: "Fasa 1: Posisi Standard",
-                          players: DEFAULT_PLAYERS.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
-                          items: DEFAULT_ITEMS.map((item) => ({ id: item.id, x: item.x, y: item.y })),
-                          instruction: "Lakukan organisasi pemain pada posisi standard dan siapkan pola build up."
-                        }
-                      ]);
-                      setActiveFrameIndex(0);
-                      setShowResetConfirm(false);
                     }}
-                    className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-[9px] font-extrabold uppercase transition-colors cursor-pointer"
+                    className="w-full accent-blue-500 bg-black/40 h-1 rounded-lg cursor-pointer"
+                  />
+                </div>
+
+                {/* Actions: Undo & Clear with compact buttons */}
+                <div className="flex gap-1.5 ml-auto">
+                  <button
+                    onClick={handleUndoDraw}
+                    disabled={drawHistory.length === 0}
+                    className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 disabled:opacity-40 text-[10px] font-semibold uppercase flex items-center gap-1 cursor-pointer active:scale-95 transition-all"
                   >
-                    Ya
+                    <Undo className="w-3 h-3" /> Undo
                   </button>
                   <button
-                    onClick={() => setShowResetConfirm(false)}
-                    className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-gray-300 text-[9px] font-extrabold uppercase transition-colors cursor-pointer"
+                    onClick={() => setDrawHistory([])}
+                    disabled={drawHistory.length === 0}
+                    className="px-2 py-1 rounded-lg bg-red-950/20 hover:bg-red-950/45 border border-red-900/20 text-red-300 disabled:opacity-40 text-[10px] font-semibold uppercase flex items-center gap-1 cursor-pointer active:scale-95 transition-all"
                   >
-                    Batal
+                    <Trash2 className="w-3 h-3" /> Clear
                   </button>
                 </div>
-              ) : (
-                <button
-                  onClick={() => setShowResetConfirm(true)}
-                  className="px-3.5 py-2 rounded-xl bg-red-950/30 hover:bg-red-950/60 text-red-400 hover:text-red-300 border border-red-900/30 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" /> Reset All
-                </button>
-              )}
+              </div>
             </div>
           </div>
 
-          {/* DIGITAL FIELD SCREEN */}
-          <Pitch
-            players={players}
-            items={items}
-            primaryColor={primaryColor}
-            gkColor={gkColor}
-            numberColor={numberColor}
-            activeTool={activeTool}
-            brushColor={brushColor}
-            brushSize={brushSize}
-            brushStyle={brushStyle}
-            customBackgroundUrl={customBackgroundUrl}
-            drawHistory={drawHistory}
-            setDrawHistory={setDrawHistory}
-            onUpdatePlayerPosition={handleUpdatePlayerPosition}
-            onUpdateItemPosition={handleUpdateItemPosition}
-            onRemoveItem={handleRemoveItem}
-            onDblClickPlayer={(id) => setEditingPlayerId(id)}
-            onSidelineSwap={handleSidelineSwap}
-            onPromotePlayer={handlePromotePlayer}
-            onDemotePlayer={handleDemotePlayer}
-            pitchTheme={pitchTheme}
-          />
+          {/* DIGITAL FIELD SCREEN WITH VERTICAL BALL AND CONE CONTROLS */}
+          <div className="w-full flex flex-col md:flex-row gap-4 items-stretch relative">
+            <div className="flex-1 min-w-0">
+              <Pitch
+                players={players}
+                items={items}
+                primaryColor={primaryColor}
+                gkColor={gkColor}
+                numberColor={numberColor}
+                activeTool={activeTool}
+                brushColor={brushColor}
+                brushSize={brushSize}
+                brushStyle={brushStyle}
+                customBackgroundUrl={customBackgroundUrl}
+                drawHistory={drawHistory}
+                setDrawHistory={setDrawHistory}
+                onUpdatePlayerPosition={handleUpdatePlayerPosition}
+                onUpdateItemPosition={handleUpdateItemPosition}
+                onRemoveItem={handleRemoveItem}
+                onDblClickPlayer={(id) => setEditingPlayerId(id)}
+                onSidelineSwap={handleSidelineSwap}
+                onPromotePlayer={handlePromotePlayer}
+                onDemotePlayer={handleDemotePlayer}
+                pitchTheme={pitchTheme}
+              />
+            </div>
+
+            {/* Vertical adding items for balls and cones placed on the side */}
+            <div className="flex md:flex-col flex-row gap-3 p-3 bg-[#15151a] border border-white/10 rounded-2xl select-none items-center justify-center shrink-0 shadow-xl self-stretch min-w-[76px]">
+              {/* Header Kontrol */}
+              <span className="text-[8px] text-gray-400 font-extrabold uppercase tracking-widest text-center block md:[writing-mode:vertical-lr] md:rotate-180 border-b md:border-b-0 md:border-r border-white/5 pb-1.5 md:pb-0 md:pr-1.5">
+                Kontrol
+              </span>
+              
+              <button
+                onClick={() => setActiveTool("select")}
+                title="Mode Geser"
+                className={`w-12 h-12 rounded-xl transition-all flex flex-col items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-md border ${
+                  activeTool === "select"
+                    ? "bg-blue-600 text-white border-blue-400/30 font-bold"
+                    : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                }`}
+              >
+                <Move className="w-4 h-4" />
+                <span className="text-[8px] uppercase scale-90">Geser</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTool("draw")}
+                title="Mode Coret"
+                className={`w-12 h-12 rounded-xl transition-all flex flex-col items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-md border ${
+                  activeTool === "draw"
+                    ? "bg-blue-600 text-white border-blue-400/30 font-bold"
+                    : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                }`}
+              >
+                <PenTool className="w-4 h-4" />
+                <span className="text-[8px] uppercase scale-90">Coret</span>
+              </button>
+
+              <div className="md:w-full md:h-[1px] w-[1px] h-6 bg-white/10 my-1 shrink-0" />
+
+              <span className="text-[8px] text-gray-400 font-extrabold uppercase tracking-widest text-center block md:[writing-mode:vertical-lr] md:rotate-180 border-b md:border-b-0 md:border-r border-white/5 pb-1.5 md:pb-0 md:pr-1.5">
+                Elemen
+              </span>
+              <button
+                onClick={() => handleAddTacticalItem("ball")}
+                title="Tambah Bola"
+                className="w-12 h-12 rounded-xl bg-white/5 hover:bg-emerald-600/20 text-white hover:text-emerald-400 border border-white/10 transition-all flex flex-col items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-md group"
+              >
+                <span className="text-xl group-hover:scale-110 transition-transform">⚽</span>
+                <span className="text-[8px] text-gray-400 group-hover:text-emerald-400 font-bold uppercase scale-90">Bola</span>
+              </button>
+              <button
+                onClick={() => handleAddTacticalItem("cone")}
+                title="Tambah Cone"
+                className="w-12 h-12 rounded-xl bg-white/5 hover:bg-amber-600/20 text-white hover:text-amber-400 border border-white/10 transition-all flex flex-col items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-md group"
+              >
+                <span className="text-xl group-hover:scale-110 transition-transform">⚠️</span>
+                <span className="text-[8px] text-gray-400 group-hover:text-amber-400 font-bold uppercase scale-90">Cone</span>
+              </button>
+            </div>
+          </div>
 
           {/* Ad Slot Manager (AdSense/AdMob Integration) */}
           <AdSlotManager />
@@ -829,151 +986,6 @@ export default function App() {
 
         {/* RIGHT COLUMN COLUMN: BRUSH CONTROLS & ANIMATION TIMELINE */}
         <div className="lg:col-span-3 flex flex-col gap-5 overflow-y-auto max-h-[85vh] pl-1">
-          
-          {/* Drawing brush settings */}
-          <div className="bg-[#15151a] border border-white/5 rounded-2xl p-4 space-y-4 shadow-xl">
-            <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-              ✍️ Alat Coret &amp; Marker Taktik
-            </h4>
-
-            {/* Brush styles solid vs arrow */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setActiveTool("select")}
-                className={`py-2 px-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${
-                  activeTool === "select"
-                    ? "bg-blue-600 text-white border-blue-400/30"
-                    : "bg-white/5 hover:bg-white/10 text-gray-400 border-white/10"
-                }`}
-              >
-                <Move className="w-4 h-4" /> Geser
-              </button>
-              <button
-                onClick={() => setActiveTool("draw")}
-                className={`py-2 px-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${
-                  activeTool === "draw"
-                    ? "bg-blue-600 text-white border-blue-400/30"
-                    : "bg-white/5 hover:bg-white/10 text-gray-400 border-white/10"
-                }`}
-              >
-                <PenTool className="w-4 h-4" /> Coret
-              </button>
-            </div>
-
-            <hr className="border-white/5" />
-
-            <div className="space-y-3">
-              {/* Stroke type select */}
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-400 font-medium">Gaya Garis</span>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => {
-                      setBrushStyle("solid");
-                      setActiveTool("draw");
-                    }}
-                    className={`px-2.5 py-1 text-[10px] rounded border font-semibold transition-all ${
-                      brushStyle === "solid"
-                        ? "bg-blue-600 text-white border-blue-400/30"
-                        : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                    }`}
-                  >
-                    Lurus
-                  </button>
-                  <button
-                    onClick={() => {
-                      setBrushStyle("arrow");
-                      setActiveTool("draw");
-                    }}
-                    className={`px-2.5 py-1 text-[10px] rounded border font-semibold transition-all ${
-                      brushStyle === "arrow"
-                        ? "bg-blue-600 text-white border-blue-400/30"
-                        : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                    }`}
-                  >
-                    Panah
-                  </button>
-                </div>
-              </div>
-
-              {/* Color swatches */}
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-400 font-medium">Warna Papan</span>
-                <div className="flex gap-1.5">
-                  {["#ffffff", "#eab308", "#3b82f6", "#dc2626"].map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => {
-                        setBrushColor(color);
-                        setActiveTool("draw");
-                      }}
-                      className={`w-6 h-6 rounded-full border border-black/40 transition-all ${
-                        brushColor === color ? "scale-110 ring-2 ring-blue-500" : "hover:scale-105"
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Brush size slider */}
-              <div className="space-y-1">
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-gray-400 font-semibold uppercase">Ketebalan Garis</span>
-                  <span className="text-white font-mono">{brushSize}px</span>
-                </div>
-                <input
-                  type="range"
-                  min={2}
-                  max={10}
-                  value={brushSize}
-                  onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                  className="w-full accent-blue-500 bg-black/40 h-1 rounded-lg"
-                />
-              </div>
-            </div>
-
-            <hr className="border-white/5" />
-
-            {/* Clear and undo draw buttons */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={handleUndoDraw}
-                disabled={drawHistory.length === 0}
-                className="py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 disabled:opacity-40 text-xs font-semibold uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-              >
-                <Undo className="w-3.5 h-3.5" /> Undo Draw
-              </button>
-              <button
-                onClick={() => setDrawHistory([])}
-                disabled={drawHistory.length === 0}
-                className="py-2 rounded-xl bg-red-950/20 hover:bg-red-950/40 border border-red-900/20 text-red-300 disabled:opacity-40 text-xs font-semibold uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Clear All
-              </button>
-            </div>
-          </div>
-
-          {/* Draggable items append controls */}
-          <div className="bg-[#15151a] border border-white/5 rounded-2xl p-4 space-y-3.5 shadow-xl">
-            <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-              ⚽ Elemen Lapangan Tambahan
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => handleAddTacticalItem("ball")}
-                className="py-2 px-3 rounded-xl bg-white/5 hover:bg-[#15151a] border border-white/10 text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-95"
-              >
-                ⚽ Tambah Bola
-              </button>
-              <button
-                onClick={() => handleAddTacticalItem("cone")}
-                className="py-2 px-3 rounded-xl bg-white/5 hover:bg-[#15151a] border border-white/10 text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-95"
-              >
-                ⚠️ Tambah Cone
-              </button>
-            </div>
-          </div>
 
           {/* Playbook Animated Keyframes timeline */}
           <AnimationTimeline

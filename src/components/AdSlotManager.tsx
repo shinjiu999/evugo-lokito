@@ -94,9 +94,20 @@ export default function AdSlotManager() {
           document.head.appendChild(script);
         }
 
-        // Initialize Adsbygoogle sequence push
-        // @ts-ignore
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
+        // Initialize Adsbygoogle sequence push safely with a timeout to allow DOM to commit
+        const timer = setTimeout(() => {
+          try {
+            const unfilledIns = document.querySelectorAll("ins.adsbygoogle:not([data-adsbygoogle-status='done'])");
+            if (unfilledIns.length > 0) {
+              // @ts-ignore
+              (window.adsbygoogle = window.adsbygoogle || []).push({});
+            }
+          } catch (err) {
+            console.warn("AdSense push safely bypassed:", err);
+          }
+        }, 300);
+
+        return () => clearTimeout(timer);
       } catch (err) {
         console.error("AdSense initialization failed due to frame policy: ", err);
       }

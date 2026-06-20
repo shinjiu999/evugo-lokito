@@ -88,14 +88,33 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
         })
       });
 
+      let rawText = "";
+      try {
+        rawText = (await response.text() || "").trim();
+      } catch (ignored) {}
+
       if (!response.ok) {
-        throw new Error("Gagal memanggil API taktik.");
+        let errMessage = "Gagal memanggil API taktik.";
+        try {
+          if (rawText && rawText !== "undefined") {
+            const errData = JSON.parse(rawText);
+            if (errData && errData.error) {
+              if (typeof errData.error === "object" && errData.error !== null && errData.error.message) {
+                errMessage = errData.error.message;
+              } else if (typeof errData.error === "string") {
+                errMessage = errData.error;
+              } else {
+                errMessage = JSON.stringify(errData.error);
+              }
+            }
+          }
+        } catch (ignored) {}
+        throw new Error(errMessage);
       }
 
-      const rawText = await response.text();
       let data: TacticalPlay;
       try {
-        let cleanText = (rawText || "").trim();
+        let cleanText = rawText;
         if (!cleanText || cleanText === "undefined") {
           throw new Error("Respons server kosong atau tidak lengkap.");
         }

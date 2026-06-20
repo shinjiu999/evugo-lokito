@@ -52,7 +52,7 @@ export default function AIFormationImageGenerator({
   }, [customApiKey]);
 
   // Handle local 3D vector poster rendering
-  const handleRenderInstantPoster = () => {
+  const handleRenderInstantPoster = (loadedImages: Record<string, HTMLImageElement> = {}) => {
     try {
       const canvas = document.createElement("canvas");
       canvas.width = 1200;
@@ -308,7 +308,7 @@ export default function AIFormationImageGenerator({
         ctx.stroke();
       }
 
-      // 7. DRAW STARTING PLAYERS IN HIGH FIDELITY 3D JERSEY DECALS
+      // 7. DRAW STARTING PLAYERS IN HIGH FIDELITY 3D JERSEY DECALS OR AVATAR PHOTOS
       players
         .filter((p) => p.isStarting)
         .forEach((player) => {
@@ -325,67 +325,136 @@ export default function AIFormationImageGenerator({
           const isGK = player.role === "GK";
           const teamColor = isGK ? gkColor : primaryColor;
 
-          // Drawing vector jersi body
-          ctx.shadowColor = "rgba(0,0,0,0.3)";
-          ctx.shadowBlur = 8;
-          ctx.shadowOffsetY = 4;
-
-          // Draw premium shirt path
-          ctx.beginPath();
           const cx = pt.x;
           const cy = pt.y - 10; // offset up so player looks standing
           const k = 0.95; // scaling jerseys
 
-          ctx.moveTo(cx - 10 * k, cy - 20 * k);
-          ctx.quadraticCurveTo(cx, cy - 13 * k, cx + 10 * k, cy - 20 * k);
-          ctx.lineTo(cx + 21 * k, cy - 20 * k);
-          ctx.lineTo(cx + 31 * k, cy - 6 * k);
-          ctx.lineTo(cx + 22 * k, cy + 0 * k);
-          ctx.lineTo(cx + 17 * k, cy - 8 * k);
-          ctx.lineTo(cx + 17 * k, cy + 18 * k);
-          ctx.lineTo(cx - 17 * k, cy + 18 * k);
-          ctx.lineTo(cx - 17 * k, cy - 8 * k);
-          ctx.lineTo(cx - 22 * k, cy + 0 * k);
-          ctx.lineTo(cx - 31 * k, cy - 6 * k);
-          ctx.lineTo(cx - 21 * k, cy - 20 * k);
-          ctx.closePath();
+          const hasPhoto = !!(player.photo && loadedImages[player.id]);
 
-          // Jersey Gradient
-          const shirtGrad = ctx.createLinearGradient(cx, cy - 20, cx, cy + 18);
-          shirtGrad.addColorStop(0, teamColor);
-          // Darken the hem for 3D depth
-          shirtGrad.addColorStop(1, adjustColorBrightness(teamColor, -40));
-          ctx.fillStyle = shirtGrad;
-          ctx.fill();
+          if (hasPhoto) {
+            // High fidelity round profile photo rendering
+            const radius = 25 * k;
 
-          // Reset shadows for details
-          ctx.shadowBlur = 0;
-          ctx.shadowOffsetY = 0;
+            // Soft glowing disc shadow
+            ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 5;
 
-          // White or black lines/trims on sleeves
-          ctx.strokeStyle = numberColor;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          // left cuff
-          ctx.moveTo(cx - 31 * k, cy - 6 * k);
-          ctx.lineTo(cx - 22 * k, cy + 0 * k);
-          // right cuff
-          ctx.moveTo(cx + 31 * k, cy - 6 * k);
-          ctx.lineTo(cx + 22 * k, cy + 0 * k);
-          ctx.stroke();
+            ctx.fillStyle = "#15151a";
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fill();
 
-          // White collar trim
-          ctx.strokeStyle = "rgba(255,255,255,0.25)";
-          ctx.beginPath();
-          ctx.arc(cx, cy - 16 * k, 7 * k, 0, Math.PI);
-          ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
 
-          // Draw Jersey Number on back/chest
-          ctx.fillStyle = numberColor;
-          ctx.font = "bold 15px 'Courier New', 'JetBrains Mono', monospace";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(player.number.toString(), cx, cy + 1 * k);
+            // Crop image within the profile circle
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.clip();
+
+            const pImg = loadedImages[player.id];
+            const size = Math.min(pImg.width, pImg.height);
+            const sx = (pImg.width - size) / 2;
+            const sy = (pImg.height - size) / 2;
+            ctx.drawImage(
+              pImg,
+              sx,
+              sy,
+              size,
+              size,
+              cx - radius,
+              cy - radius,
+              radius * 2,
+              radius * 2
+            );
+            ctx.restore();
+
+            // Premium frame Border
+            ctx.strokeStyle = teamColor;
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Overlay squad number badge at the bottom-right of the disc
+            const numBadgeX = cx + 18 * k;
+            const numBadgeY = cy + 14 * k;
+            const numRadius = 9 * k;
+
+            ctx.fillStyle = "#0c0c0e";
+            ctx.strokeStyle = numberColor;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(numBadgeX, numBadgeY, numRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 9.5px 'Courier New', 'JetBrains Mono', monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(player.number.toString(), numBadgeX, numBadgeY + 0.5);
+
+          } else {
+            // Drawing vector jersi body
+            ctx.shadowColor = "rgba(0,0,0,0.3)";
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetY = 4;
+
+            ctx.beginPath();
+            ctx.moveTo(cx - 10 * k, cy - 20 * k);
+            ctx.quadraticCurveTo(cx, cy - 13 * k, cx + 10 * k, cy - 20 * k);
+            ctx.lineTo(cx + 21 * k, cy - 20 * k);
+            ctx.lineTo(cx + 31 * k, cy - 6 * k);
+            ctx.lineTo(cx + 22 * k, cy + 0 * k);
+            ctx.lineTo(cx + 17 * k, cy - 8 * k);
+            ctx.lineTo(cx + 17 * k, cy + 18 * k);
+            ctx.lineTo(cx - 17 * k, cy + 18 * k);
+            ctx.lineTo(cx - 17 * k, cy - 8 * k);
+            ctx.lineTo(cx - 22 * k, cy + 0 * k);
+            ctx.lineTo(cx - 31 * k, cy - 6 * k);
+            ctx.lineTo(cx - 21 * k, cy - 20 * k);
+            ctx.closePath();
+
+            // Jersey Gradient
+            const shirtGrad = ctx.createLinearGradient(cx, cy - 20, cx, cy + 18);
+            shirtGrad.addColorStop(0, teamColor);
+            // Darken the hem for 3D depth
+            shirtGrad.addColorStop(1, adjustColorBrightness(teamColor, -40));
+            ctx.fillStyle = shirtGrad;
+            ctx.fill();
+
+            // Reset shadows for details
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+
+            // White or black lines/trims on sleeves
+            ctx.strokeStyle = numberColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            // left cuff
+            ctx.moveTo(cx - 31 * k, cy - 6 * k);
+            ctx.lineTo(cx - 22 * k, cy + 0 * k);
+            // right cuff
+            ctx.moveTo(cx + 31 * k, cy - 6 * k);
+            ctx.lineTo(cx + 22 * k, cy + 0 * k);
+            ctx.stroke();
+
+            // White collar trim
+            ctx.strokeStyle = "rgba(255,255,255,0.25)";
+            ctx.beginPath();
+            ctx.arc(cx, cy - 16 * k, 7 * k, 0, Math.PI);
+            ctx.stroke();
+
+            // Draw Jersey Number on back/chest
+            ctx.fillStyle = numberColor;
+            ctx.font = "bold 15px 'Courier New', 'JetBrains Mono', monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(player.number.toString(), cx, cy + 1 * k);
+          }
 
           // Draw position code bubble under jersey
           const badgeY = cy + 28 * k;
@@ -399,6 +468,8 @@ export default function AIFormationImageGenerator({
 
           ctx.fillStyle = "#ffffff";
           ctx.font = "900 8.5px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
           ctx.fillText(player.role, cx, badgeY + 1.2);
 
           // Player Name Label below
@@ -446,7 +517,45 @@ export default function AIFormationImageGenerator({
 
   // Run initial vector drawing and redraw when properties change
   useEffect(() => {
-    handleRenderInstantPoster();
+    let active = true;
+    const playersWithPhotos = players.filter((p) => p.isStarting && p.photo);
+
+    if (playersWithPhotos.length === 0) {
+      handleRenderInstantPoster({});
+      return;
+    }
+
+    const loadedImages: Record<string, HTMLImageElement> = {};
+    let loadedCount = 0;
+
+    playersWithPhotos.forEach((player) => {
+      if (!player.photo) return;
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      img.src = player.photo;
+      img.onload = () => {
+        if (!active) return;
+        loadedImages[player.id] = img;
+        loadedCount++;
+        if (loadedCount === playersWithPhotos.length) {
+          handleRenderInstantPoster(loadedImages);
+        }
+      };
+      img.onerror = () => {
+        if (!active) return;
+        loadedCount++;
+        if (loadedCount === playersWithPhotos.length) {
+          handleRenderInstantPoster(loadedImages);
+        }
+      };
+    });
+
+    // Render immediately (it will update as photos finish loading)
+    handleRenderInstantPoster(loadedImages);
+
+    return () => {
+      active = false;
+    };
   }, [players, formation, teamName, primaryColor, gkColor, numberColor]);
 
   // Helper utility to adjust HEX brightness for shadow curves
@@ -498,16 +607,22 @@ export default function AIFormationImageGenerator({
 
       let responseText = "";
       try {
-        responseText = await response.text();
+        responseText = (await response.text() || "").trim();
       } catch (ignored) {}
 
       if (!response.ok) {
         let errMessage = "Gagal menjana imej menggunakan model Gemini.";
         try {
-          if (responseText) {
+          if (responseText && responseText !== "undefined") {
             const errData = JSON.parse(responseText);
             if (errData && errData.error) {
-              errMessage = errData.error;
+              if (typeof errData.error === "object" && errData.error !== null && errData.error.message) {
+                errMessage = errData.error.message;
+              } else if (typeof errData.error === "string") {
+                errMessage = errData.error;
+              } else {
+                errMessage = JSON.stringify(errData.error);
+              }
             }
           }
         } catch (jErr) {}
@@ -516,6 +631,9 @@ export default function AIFormationImageGenerator({
 
       let data: any;
       try {
+        if (!responseText || responseText === "undefined") {
+          throw new Error("Respons pelayan kosong.");
+        }
         data = JSON.parse(responseText);
       } catch (parseError) {
         throw new Error("Respons daripada server tidak berada dalam bentuk JSON yang sah.");
