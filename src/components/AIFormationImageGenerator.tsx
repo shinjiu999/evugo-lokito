@@ -613,8 +613,9 @@ export default function AIFormationImageGenerator({
       if (!response.ok) {
         let errMessage = "Gagal menjana imej menggunakan model Gemini.";
         try {
-          if (responseText && responseText !== "undefined") {
-            const errData = JSON.parse(responseText);
+          const trimmedText = (responseText || "").trim();
+          if (trimmedText && trimmedText.toLowerCase() !== "undefined" && trimmedText.toLowerCase() !== "null") {
+            const errData = JSON.parse(trimmedText);
             if (errData && errData.error) {
               if (typeof errData.error === "object" && errData.error !== null && errData.error.message) {
                 errMessage = errData.error.message;
@@ -631,10 +632,12 @@ export default function AIFormationImageGenerator({
 
       let data: any;
       try {
-        if (!responseText || responseText === "undefined") {
+        const trimmedText = (responseText || "").trim();
+        const normText = trimmedText.toLowerCase();
+        if (!trimmedText || normText === "undefined" || normText === "null") {
           throw new Error("Respons pelayan kosong.");
         }
-        data = JSON.parse(responseText);
+        data = JSON.parse(trimmedText);
       } catch (parseError) {
         throw new Error("Respons daripada server tidak berada dalam bentuk JSON yang sah.");
       }

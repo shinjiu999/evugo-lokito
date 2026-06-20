@@ -163,8 +163,9 @@ Formulate a master playbook animation sequence (3-4 sequential frames) showing c
     });
 
     let rawText = response?.text || "";
+    const normRaw = rawText.trim().toLowerCase();
 
-    if (!rawText || rawText === "undefined") {
+    if (!normRaw || normRaw === "undefined" || normRaw === "null") {
       throw new Error("AI returned empty/undefined response content.");
     }
 
@@ -175,8 +176,9 @@ Formulate a master playbook animation sequence (3-4 sequential frames) showing c
       cleanText = cleanText.replace(/\s*```$/, "");
     }
     cleanText = cleanText.trim();
+    const normClean = cleanText.toLowerCase();
 
-    if (!cleanText || cleanText === "undefined") {
+    if (!normClean || normClean === "undefined" || normClean === "null") {
       throw new Error("Response content resolved to empty text after sanitizing.");
     }
 

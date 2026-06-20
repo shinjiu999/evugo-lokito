@@ -113,24 +113,12 @@ export default function App() {
   const [players, setPlayers] = useState<Player[]>(DEFAULT_PLAYERS);
   const [items, setItems] = useState<TacticalItem[]>(DEFAULT_ITEMS);
 
-  // States for adding substitute player form
-  const [benchName, setBenchName] = useState("");
-  const [benchNumber, setBenchNumber] = useState("");
-  const [benchRole, setBenchRole] = useState<"GK" | "DEF" | "MID" | "FWD">("MID");
-
-  const handleAddBenchPlayer = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!benchName.trim()) {
-      alert("Masukkan nama pemain cadangan!");
-      return;
-    }
-    const num = parseInt(benchNumber) || Math.floor(Math.random() * 89) + 12;
-    
+  const handleAddBenchDirect = (name: string, num: number, role: "GK" | "DEF" | "MID" | "FWD") => {
     const newPlayer: Player = {
       id: `p-bench-${Date.now()}`,
-      name: benchName.trim(),
+      name: name.trim(),
       number: num,
-      role: benchRole,
+      role: role,
       x: 0,
       y: 0,
       isStarting: false,
@@ -138,8 +126,6 @@ export default function App() {
     };
 
     setPlayers((prev) => [...prev, newPlayer]);
-    setBenchName("");
-    setBenchNumber("");
   };
 
   // Styling properties
@@ -405,6 +391,12 @@ export default function App() {
 
   const handleRemoveItem = (id: string) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
+    setFrames((prev) =>
+      prev.map((frame) => ({
+        ...frame,
+        items: frame.items.filter((item) => item.id !== id)
+      }))
+    );
   };
 
   const handleSavePlayerEdit = (id: string, updated: Partial<Player>) => {
@@ -468,7 +460,7 @@ export default function App() {
     <div className="min-h-screen bg-[#0a0a0c] text-white flex flex-col font-sans antialiased">
       
       {/* Header bar Navigation */}
-      <header className="h-16 flex items-center justify-between px-6 border-b border-white/10 bg-[#0f0f12] z-40 shadow-xl select-none">
+      <header className="h-16 flex items-center justify-between px-3 md:px-6 border-b border-white/10 bg-[#0f0f12] z-40 shadow-xl select-none">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -476,13 +468,13 @@ export default function App() {
             </svg>
           </div>
           <div>
-            <span className="text-base font-semibold tracking-tight">Tactigen <span className="text-blue-400 font-bold">Pro</span></span>
-            <p className="text-[10px] text-gray-400 hidden sm:block">Google Omni Powered Football Board</p>
+            <span className="text-sm md:text-base font-semibold tracking-tight">Tactigen <span className="text-blue-400 font-bold">Pro</span></span>
+            <p className="text-[9px] text-gray-400 hidden sm:block">Google Omni Powered Football Board</p>
           </div>
         </div>
 
         {/* Global Toolbar controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           
           {/* Connected badge */}
           <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20">
@@ -495,14 +487,16 @@ export default function App() {
           {/* Guide guide */}
           <button
             onClick={() => setShowGuide(!showGuide)}
-            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-xs flex items-center gap-1.5 font-medium"
+            className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-xs flex items-center gap-1.5 font-medium cursor-pointer"
           >
-            <HelpCircle className="w-3.5 h-3.5" /> Bantuan
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Bantuan</span>
           </button>
 
           {/* Upload BG */}
-          <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-gray-300 px-3 py-1.5 rounded-lg border border-white/10 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium">
-            <Palette className="w-3.5 h-3.5 text-blue-400" /> Lapangan Kustom
+          <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-gray-300 px-2.5 py-1.5 rounded-lg border border-white/10 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium">
+            <Palette className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden md:inline">Lapangan Kustom</span>
             <input
               type="file"
               accept="image/*"
@@ -514,26 +508,28 @@ export default function App() {
           {/* TV Presentation mode toggle */}
           <button
             onClick={() => setTvModeOpen(true)}
-            className="bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5"
+            className="bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-2.5 py-1.5 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <Tv className="w-3.5 h-3.5 text-blue-400 animate-pulse" /> TV Preview
+            <Tv className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+            <span className="hidden md:inline">TV Preview</span>
           </button>
 
           {/* Capture pitch */}
           <button
             onClick={handleDownloadImage}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-1.5 rounded-lg font-bold text-xs shadow-lg shadow-blue-500/10 hover:scale-[1.02] transition-transform flex items-center gap-1.5 active:scale-95"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-lg shadow-blue-500/10 hover:scale-[1.02] transition-transform flex items-center gap-1.5 active:scale-95 cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5 text-white" /> Unduh PNG
+            <Download className="w-3.5 h-3.5 text-white" />
+            <span className="hidden sm:inline">Unduh PNG</span>
           </button>
         </div>
       </header>
 
       {/* Main viewport Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start overflow-hidden">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* LEFT COLUMN PANEL: SQUAD SETTINGS */}
-        <div className="lg:col-span-3 flex flex-col gap-5 overflow-y-auto max-h-[85vh] pr-1">
+        <div className="lg:col-span-3 flex flex-col gap-5 lg:overflow-y-auto lg:max-h-[85vh] pr-1 h-auto">
           
           {/* Guide popup info */}
           {showGuide && (
@@ -628,67 +624,6 @@ export default function App() {
                 );
               })}
             </div>
-          </div>
-
-          {/* Quick add substitute player form */}
-          <div className="bg-[#15151a] border border-white/5 rounded-2xl p-4 space-y-3 shadow-xl">
-            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-              <Plus className="w-3.5 h-3.5 text-blue-400" /> Tambah Pemain Cadangan
-            </h4>
-            <form onSubmit={handleAddBenchPlayer} className="space-y-2.5">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2 space-y-1">
-                  <label className="text-[9px] text-gray-500 font-bold uppercase">Nama Pemain</label>
-                  <input
-                    type="text"
-                    value={benchName}
-                    onChange={(e) => setBenchName(e.target.value)}
-                    placeholder="e.g., A. Santoso"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] text-gray-500 font-bold uppercase">No. Punggung</label>
-                  <input
-                    type="number"
-                    value={benchNumber}
-                    onChange={(e) => setBenchNumber(e.target.value)}
-                    placeholder="17"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] text-gray-500 font-bold uppercase block">Posisi Utama</label>
-                <div className="grid grid-cols-4 gap-1">
-                  {(["GK", "DEF", "MID", "FWD"] as const).map((r) => {
-                    const active = benchRole === r;
-                    return (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => setBenchRole(r)}
-                        className={`py-1 rounded-lg text-[9px] font-extrabold transition-all border ${
-                          active
-                            ? "bg-blue-600/25 text-blue-400 border-blue-500/50"
-                            : "bg-white/5 text-gray-400 border-white/5 hover:bg-white/10"
-                        }`}
-                      >
-                        {r}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer shadow-lg shadow-blue-600/10 active:scale-[0.98]"
-              >
-                <Plus className="w-3.5 h-3.5" /> Tambah Cadangan
-              </button>
-            </form>
           </div>
 
           {/* Bulk roster text-format copy paster */}
@@ -919,6 +854,7 @@ export default function App() {
                 onSidelineSwap={handleSidelineSwap}
                 onPromotePlayer={handlePromotePlayer}
                 onDemotePlayer={handleDemotePlayer}
+                onAddBenchPlayer={handleAddBenchDirect}
                 pitchTheme={pitchTheme}
               />
             </div>
@@ -971,11 +907,16 @@ export default function App() {
               </button>
               <button
                 onClick={() => handleAddTacticalItem("cone")}
-                title="Tambah Cone"
-                className="w-12 h-12 rounded-xl bg-white/5 hover:bg-amber-600/20 text-white hover:text-amber-400 border border-white/10 transition-all flex flex-col items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-md group"
+                title="Tambah Kerucut Rintangan Latihan"
+                className="w-12 h-12 rounded-xl bg-white/5 hover:bg-orange-650/20 text-white hover:text-orange-400 border border-white/10 transition-all flex flex-col items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-md group"
               >
-                <span className="text-xl group-hover:scale-110 transition-transform">⚠️</span>
-                <span className="text-[8px] text-gray-400 group-hover:text-amber-400 font-bold uppercase scale-90">Cone</span>
+                <div className="relative flex flex-col items-center group-hover:scale-110 transition-transform my-0.5">
+                  <div className="w-4 h-4 bg-gradient-to-t from-orange-600 via-orange-500 to-amber-300 rounded-t-full border-t border-amber-200 flex items-center justify-center shadow-lg">
+                    <div className="w-2 h-0.5 bg-white/50 rounded-full mb-0.5"></div>
+                  </div>
+                  <div className="w-5.5 h-1 bg-orange-700 rounded-full -mt-0.5 shadow-md"></div>
+                </div>
+                <span className="text-[8px] text-gray-400 group-hover:text-orange-400 font-black uppercase scale-90">Cone</span>
               </button>
             </div>
           </div>
@@ -985,7 +926,7 @@ export default function App() {
         </div>
 
         {/* RIGHT COLUMN COLUMN: BRUSH CONTROLS & ANIMATION TIMELINE */}
-        <div className="lg:col-span-3 flex flex-col gap-5 overflow-y-auto max-h-[85vh] pl-1">
+        <div className="lg:col-span-3 flex flex-col gap-5 lg:overflow-y-auto lg:max-h-[85vh] pl-1 h-auto">
 
           {/* Playbook Animated Keyframes timeline */}
           <AnimationTimeline

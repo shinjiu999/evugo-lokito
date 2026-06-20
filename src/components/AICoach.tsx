@@ -96,8 +96,9 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
       if (!response.ok) {
         let errMessage = "Gagal memanggil API taktik.";
         try {
-          if (rawText && rawText !== "undefined") {
-            const errData = JSON.parse(rawText);
+          const trimmedRaw = (rawText || "").trim();
+          if (trimmedRaw && trimmedRaw.toLowerCase() !== "undefined" && trimmedRaw.toLowerCase() !== "null") {
+            const errData = JSON.parse(trimmedRaw);
             if (errData && errData.error) {
               if (typeof errData.error === "object" && errData.error !== null && errData.error.message) {
                 errMessage = errData.error.message;
@@ -114,8 +115,9 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
 
       let data: TacticalPlay;
       try {
-        let cleanText = rawText;
-        if (!cleanText || cleanText === "undefined") {
+        let cleanText = (rawText || "").trim();
+        const normClean = cleanText.toLowerCase();
+        if (!normClean || normClean === "undefined" || normClean === "null") {
           throw new Error("Respons server kosong atau tidak lengkap.");
         }
         if (cleanText.startsWith("```")) {
@@ -123,6 +125,10 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
           cleanText = cleanText.replace(/\s*```$/, "");
         }
         cleanText = cleanText.trim();
+        const finalNormalized = cleanText.toLowerCase();
+        if (!cleanText || finalNormalized === "undefined" || finalNormalized === "null") {
+          throw new Error("Respons server kosong atau tidak lengkap.");
+        }
         data = JSON.parse(cleanText) as TacticalPlay;
       } catch (parseErr: any) {
         console.error("Gagal men-decode respons JSON:", rawText, parseErr);
