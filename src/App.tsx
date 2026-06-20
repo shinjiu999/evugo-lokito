@@ -4,6 +4,7 @@ import { Player, TacticalItem, DrawingStroke, AnimationFrame, TacticalPlay } fro
 import Pitch from "./components/Pitch";
 import AICoach from "./components/AICoach";
 import AIFormationImageGenerator from "./components/AIFormationImageGenerator";
+import AdSlotManager from "./components/AdSlotManager";
 import AnimationTimeline from "./components/AnimationTimeline";
 import PlayerEditorModal from "./components/PlayerEditorModal";
 import SquadImport from "./components/SquadImport";
@@ -821,6 +822,9 @@ export default function App() {
             onDemotePlayer={handleDemotePlayer}
             pitchTheme={pitchTheme}
           />
+
+          {/* Ad Slot Manager (AdSense/AdMob Integration) */}
+          <AdSlotManager />
         </div>
 
         {/* RIGHT COLUMN COLUMN: BRUSH CONTROLS & ANIMATION TIMELINE */}

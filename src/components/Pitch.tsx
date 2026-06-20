@@ -55,8 +55,25 @@ export default function Pitch({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<"player" | "item" | null>(null);
 
+  // Bench substitute drag status tracking states
+  const [activeSidelineDragId, setActiveSidelineDragId] = useState<string | null>(null);
+  const [sidelineDragCoords, setSidelineDragCoords] = useState<{ x: number; y: number } | null>(null);
+
   // Active starting XI vs substitutes
   const starters = players.filter((p) => p.isStarting);
+
+  // Calculate nearest starting player for quick swap highlight during sideline drag
+  let swapTargetPlayerId: string | null = null;
+  if (activeSidelineDragId && sidelineDragCoords) {
+    let nearestDist = 12; // 12% coordinate units distance threshold
+    starters.forEach((starter) => {
+      const dist = Math.hypot(starter.x - sidelineDragCoords.x, starter.y - sidelineDragCoords.y);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        swapTargetPlayerId = starter.id;
+      }
+    });
+  }
 
   // Reset/Resize canvas to fit exact dimensions of pitch wrapper
   useEffect(() => {
@@ -307,8 +324,19 @@ export default function Pitch({
     const target = e.currentTarget as HTMLElement;
     target.style.opacity = "0.6";
 
+    setActiveSidelineDragId(sidelineId);
+
     const handlerMove = (moveEvent: MouseEvent | TouchEvent) => {
-      // Intentionally empty logic, standard mouse and touch tracking is handled on target drops
+      const container = pitchRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const clientX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : (moveEvent as MouseEvent).clientX;
+      const clientY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : (moveEvent as MouseEvent).clientY;
+
+      const x = parseFloat((((clientX - rect.left) / rect.width) * 100).toFixed(1));
+      const y = parseFloat((((clientY - rect.top) / rect.height) * 100).toFixed(1));
+
+      setSidelineDragCoords({ x, y });
     };
 
     const handlerEnd = (endEvent: MouseEvent | TouchEvent) => {
@@ -320,10 +348,20 @@ export default function Pitch({
 
       // Check where the release occurred relative to the pitch bounding box
       const container = pitchRef.current;
-      if (!container) return;
+      if (!container) {
+        setActiveSidelineDragId(null);
+        setSidelineDragCoords(null);
+        return;
+      }
       const rect = container.getBoundingClientRect();
       const clientX = 'changedTouches' in endEvent ? endEvent.changedTouches[0].clientX : (endEvent as MouseEvent).clientX;
       const clientY = 'changedTouches' in endEvent ? endEvent.changedTouches[0].clientY : (endEvent as MouseEvent).clientY;
+
+      const finalX = parseFloat((((clientX - rect.left) / rect.width) * 100).toFixed(1));
+      const finalY = parseFloat((((clientY - rect.top) / rect.height) * 100).toFixed(1));
+
+      setActiveSidelineDragId(null);
+      setSidelineDragCoords(null);
 
       if (
         clientX >= rect.left &&
@@ -331,11 +369,24 @@ export default function Pitch({
         clientY >= rect.top &&
         clientY <= rect.top + rect.height * 0.84
       ) {
-        const x = parseFloat((((clientX - rect.left) / rect.width) * 100).toFixed(1));
-        const y = parseFloat((((clientY - rect.top) / rect.height) * 100).toFixed(1));
+        // Find if there is a starting player near the release point
+        let nearestStarterId: string | null = null;
+        let minDist = 12; // Swap threshold: 12% distance
 
-        // Promote sideline to starting
-        onPromotePlayer(sidelineId, x, y);
+        starters.forEach((starter) => {
+          const dist = Math.hypot(starter.x - finalX, starter.y - finalY);
+          if (dist < minDist) {
+            minDist = dist;
+            nearestStarterId = starter.id;
+          }
+        });
+
+        if (nearestStarterId) {
+          onSidelineSwap(sidelineId, nearestStarterId);
+        } else {
+          // Promote sideline to starting
+          onPromotePlayer(sidelineId, finalX, finalY);
+        }
       }
     };
 
@@ -528,6 +579,7 @@ export default function Pitch({
               const isGK = player.role === "GK";
               const currentBg = isGK ? gkColor : primaryColor;
               const isSelected = draggedId === player.id;
+              const isSwapTarget = swapTargetPlayerId === player.id;
 
               return (
                 <motion.div
@@ -554,16 +606,29 @@ export default function Pitch({
                     touchAction: "none"
                   }}
                 >
+                  {/* Glowing Exchange badge above the player */}
+                  {isSwapTarget && (
+                    <div className="absolute -top-7 px-2.5 py-0.5 bg-gradient-to-r from-emerald-500 to-green-500 text-black text-[9px] font-black rounded-full uppercase flex items-center gap-1 shadow-[0_0_12px_rgba(52,211,153,0.8)] tracking-wider z-50 animate-bounce">
+                      <span>SWAP 🔄</span>
+                    </div>
+                  )}
+
                   {/* Jersey Element or Avatar Picture */}
                   <div
                     className={`relative w-12 h-12 rounded-full border-2 border-black/50 shadow-lg flex items-center justify-center transition-all ${
-                      isSelected ? "scale-115 ring-2 ring-blue-500 border-blue-500" : "group-hover:scale-105"
+                      isSelected ? "scale-115 ring-2 ring-blue-500 border-blue-500" : ""
+                    } ${
+                      isSwapTarget ? "scale-120 border-emerald-400 ring-4 ring-emerald-400/80 shadow-[0_0_25px_rgba(52,211,153,0.95)]" : "group-hover:scale-105"
                     }`}
                     style={{
                       backgroundColor: player.photo ? "#15151a" : currentBg,
                       color: player.photo ? "#fff" : numberColor
                     }}
                   >
+                    {isSwapTarget && (
+                      <div className="absolute inset-0 rounded-full ring-4 ring-emerald-400 animate-ping opacity-60 pointer-events-none" />
+                    )}
+
                     {player.photo ? (
                       <img
                         src={player.photo}
