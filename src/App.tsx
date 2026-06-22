@@ -1738,6 +1738,7 @@ export default function App() {
               <div className="relative group shrink-0">
                 <button
                   onClick={() => setActiveTool("select")}
+                  title={lang === "id" ? "Mode Geser & Susun (Drag-Drop)" : "Drag & Drop Mode"}
                   className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                     activeTool === "select"
                       ? "bg-blue-600 text-white border-blue-400/30 shadow-[0_0_12px_rgba(37,99,235,0.35)]"
@@ -1765,6 +1766,7 @@ export default function App() {
                         setShowDrawConfig(!showDrawConfig);
                       }
                     }}
+                    title={lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}
                     className={`relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                       activeTool === "draw"
                         ? "bg-blue-600 text-white border-blue-400/30 shadow-[0_0_12px_rgba(37,99,235,0.35)]"
@@ -1968,6 +1970,9 @@ export default function App() {
               <div className="relative group shrink-0">
                 <button
                   onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
+                  title={isToolbarExpanded 
+                    ? (lang === "id" ? "Sembunyikan Toolkit" : "Collapse Toolkit")
+                    : (lang === "id" ? "Buka Toolkit (Rollout)" : "Expand Toolkit (Rollout)")}
                   className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                     isToolbarExpanded
                       ? "bg-indigo-600 border-indigo-400/40 text-white shadow-[0_0_12px_rgba(99,102,241,0.35)]"
@@ -1995,7 +2000,7 @@ export default function App() {
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.25, ease: "easeInOut" }}
-                    className="flex flex-col items-center gap-1.5 sm:gap-2 w-full overflow-hidden"
+                    className="flex flex-col items-center gap-1.5 sm:gap-2 w-full overflow-visible"
                   >
                     {/* Responsive separation line (divider) */}
                     <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
@@ -2004,6 +2009,7 @@ export default function App() {
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => handleAddTacticalItem("ball")}
+                        title={lang === "id" ? "Tambah Bola Baru" : "Spawn New Ball"}
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-emerald-600/20 text-white hover:text-emerald-400 border border-white/10 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
                       >
                         <span className="text-[12px] sm:text-[14px] md:text-[19px] hover:scale-110 transition-transform">⚽</span>
@@ -2019,6 +2025,7 @@ export default function App() {
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => handleAddTacticalItem("cone")}
+                        title={lang === "id" ? "Tambah Cone Latihan" : "Spawn Practice Cone"}
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-orange-650/20 text-white hover:text-orange-400 border border-white/10 hover:border-orange-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
                       >
                         <div className="relative flex flex-col items-center">
@@ -2039,7 +2046,7 @@ export default function App() {
                     <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
 
                     {/* Jersey Utama */}
-                    <div className="relative group shrink-0">
+                    <div className="relative group shrink-0" title={lang === "id" ? "Jersey Tim Utama" : "Primary Kit Color"}>
                       <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
                         <div className="relative flex items-center justify-center">
                           <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: primaryColor, color: primaryColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
@@ -2059,7 +2066,7 @@ export default function App() {
                     </div>
 
                     {/* Jersey Keeper */}
-                    <div className="relative group shrink-0">
+                    <div className="relative group shrink-0" title={lang === "id" ? "Warna Jersey Kiper (GK)" : "Goalkeeper Kit Color"}>
                       <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
                         <div className="relative flex items-center justify-center">
                           <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: gkColor, color: gkColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
@@ -2079,7 +2086,7 @@ export default function App() {
                     </div>
 
                     {/* Warna Nomor Punggung */}
-                    <div className="relative group shrink-0">
+                    <div className="relative group shrink-0" title={lang === "id" ? "Warna Angka/Nomor Jersey" : "Jersey Number Color"}>
                       <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
                         <div className="relative flex items-center justify-center w-5 h-5">
                           <span className="text-[9px] md:text-[12px] font-black tracking-tighter transition-transform group-hover:scale-115 duration-205" style={{ color: numberColor }}>10</span>
@@ -2105,6 +2112,7 @@ export default function App() {
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => setShowTacticalGrid(!showTacticalGrid)}
+                        title={lang === "id" ? "Grid Taktis" : "Tactical Grid"}
                         className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                           showTacticalGrid
                             ? "bg-indigo-600 text-white border-indigo-400/30 shadow-[0_0_12px_rgba(99,102,241,0.35)]"
@@ -2124,6 +2132,7 @@ export default function App() {
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => setShowHeatmap(!showHeatmap)}
+                        title={lang === "id" ? "Peta Panas (Heatmap)" : "Heatmap Analysis"}
                         className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                           showHeatmap
                             ? "bg-red-600 text-white border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.45)]"
@@ -2150,6 +2159,7 @@ export default function App() {
                           setSaveLoadMode("save");
                           setSaveLoadModalOpen(true);
                         }}
+                        title={lang === "id" ? "Simpan Formasi & Skuad" : "Save Pitch & Squad"}
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-emerald-600/20 hover:text-emerald-400 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
                       >
                         <Save className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
@@ -2169,6 +2179,7 @@ export default function App() {
                           setSaveLoadMode("load");
                           setSaveLoadModalOpen(true);
                         }}
+                        title={lang === "id" ? "Muat Formasi Tersimpan" : "Load Saved Playbook"}
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-blue-600/20 hover:text-blue-400 hover:border-blue-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
                       >
                         <FolderOpen className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />

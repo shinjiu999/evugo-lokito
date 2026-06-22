@@ -175,6 +175,11 @@ export default function TacticalDrills({
                 setActiveTab(tab.key);
                 setShowCreateForm(false);
               }}
+              title={tab.key === "all" ? (lang === "id" ? "Tampilkan semua latihan" : "Show all tactics") :
+                     tab.key === "pressing" ? (lang === "id" ? "Tampilkan taktik Pressing" : "Show pressing tactics") :
+                     tab.key === "attack" ? (lang === "id" ? "Tampilkan taktik Menyerang" : "Show attacking tactics") :
+                     tab.key === "defense" ? (lang === "id" ? "Tampilkan taktik Bertahan" : "Show defensive tactics") :
+                     (lang === "id" ? "Tampilkan taktik kustom buatan Anda" : "Show custom tactics")}
               className={`flex-1 py-1 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                 isActive
                   ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-extrabold shadow-sm"
@@ -194,6 +199,7 @@ export default function TacticalDrills({
         </span>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
+          title={showCreateForm ? (lang === "id" ? "Batal mendaftarkan skenario baru" : "Cancel saving current board") : (lang === "id" ? "Simpan formasi & pemain saat ini sebagai skenario latihan" : "Save current active layout & timeline as a custom exercise")}
           className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all border ${
             showCreateForm 
               ? "bg-red-950/25 text-red-300 border-red-900/30 hover:bg-red-950/45"
@@ -290,6 +296,7 @@ export default function TacticalDrills({
                       type="button"
                       key={sym}
                       onClick={() => setNewDrillIcon(sym)}
+                      title={lang === "id" ? `Gunakan ikon ${sym}` : `Use icon ${sym}`}
                       className={`w-6 h-6 flex items-center justify-center rounded text-xs cursor-pointer transition-all ${
                         newDrillIcon === sym 
                           ? "bg-indigo-600/30 text-white border border-indigo-500/40" 
@@ -308,12 +315,14 @@ export default function TacticalDrills({
               <button
                 type="button"
                 onClick={() => setShowCreateForm(false)}
+                title={lang === "id" ? "Batalkan pembuatan latihan kustom" : "Cancel creating custom exercise"}
                 className="px-3 py-1 rounded-lg text-[9px] font-bold text-gray-400 hover:text-white bg-white/5 transition-all cursor-pointer"
               >
                 {t.btnCancel}
               </button>
               <button
                 type="submit"
+                title={lang === "id" ? "Simpan skenario papan aktif ke memori kustom Anda" : "Save current active pitch and frames to your custom collection"}
                 className="px-3.5 py-1 rounded-lg text-[9px] font-black uppercase text-white bg-indigo-600 hover:bg-indigo-500 border border-indigo-400/30 transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-md"
               >
                 <span>{t.btnSave}</span>
@@ -384,6 +393,7 @@ export default function TacticalDrills({
                       e.stopPropagation();
                       handleLoad(drill);
                     }}
+                    title={isLoaded ? (lang === "id" ? "Skenario latihan ini sudah dimuat dan aktif di papan" : "This tactical drill layout is currently loaded & active on physical pitch") : (lang === "id" ? "Muat dan susun formasi taktis ini di lapangan" : "Load and position this strategic exercise format on parent board")}
                     className={`px-2 py-1 rounded-lg text-[8.5px] font-black uppercase tracking-wider transition-all flex items-center gap-0.5 cursor-pointer border shrink-0 select-none ${
                       isLoaded
                         ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/25"
@@ -444,6 +454,7 @@ export default function TacticalDrills({
               {/* Close Button */}
               <button
                 onClick={() => setSelectedDrill(null)}
+                title={lang === "id" ? "Tutup detail skenario latihan" : "Close exercise details view"}
                 className="absolute top-4 right-4 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -513,6 +524,7 @@ export default function TacticalDrills({
               <div className="mt-2 pt-3 border-t border-white/[0.08] flex items-center gap-2 justify-end">
                 <button
                   onClick={() => setSelectedDrill(null)}
+                  title={lang === "id" ? "Tutup detail skenario latihan" : "Close details overlay"}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
                 >
                   {lang === "id" ? "Tutup" : "Close"}
@@ -522,6 +534,7 @@ export default function TacticalDrills({
                     handleLoad(selectedDrill);
                     setSelectedDrill(null);
                   }}
+                  title={lang === "id" ? "Terapkan seluruh skenario & instrumen gerakan ke lapangan mading aktif" : "Apply entire sequence frames overlay to the active pitch and close details"}
                   className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 text-white hover:bg-indigo-500 transition-all shadow-md active:scale-95 flex items-center gap-1.5 cursor-pointer border border-indigo-400/30"
                 >
                   <Play className="w-3 h-3 fill-current" />
