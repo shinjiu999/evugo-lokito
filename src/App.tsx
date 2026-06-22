@@ -2236,6 +2236,7 @@ export default function App() {
             numberColor={numberColor}
             players={players}
             teamLogo={teamLogo}
+            lang={lang}
           />
 
           {/* AI Coach integration */}

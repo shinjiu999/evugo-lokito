@@ -11,6 +11,7 @@ interface AIFormationImageGeneratorProps {
   numberColor: string;
   players: Player[];
   teamLogo?: string | null;
+  lang?: string;
 }
 
 export default function AIFormationImageGenerator({
@@ -20,7 +21,8 @@ export default function AIFormationImageGenerator({
   gkColor,
   numberColor,
   players,
-  teamLogo
+  teamLogo,
+  lang = "en"
 }: AIFormationImageGeneratorProps) {
   const [activeTab, setActiveTab] = useState<"instant" | "gemini">("instant");
   const [customApiKey, setCustomApiKey] = useState(() => localStorage.getItem("tactigen_custom_key") || "");
@@ -528,6 +530,93 @@ export default function AIFormationImageGenerator({
         ctx.fillText(teamName.toUpperCase(), 600, 131);
       }
 
+      // 7.5 DRAW SUBSTITUTE PLAYERS ON THE LEFT (straight line, top-to-bottom)
+      const substitutes = players.filter((p) => !p.isStarting);
+      if (substitutes.length > 0) {
+        const panelX = 40;
+        const panelY = 220;
+        const panelW = 180;
+        
+        // Dynamically scale row height if there are too many substitutes
+        const maxPanelHeight = 600;
+        let itemH = 34;
+        if (substitutes.length * itemH > maxPanelHeight - 60) {
+          itemH = Math.floor((maxPanelHeight - 60) / substitutes.length);
+        }
+        
+        const panelH = 40 + substitutes.length * itemH + 12;
+
+        // Draw nice glassmorphism dark container
+        ctx.fillStyle = "rgba(7, 7, 10, 0.65)";
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === "function") {
+          ctx.roundRect(panelX, panelY, panelW, panelH, 12);
+        } else {
+          ctx.rect(panelX, panelY, panelW, panelH);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        // Title Header of Panel
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#eab308"; // Golden accent
+        ctx.font = "900 11px sans-serif";
+        const headerText = lang === "id" ? "PEMAIN CADANGAN" : "SUBSTITUTES";
+        ctx.fillText(headerText, panelX + 14, panelY + 22);
+
+        // Underline header bar
+        ctx.strokeStyle = "rgba(234, 179, 8, 0.25)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(panelX + 14, panelY + 34);
+        ctx.lineTo(panelX + panelW - 14, panelY + 34);
+        ctx.stroke();
+
+        // Draw each substitute player row
+        substitutes.forEach((sub, idx) => {
+          const rowY = panelY + 52 + idx * itemH;
+
+          // Number bubble
+          ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          if (typeof ctx.roundRect === "function") {
+            ctx.roundRect(panelX + 14, rowY - 11, 20, 20, 4);
+          } else {
+            ctx.rect(panelX + 14, rowY - 11, 20, 20);
+          }
+          ctx.fill();
+          ctx.stroke();
+
+          // Write Number
+          ctx.fillStyle = "#38bdf8"; // Light blue for numbers
+          ctx.font = "bold 9px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(sub.number.toString(), panelX + 24, rowY - 0.5);
+
+          // Write Name
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 11px sans-serif";
+          ctx.textAlign = "left";
+          
+          // Truncate player name if it's too long to fit beautifully in 115px
+          let displayName = sub.name.toUpperCase();
+          if (displayName.length > 12) {
+            displayName = displayName.substring(0, 11) + ".";
+          }
+          ctx.fillText(displayName, panelX + 42, rowY - 1);
+
+          // Write Position Role
+          ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+          ctx.font = "bold 8px sans-serif";
+          ctx.fillText(sub.role, panelX + 145, rowY - 0.5);
+        });
+      }
+
       // Watermark indicator on lower-right
       ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
       ctx.font = "bold 10px monospace";
@@ -594,7 +683,7 @@ export default function AIFormationImageGenerator({
     return () => {
       active = false;
     };
-  }, [players, formation, teamName, primaryColor, gkColor, numberColor, teamLogo]);
+  }, [players, formation, teamName, primaryColor, gkColor, numberColor, teamLogo, lang]);
 
   // Helper utility to adjust HEX brightness for shadow curves
   const adjustColorBrightness = (hex: string, percent: number): string => {
