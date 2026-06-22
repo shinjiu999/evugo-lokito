@@ -44,6 +44,7 @@ interface SavedPlaybook {
   numberColor: string;
   players: Player[];
   items: TacticalItem[];
+  sportMode?: string;
 }
 
 interface PlaybookSaveLoadModalProps {
@@ -59,6 +60,7 @@ interface PlaybookSaveLoadModalProps {
   primaryColor: string;
   gkColor: string;
   numberColor: string;
+  sportMode?: string;
   onLoadPlaybook: (data: {
     players: Player[];
     items: TacticalItem[];
@@ -68,6 +70,7 @@ interface PlaybookSaveLoadModalProps {
     primaryColor: string;
     gkColor: string;
     numberColor: string;
+    sportMode?: any;
   }) => void;
 }
 
@@ -84,6 +87,7 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
   primaryColor,
   gkColor,
   numberColor,
+  sportMode,
   onLoadPlaybook
 }) => {
   const [playbooks, setPlaybooks] = useState<SavedPlaybook[]>([]);
@@ -140,7 +144,8 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
       gkColor,
       numberColor,
       players,
-      items
+      items,
+      sportMode
     };
 
     const updated = [newPlaybook, ...playbooks];
@@ -183,7 +188,8 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
           gkColor,
           numberColor,
           players,
-          items
+          items,
+          sportMode
         };
       }
       return pb;
@@ -220,7 +226,8 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
       teamLogo: pb.teamLogo,
       primaryColor: pb.primaryColor,
       gkColor: pb.gkColor,
-      numberColor: pb.numberColor
+      numberColor: pb.numberColor,
+      sportMode: pb.sportMode
     });
     onClose();
   };

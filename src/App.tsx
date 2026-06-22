@@ -312,6 +312,78 @@ const PRESET_FORMATIONS = {
   ]
 };
 
+const SPORT_FORMATIONS: Record<string, Record<string, { role: string; x: number; y: number }[]>> = {
+  soccer: PRESET_FORMATIONS,
+  minisoccer: {
+    "2-3-1": [
+      { role: "GK", x: 50, y: 88 },
+      { role: "DEF", x: 30, y: 72 },
+      { role: "DEF", x: 70, y: 72 },
+      { role: "MID", x: 20, y: 46 },
+      { role: "MID", x: 50, y: 48 },
+      { role: "MID", x: 80, y: 46 },
+      { role: "FWD", x: 50, y: 22 }
+    ],
+    "3-2-1": [
+      { role: "GK", x: 50, y: 88 },
+      { role: "DEF", x: 22, y: 72 },
+      { role: "DEF", x: 50, y: 76 },
+      { role: "DEF", x: 78, y: 72 },
+      { role: "MID", x: 35, y: 48 },
+      { role: "MID", x: 65, y: 48 },
+      { role: "FWD", x: 50, y: 22 }
+    ],
+    "3-1-2": [
+      { role: "GK", x: 50, y: 88 },
+      { role: "DEF", x: 22, y: 72 },
+      { role: "DEF", x: 50, y: 76 },
+      { role: "DEF", x: 78, y: 72 },
+      { role: "MID", x: 50, y: 50 },
+      { role: "FWD", x: 35, y: 24 },
+      { role: "FWD", x: 65, y: 24 }
+    ],
+    "2-2-2": [
+      { role: "GK", x: 50, y: 88 },
+      { role: "DEF", x: 30, y: 70 },
+      { role: "DEF", x: 70, y: 70 },
+      { role: "MID", x: 32, y: 46 },
+      { role: "MID", x: 68, y: 46 },
+      { role: "FWD", x: 35, y: 24 },
+      { role: "FWD", x: 65, y: 24 }
+    ]
+  },
+  futsal: {
+    "1-2-1": [
+      { role: "GK", x: 50, y: 88 },
+      { role: "DEF", x: 50, y: 72 },
+      { role: "MID", x: 25, y: 52 },
+      { role: "MID", x: 75, y: 52 },
+      { role: "FWD", x: 50, y: 28 }
+    ],
+    "2-2": [
+      { role: "GK", x: 50, y: 88 },
+      { role: "DEF", x: 32, y: 68 },
+      { role: "DEF", x: 68, y: 68 },
+      { role: "FWD", x: 32, y: 32 },
+      { role: "FWD", x: 68, y: 32 }
+    ],
+    "1-1-2": [
+      { role: "GK", x: 50, y: 88 },
+      { role: "DEF", x: 50, y: 72 },
+      { role: "MID", x: 50, y: 52 },
+      { role: "FWD", x: 30, y: 26 },
+      { role: "FWD", x: 70, y: 26 }
+    ],
+    "3-1": [
+      { role: "GK", x: 50, y: 88 },
+      { role: "DEF", x: 22, y: 70 },
+      { role: "DEF", x: 50, y: 74 },
+      { role: "DEF", x: 78, y: 70 },
+      { role: "FWD", x: 50, y: 28 }
+    ]
+  }
+};
+
 export default function App() {
   const [lang, setLang] = useState<"id" | "en">(() => {
     try {
@@ -335,7 +407,10 @@ export default function App() {
 
   const [teamName, setTeamName] = useState("GARUDA FC");
   const [teamLogo, setTeamLogo] = useState<string | null>(null);
-  const [formation, setFormation] = useState<keyof typeof PRESET_FORMATIONS>("4-3-3");
+  const [sportMode, setSportMode] = useState<"soccer" | "minisoccer" | "futsal" | "custom">("soccer");
+  const [customCount, setCustomCount] = useState<number>(8);
+  const [showSportOverlay, setShowSportOverlay] = useState<boolean>(false);
+  const [formation, setFormation] = useState<any>("4-3-3");
   const [players, setPlayers] = useState<Player[]>(DEFAULT_PLAYERS);
   const [items, setItems] = useState<TacticalItem[]>(DEFAULT_ITEMS);
 
@@ -418,6 +493,7 @@ export default function App() {
     primaryColor: string;
     gkColor: string;
     numberColor: string;
+    sportMode?: any;
   }) => {
     if (data.players) setPlayers(data.players);
     if (data.items) setItems(data.items);
@@ -427,6 +503,23 @@ export default function App() {
     if (data.primaryColor) setPrimaryColor(data.primaryColor);
     if (data.gkColor) setGkColor(data.gkColor);
     if (data.numberColor) setNumberColor(data.numberColor);
+
+    if (data.sportMode) {
+      setSportMode(data.sportMode);
+      if (data.sportMode === "custom" && data.players) {
+        const startCount = data.players.filter((p) => p.isStarting).length;
+        setCustomCount(startCount || 8);
+      }
+    } else if (data.players) {
+      const startCount = data.players.filter((p) => p.isStarting).length;
+      if (startCount === 5) {
+        setSportMode("futsal");
+      } else if (startCount === 7) {
+        setSportMode("minisoccer");
+      } else {
+        setSportMode("soccer");
+      }
+    }
 
     // Synchronize default frame with loaded scenario so replay works natively
     setFrames([{
@@ -614,10 +707,193 @@ export default function App() {
     }
   };
 
+  const getCustomCoordinates = (count: number): { role: string; x: number; y: number }[] => {
+    switch (count) {
+      case 1:
+        return [{ role: "GK", x: 50, y: 88 }];
+      case 2:
+        return [
+          { role: "GK", x: 50, y: 88 },
+          { role: "FWD", x: 50, y: 28 }
+        ];
+      case 3:
+        return [
+          { role: "GK", x: 50, y: 88 },
+          { role: "DEF", x: 50, y: 68 },
+          { role: "FWD", x: 50, y: 28 }
+        ];
+      case 4:
+        return [
+          { role: "GK", x: 50, y: 88 },
+          { role: "DEF", x: 50, y: 70 },
+          { role: "MID", x: 50, y: 48 },
+          { role: "FWD", x: 50, y: 26 }
+        ];
+      case 5:
+        return [
+          { role: "GK", x: 50, y: 88 },
+          { role: "DEF", x: 50, y: 72 },
+          { role: "MID", x: 25, y: 52 },
+          { role: "MID", x: 75, y: 52 },
+          { role: "FWD", x: 50, y: 28 }
+        ];
+      case 6:
+        return [
+          { role: "GK", x: 50, y: 88 },
+          { role: "DEF", x: 30, y: 72 },
+          { role: "DEF", x: 70, y: 72 },
+          { role: "MID", x: 50, y: 50 },
+          { role: "FWD", x: 33, y: 28 },
+          { role: "FWD", x: 67, y: 28 }
+        ];
+      case 7:
+        return [
+          { role: "GK", x: 50, y: 88 },
+          { role: "DEF", x: 30, y: 72 },
+          { role: "DEF", x: 70, y: 72 },
+          { role: "MID", x: 20, y: 46 },
+          { role: "MID", x: 50, y: 48 },
+          { role: "MID", x: 80, y: 46 },
+          { role: "FWD", x: 50, y: 22 }
+        ];
+      case 8:
+        return [
+          { role: "GK", x: 50, y: 88 },
+          { role: "DEF", x: 25, y: 72 },
+          { role: "DEF", x: 50, y: 75 },
+          { role: "DEF", x: 75, y: 72 },
+          { role: "MID", x: 35, y: 50 },
+          { role: "MID", x: 65, y: 50 },
+          { role: "FWD", x: 35, y: 26 },
+          { role: "FWD", x: 65, y: 26 }
+        ];
+      case 9:
+        return [
+          { role: "GK", x: 50, y: 88 },
+          { role: "DEF", x: 25, y: 72 },
+          { role: "DEF", x: 50, y: 75 },
+          { role: "DEF", x: 75, y: 72 },
+          { role: "MID", x: 20, y: 50 },
+          { role: "MID", x: 50, y: 52 },
+          { role: "MID", x: 80, y: 50 },
+          { role: "FWD", x: 35, y: 26 },
+          { role: "FWD", x: 65, y: 26 }
+        ];
+      case 10:
+        return [
+          { role: "GK", x: 50, y: 88 },
+          { role: "DEF", x: 20, y: 72 },
+          { role: "DEF", x: 40, y: 74 },
+          { role: "DEF", x: 60, y: 74 },
+          { role: "DEF", x: 80, y: 72 },
+          { role: "MID", x: 25, y: 50 },
+          { role: "MID", x: 50, y: 52 },
+          { role: "MID", x: 75, y: 50 },
+          { role: "FWD", x: 35, y: 26 },
+          { role: "FWD", x: 65, y: 26 }
+        ];
+      case 11:
+      default:
+        return [
+          { role: "GK", x: 50, y: 88 },
+          { role: "DEF", x: 20, y: 72 },
+          { role: "DEF", x: 40, y: 74 },
+          { role: "DEF", x: 60, y: 74 },
+          { role: "DEF", x: 80, y: 72 },
+          { role: "MID", x: 20, y: 48 },
+          { role: "MID", x: 50, y: 50 },
+          { role: "MID", x: 80, y: 48 },
+          { role: "FWD", x: 25, y: 24 },
+          { role: "FWD", x: 50, y: 22 },
+          { role: "FWD", x: 75, y: 24 }
+        ];
+    }
+  };
+
   // --- SQUAD MODIFICATION CODES ---
-  const applyPresetFormation = (formKey: keyof typeof PRESET_FORMATIONS) => {
+  const getSportModeLimit = (mode: string = sportMode) => {
+    if (mode === "minisoccer") return 7;
+    if (mode === "futsal") return 5;
+    if (mode === "custom") return customCount;
+    return 11;
+  };
+
+  const handleSetSportMode = (mode: "soccer" | "minisoccer" | "futsal" | "custom", customVal?: number) => {
+    setSportMode(mode);
+    const activeCount = mode === "custom" ? (customVal !== undefined ? customVal : customCount) : getSportModeLimit(mode);
+    if (mode === "custom" && customVal !== undefined) {
+      setCustomCount(customVal);
+    }
+    
+    // Determine default formation for chosen sport
+    let nextForm = "4-3-3";
+    if (mode === "minisoccer") nextForm = "2-3-1";
+    else if (mode === "futsal") nextForm = "1-2-1";
+    else if (mode === "custom") nextForm = `CUSTOM (${activeCount})`;
+    
+    setFormation(nextForm);
+
+    const coords = mode === "custom" ? getCustomCoordinates(activeCount) : SPORT_FORMATIONS[mode][nextForm];
+
+    setPlayers((prev) => {
+      // Find starting and substitute players
+      const currentStarters = prev.filter((p) => p.isStarting);
+      const currentSubs = prev.filter((p) => !p.isStarting);
+
+      let nextStarters: Player[] = [];
+      let nextSubs: Player[] = [];
+
+      if (currentStarters.length > activeCount) {
+        nextStarters = currentStarters.slice(0, activeCount);
+        nextSubs = [...currentStarters.slice(activeCount), ...currentSubs];
+      } else if (currentStarters.length < activeCount) {
+        const diff = activeCount - currentStarters.length;
+        nextStarters = [...currentStarters, ...currentSubs.slice(0, diff)];
+        nextSubs = currentSubs.slice(diff);
+      } else {
+        nextStarters = [...currentStarters];
+        nextSubs = [...currentSubs];
+      }
+
+      // Re-assign status
+      const updatedStarters = nextStarters.map((p) => ({ ...p, isStarting: true }));
+      const updatedSubs = nextSubs.map((p) => ({ ...p, isStarting: false, x: 0, y: 0 }));
+
+      const combined = [...updatedStarters, ...updatedSubs];
+
+      // Map coordinates to starters
+      let starterCounter = 0;
+      return combined.map((player) => {
+        if (player.isStarting && coords[starterCounter]) {
+          const coord = coords[starterCounter];
+          starterCounter++;
+          return { ...player, x: coord.x, y: coord.y };
+        } else if (!player.isStarting) {
+          return { ...player, x: 0, y: 0 };
+        }
+        return player;
+      });
+    });
+
+    // Sync frames with players' starting coordinates
+    setTimeout(() => {
+      setFrames((prev) => {
+        const updated = [...prev];
+        if (updated[0]) {
+          setPlayers((latestPlayers) => {
+            updated[0].players = latestPlayers.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y }));
+            return latestPlayers;
+          });
+        }
+        return updated;
+      });
+    }, 120);
+  };
+
+  const applyPresetFormation = (formKey: string) => {
     setFormation(formKey);
-    const coordinates = PRESET_FORMATIONS[formKey];
+    const coordinates = SPORT_FORMATIONS[sportMode][formKey];
+    if (!coordinates) return;
 
     setPlayers((prev) => {
       let starterCounter = 0;
@@ -636,7 +912,10 @@ export default function App() {
       setFrames((prev) => {
         const updated = [...prev];
         if (updated[0]) {
-          updated[0].players = players.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y }));
+          setPlayers((latestPlayers) => {
+            updated[0].players = latestPlayers.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y }));
+            return latestPlayers;
+          });
         }
         return updated;
       });
@@ -660,7 +939,8 @@ export default function App() {
 
   const handlePromotePlayer = (sidelinePlayerId: string, x: number, y: number) => {
     const starters = players.filter((p) => p.isStarting);
-    if (starters.length >= 11) {
+    const limit = getSportModeLimit();
+    if (starters.length >= limit) {
       // Locate nearest player to swap out automatically
       let nearestId = "";
       let minDist = Infinity;
@@ -985,6 +1265,9 @@ export default function App() {
                   <span className="text-[7px] sm:text-[8px] text-[#22c55e] bg-green-500/10 px-1 py-0.5 rounded border border-green-500/20 font-black tracking-widest uppercase animate-pulse select-none">
                     LIVE
                   </span>
+                  <span className="text-[9px] sm:text-[10px] text-blue-400 font-extrabold tracking-wider bg-blue-500/10 px-2 py-0.5 rounded-lg border border-blue-550/20 uppercase">
+                    {sportMode === "soccer" ? (lang === "id" ? "SEPAKBOLA" : "SOCCER") : sportMode === "minisoccer" ? "MINI SOCCER" : sportMode === "futsal" ? "FUTSAL" : (lang === "id" ? "KUSTOM" : "CUSTOM")}
+                  </span>
                   <span className="text-[9px] sm:text-[10px] text-gray-200 font-extrabold tracking-wider bg-white/5 px-2 py-0.5 rounded-lg border border-white/5 uppercase">
                     {formation}
                   </span>
@@ -1108,6 +1391,181 @@ export default function App() {
                 )}
               </div>
 
+              {/* Floating Match Sport Mode Selector at the left-middle side of the pitch */}
+              <div className="absolute top-1/2 -translate-y-1/2 left-2.5 sm:left-4 z-45 flex flex-col items-start group/sportselect">
+                <button
+                  onClick={() => setShowSportOverlay(!showSportOverlay)}
+                  className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex flex-col gap-0.5 items-center justify-center shadow-xl border border-white/[0.08] hover:border-indigo-500/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.25)] backdrop-blur-md cursor-pointer select-none active:scale-95"
+                >
+                  <span className="text-sm sm:text-base shrink-0 select-none animate-[pulse_2s_infinite]">
+                    {sportMode === "soccer" && "⚽"}
+                    {sportMode === "minisoccer" && "👟"}
+                    {sportMode === "futsal" && "💨"}
+                    {sportMode === "custom" && "⚙️"}
+                  </span>
+                  <span className="text-[6.5px] font-black uppercase text-indigo-400 tracking-tighter">
+                    {sportMode === "soccer" && "11v11"}
+                    {sportMode === "minisoccer" && "7v7"}
+                    {sportMode === "futsal" && "5v5"}
+                    {sportMode === "custom" && `${getSportModeLimit()}P`}
+                  </span>
+                </button>
+
+                {/* Floating helpful description overlay of what this button does when not open */}
+                {!showSportOverlay && (
+                  <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/sportselect:opacity-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-gray-200 backdrop-blur-md whitespace-nowrap z-50 flex flex-col">
+                    <span className="text-[7.5px] font-black tracking-widest text-indigo-400 uppercase select-none">
+                      {lang === "id" ? "MODE PERTANDINGAN" : "MATCH SPORT MODE"}
+                    </span>
+                    <span className="text-white mt-0.5 font-bold">
+                      {sportMode === "soccer" && (lang === "id" ? "Sepakbola (11 vs 11)" : "Soccer (11 vs 11)")}
+                      {sportMode === "minisoccer" && (lang === "id" ? "Mini Soccer (7 vs 7)" : "Mini Soccer (7 vs 7)")}
+                      {sportMode === "futsal" && (lang === "id" ? "Futsal (5 vs 5)" : "Futsal (5 vs 5)")}
+                      {sportMode === "custom" && (lang === "id" ? `Kustom (${getSportModeLimit()} Pemain)` : `Custom (${getSportModeLimit()} Players)`)}
+                    </span>
+                    <span className="text-[7.5px] text-gray-400 font-medium select-none mt-0.5">{lang === "id" ? "Klik untuk mengubah mode" : "Click to change mode"}</span>
+                  </div>
+                )}
+
+                {/* Full overlay selector dropdown when clicked */}
+                {showSportOverlay && (
+                  <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 w-64 bg-[#0c0d12]/92 border border-white/[0.12] rounded-2xl sm:rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-55 p-3 flex flex-col gap-2.5 animate-fadeIn backdrop-blur-xl">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                      <div className="flex flex-col">
+                        <span className="text-[9.5px] font-black tracking-wider text-indigo-400 uppercase select-none">
+                          {lang === "id" ? "Aturan Tanding" : "Sport Arena Rules"}
+                        </span>
+                        <span className="text-[11px] font-extrabold text-white">
+                          {lang === "id" ? "Pilih Arena/Mode Baru" : "Choose Pitch Arena"}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setShowSportOverlay(false)}
+                        className="w-5 h-5 rounded-lg flex items-center justify-center hover:bg-white/10 cursor-pointer text-gray-400 hover:text-white transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      {[
+                        {
+                          key: "soccer",
+                          label: lang === "id" ? "Sepakbola (11 vs 11)" : "Football (11 vs 11)",
+                          desc: lang === "id" ? "Aturan lapangan penuh standar FIFA" : "Standard full-pitch game rules",
+                          icon: "⚽",
+                          activeColor: "bg-emerald-600/20 text-emerald-400 border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                        },
+                        {
+                          key: "minisoccer",
+                          label: lang === "id" ? "Mini Soccer (7 vs 7)" : "Mini Soccer (7 vs 7)",
+                          desc: lang === "id" ? "Taktik lapangan sedang & lincah" : "Medium turf and dynamic tactics",
+                          icon: "👟",
+                          activeColor: "bg-blue-600/20 text-blue-400 border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.15)]"
+                        },
+                        {
+                          key: "futsal",
+                          label: lang === "id" ? "Futsal (5 vs 5)" : "Futsal (5 vs 5)",
+                          desc: lang === "id" ? "Sirkuit dalam ruangan cepat & presis" : "High precision fast indoor game",
+                          icon: "💨",
+                          activeColor: "bg-amber-600/20 text-amber-400 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                        },
+                        {
+                          key: "custom",
+                          label: lang === "id" ? "Kustom Manual (1 - 11)" : "Custom Count (1 - 11)",
+                          desc: lang === "id" ? "Atur jumlah pemain secara bebas" : "Freely set any player capacity",
+                          icon: "🛠️",
+                          activeColor: "bg-indigo-600/20 text-indigo-400 border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.15)]"
+                        }
+                      ].map((modeItem) => {
+                        const isActive = sportMode === modeItem.key;
+                        return (
+                          <div key={modeItem.key} className="flex flex-col gap-1.5">
+                            <button
+                              onClick={() => {
+                                handleSetSportMode(modeItem.key as any);
+                                if (modeItem.key !== "custom") {
+                                  setShowSportOverlay(false);
+                                }
+                              }}
+                              className={`w-full text-left p-2 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2.5 transition-all duration-200 outline-none select-none ${
+                                isActive ? modeItem.activeColor : "bg-black/35 border-white/5 hover:border-white/15 text-gray-300"
+                              }`}
+                            >
+                              <span className="text-base bg-white/5 w-6.5 h-6.5 rounded-lg flex items-center justify-center shrink-0 border border-white/5">
+                                {modeItem.icon}
+                              </span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-extrabold tracking-wide uppercase text-[9.5px] leading-tight">
+                                  {modeItem.label}
+                                </span>
+                                <span className="text-[8px] text-[#5e6680] font-medium leading-tight mt-0.5 truncate select-none">
+                                  {modeItem.desc}
+                                </span>
+                              </div>
+                            </button>
+
+                            {/* If custom is active and it's this mode, show custom controls */}
+                            {modeItem.key === "custom" && isActive && (
+                              <div className="px-2 py-1.5 bg-black/45 rounded-xl border border-white/[0.04] mt-0.5 flex flex-col gap-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[8px] uppercase tracking-wider font-extrabold text-gray-400">
+                                    {lang === "id" ? "JUMLAH PEMAIN" : "PLAYER COUNT"}
+                                  </span>
+                                  <span className="text-[10px] font-black text-indigo-400 bg-indigo-500/15 border border-indigo-500/25 px-1.5 py-0.5 rounded">
+                                    {customCount} {lang === "id" ? "Pemain" : "Players"}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    disabled={customCount <= 1}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (customCount > 1) {
+                                        handleSetSportMode("custom", customCount - 1);
+                                      }
+                                    }}
+                                    className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
+                                  >
+                                    -
+                                  </button>
+
+                                  <input
+                                    type="range"
+                                    min="1"
+                                    max="11"
+                                    value={customCount}
+                                    onChange={(e) => {
+                                      const newVal = parseInt(e.target.value);
+                                      handleSetSportMode("custom", newVal);
+                                    }}
+                                    className="flex-1 accent-indigo-500 h-1 rounded bg-white/10"
+                                  />
+
+                                  <button
+                                    disabled={customCount >= 11}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (customCount < 11) {
+                                        handleSetSportMode("custom", customCount + 1);
+                                      }
+                                    }}
+                                    className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Floating thin overlay for Default Formation Selector at the bottom-left inside the pitch */}
               <div className="absolute bottom-[18%] sm:bottom-[18.5%] left-2.5 sm:left-4 z-45">
                 <div className="relative group/formation">
@@ -1135,42 +1593,56 @@ export default function App() {
                         <span className="text-[8px] text-blue-400 font-bold uppercase">{lang === "id" ? "Tabel" : "Table"}</span>
                       </div>
                       <div className="max-h-56 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                        {[
-                          { key: "4-3-3", desc: lang === "id" ? "Attack Klasik" : "Classic Attacking", icon: "⚔️" },
-                          { key: "4-4-2", desc: lang === "id" ? "Classic Seimbang" : "Classic Balanced", icon: "🛡️" },
-                          { key: "3-5-2", desc: lang === "id" ? "Kuasai Sayap" : "Midfield Domination", icon: "⛓️" },
-                          { key: "4-2-3-1", desc: lang === "id" ? "Taktis Modern" : "Modern Tactical", icon: "🎯" },
-                          { key: "3-4-3", desc: lang === "id" ? "Sangat Menyerang" : "Aggressive Attack", icon: "🔥" },
-                          { key: "4-5-1", desc: lang === "id" ? "Blok Bertahan" : "Defensive Block", icon: "🧱" },
-                          { key: "5-3-2", desc: lang === "id" ? "Ujung Bertahan" : "Ultra Defensive", icon: "🏔️" }
-                        ].map((item) => {
-                          const isSel = formation === item.key;
-                          return (
-                            <button
-                              key={item.key}
-                              onClick={() => {
-                                applyPresetFormation(item.key as any);
-                                setShowFormationMenu(false);
-                              }}
-                              className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer text-xs ${
-                                isSel ? "bg-blue-600/20 text-blue-400 font-black" : "text-gray-300"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs">{item.icon}</span>
-                                <div className="flex flex-col">
-                                  <span className="font-extrabold tracking-wide uppercase text-[10.5px]">{item.key}</span>
-                                  <span className="text-[8px] text-[#5e6680] font-medium leading-none">{item.desc}</span>
+                        {(() => {
+                          const formationsList = 
+                            sportMode === "futsal" ? [
+                              { key: "1-2-1", desc: lang === "id" ? "Diamond Taktikal" : "Tactical Diamond", icon: "💎" },
+                              { key: "2-2", desc: lang === "id" ? "Kotak Seimbang" : "Balanced Box", icon: "📦" },
+                              { key: "1-1-2", desc: lang === "id" ? "Y-Menyerang" : "Attacking Y", icon: "🔱" },
+                              { key: "3-1", desc: lang === "id" ? "Pyramid Bertahan" : "Defensive Pyramid", icon: "📐" }
+                            ] : sportMode === "minisoccer" ? [
+                              { key: "2-3-1", desc: lang === "id" ? "Sayap Agresif" : "Aggressive Wings", icon: "⚡" },
+                              { key: "3-2-1", desc: lang === "id" ? "Piramida Kokoh" : "Solid Pyramid", icon: "⛑️" },
+                              { key: "3-1-2", desc: lang === "id" ? "Ganda Striker" : "Double Attackers", icon: "🏹" },
+                              { key: "2-2-2", desc: lang === "id" ? "Simetris Box" : "Symmetric Box", icon: "⏹️" }
+                            ] : [
+                              { key: "4-3-3", desc: lang === "id" ? "Attack Klasik" : "Classic Attacking", icon: "⚔️" },
+                              { key: "4-4-2", desc: lang === "id" ? "Classic Seimbang" : "Classic Balanced", icon: "🛡️" },
+                              { key: "3-5-2", desc: lang === "id" ? "Kuasai Sayap" : "Midfield Domination", icon: "⛓️" },
+                              { key: "4-2-3-1", desc: lang === "id" ? "Taktis Modern" : "Modern Tactical", icon: "🎯" },
+                              { key: "3-4-3", desc: lang === "id" ? "Sangat Menyerang" : "Aggressive Attack", icon: "🔥" },
+                              { key: "4-5-1", desc: lang === "id" ? "Blok Bertahan" : "Defensive Block", icon: "🧱" },
+                              { key: "5-3-2", desc: lang === "id" ? "Ujung Bertahan" : "Ultra Defensive", icon: "🏔️" }
+                            ];
+                          return formationsList.map((item) => {
+                            const isSel = formation === item.key;
+                            return (
+                              <button
+                                key={item.key}
+                                onClick={() => {
+                                  applyPresetFormation(item.key as any);
+                                  setShowFormationMenu(false);
+                                }}
+                                className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer text-xs ${
+                                  isSel ? "bg-blue-600/20 text-blue-400 font-black" : "text-gray-300"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs">{item.icon}</span>
+                                  <div className="flex flex-col">
+                                    <span className="font-extrabold tracking-wide uppercase text-[10.5px]">{item.key}</span>
+                                    <span className="text-[8px] text-[#5e6680] font-medium leading-none">{item.desc}</span>
+                                  </div>
                                 </div>
-                              </div>
-                              {isSel && (
-                                <span className="text-[7.5px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20 font-black animate-pulse uppercase">
-                                  {lang === "id" ? "Aktif" : "Active"}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
+                                {isSel && (
+                                  <span className="text-[7.5px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20 font-black animate-pulse uppercase">
+                                    {lang === "id" ? "Aktif" : "Active"}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
                   )}
@@ -1730,6 +2202,7 @@ export default function App() {
             primaryColor={primaryColor}
             gkColor={gkColor}
             numberColor={numberColor}
+            sportMode={sportMode}
             onLoadPlaybook={handleLoadPlaybook}
           />
         )}
