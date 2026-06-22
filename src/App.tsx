@@ -9,6 +9,7 @@ import AnimationTimeline from "./components/AnimationTimeline";
 import PlayerEditorModal from "./components/PlayerEditorModal";
 import SquadImport from "./components/SquadImport";
 import BroadcastTV from "./components/BroadcastTV";
+import { AppTutorialSocialKit } from "./components/AppTutorialSocialKit";
 import { toPng } from "html-to-image";
 import {
   Sparkles,
@@ -836,23 +837,6 @@ export default function App() {
         {/* LEFT COLUMN PANEL: SQUAD SETTINGS */}
         <div className="lg:col-span-3 flex flex-col gap-5 lg:overflow-y-auto lg:max-h-[85vh] pr-1 h-auto">
           
-          {/* Guide popup info */}
-          {showGuide && (
-            <div className="bg-blue-950/20 border border-blue-500/20 p-4 rounded-2xl space-y-2 text-xs leading-relaxed">
-              <div className="flex justify-between items-center">
-                <span className="font-extrabold text-blue-400">{t.guideTitle}</span>
-                <button onClick={() => setShowGuide(false)} className="text-[10px] text-gray-400 hover:text-white uppercase">{t.guideClose}</button>
-              </div>
-              <ul className="list-disc pl-4 space-y-1 text-gray-300">
-                <li>{t.guideLine1}</li>
-                <li>{t.guideLine2}</li>
-                <li>{t.guideLine3}</li>
-                <li>{t.guideLine4}</li>
-                <li>{t.guideLine5}</li>
-              </ul>
-            </div>
-          )}
-
           {/* Identity settings */}
           <div className="bg-[#0b0c10]/85 backdrop-blur-xl border border-white/[0.07] rounded-3xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.3)] hover:border-white/15 transition-all duration-300">
             <div className="flex flex-col gap-3">
@@ -1629,6 +1613,23 @@ export default function App() {
             onClose={() => setTvModeOpen(false)}
             teamLogo={teamLogo}
             lang={lang}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* INTERACTIVE GUIDE & INSTAGRAM SOCIAL MEDIA GENERATOR */}
+      <AnimatePresence>
+        {showGuide && (
+          <AppTutorialSocialKit
+            isOpen={showGuide}
+            onClose={() => setShowGuide(false)}
+            lang={lang}
+            players={players}
+            teamName={teamName}
+            formation={formation}
+            teamLogo={teamLogo}
+            primaryColor={primaryColor}
+            gkColor={gkColor}
           />
         )}
       </AnimatePresence>
