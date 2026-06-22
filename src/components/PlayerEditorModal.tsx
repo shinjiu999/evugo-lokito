@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Player } from "../types";
-import { X, Camera, Shield, User, Info, Check, Trash, Scale, Printer, Download, Sparkles } from "lucide-react";
+import { X, Camera, Shield, User, Info, Check, Trash, Scale, Printer, Download, Sparkles, Sliders } from "lucide-react";
 
 interface PlayerEditorModalProps {
   player: Player | null;
@@ -29,6 +29,10 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
   const [showComparison, setShowComparison] = useState<boolean>(false);
   const [comparePlayerId, setComparePlayerId] = useState<string>("");
   const [showPrintMode, setShowPrintMode] = useState<boolean>(false);
+  const [showEqualizerOverlay, setShowEqualizerOverlay] = useState<boolean>(false);
+
+  // State for dragging on the interactive edit radar graph
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   const t = {
     customization: lang === "id" ? "Kustomisasi Atlet" : "Athlete Customization",
@@ -177,6 +181,53 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
     return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
   };
 
+  const editRadarCenter = 120;
+  const editRadarRadius = 80;
+
+  const getEditCoordinates = (value: number, index: number) => {
+    const angle = (index * 2 * Math.PI) / 5 - Math.PI / 2;
+    const x = editRadarCenter + (value / 100) * editRadarRadius * Math.cos(angle);
+    const y = editRadarCenter + (value / 100) * editRadarRadius * Math.sin(angle);
+    return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+  };
+
+  const handleRadarPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (draggingIndex === null) return;
+    e.preventDefault();
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const scaleX = 240 / rect.width;
+    const scaleY = 240 / rect.height;
+    
+    const mouseX = (e.clientX - rect.left) * scaleX;
+    const mouseY = (e.clientY - rect.top) * scaleY;
+    
+    const dx = mouseX - editRadarCenter;
+    const dy = mouseY - editRadarCenter;
+    
+    const angle = (draggingIndex * 2 * Math.PI) / 5 - Math.PI / 2;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    
+    const proj = dx * cos + dy * sin;
+    let val = Math.round((proj / editRadarRadius) * 100);
+    if (val < 30) val = 30;
+    if (val > 99) val = 99;
+    
+    if (draggingIndex === 0) setSpeed(val);
+    else if (draggingIndex === 1) setStamina(val);
+    else if (draggingIndex === 2) setPassing(val);
+    else if (draggingIndex === 3) setDribbling(val);
+    else if (draggingIndex === 4) setDefending(val);
+  };
+
+  const handleRadarPointerUp = (e: React.PointerEvent) => {
+    if (draggingIndex !== null) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+      setDraggingIndex(null);
+    }
+  };
+
   const localStats = {
     speed,
     stamina,
@@ -237,6 +288,88 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
     const y = center + textRadius * Math.sin(angle);
     return { x, y };
   });
+
+  const editBgPentagons = [20, 40, 60, 80, 100].map((level) => {
+    return [0, 1, 2, 3, 4].map((index) => {
+      const p = getEditCoordinates(level, index);
+      return `${p.x},${p.y}`;
+    }).join(" ");
+  });
+
+  const editAxisLines = [0, 1, 2, 3, 4].map((index) => {
+    const outer = getEditCoordinates(100, index);
+    return { x1: editRadarCenter, y1: editRadarCenter, x2: outer.x, y2: outer.y };
+  });
+
+  const editLocalPoints = [
+    getEditCoordinates(localStats.speed, 0),
+    getEditCoordinates(localStats.stamina, 1),
+    getEditCoordinates(localStats.passing, 2),
+    getEditCoordinates(localStats.dribbling, 3),
+    getEditCoordinates(localStats.defending, 4),
+  ].map((p) => `${p.x},${p.y}`).join(" ");
+
+  const editLabelPositions = [0, 1, 2, 3, 4].map((index) => {
+    const angle = (index * 2 * Math.PI) / 5 - Math.PI / 2;
+    const textRadius = editRadarRadius + (index === 0 ? 12 : index === 2 || index === 3 ? 22 : 18);
+    const x = editRadarCenter + textRadius * Math.cos(angle);
+    const y = editRadarCenter + textRadius * Math.sin(angle);
+    return { x, y };
+  });
+
+  const renderLedGrid = (
+    label: string,
+    value: number,
+    setValue: (val: number) => void,
+    icon: string,
+    colorClass: string,
+    glowClass: string
+  ) => {
+    const totalBlocks = 14;
+    const activeBlocks = Math.round(((value - 30) / (99 - 30)) * totalBlocks);
+
+    const handleBlockInteraction = (index: number) => {
+      const percentage = (index + 1) / totalBlocks;
+      const computedValue = Math.round(30 + percentage * (99 - 30));
+      setValue(computedValue);
+    };
+
+    return (
+      <div className="bg-white/[0.01] border border-white/5 p-3 rounded-xl flex flex-col gap-2">
+        <div className="flex justify-between items-center text-xs">
+          <span className="text-gray-300 font-bold flex items-center gap-1.5 uppercase tracking-wide">
+            <span>{icon}</span> {label}
+          </span>
+          <span className={`font-mono font-bold tracking-tight px-1.5 py-0.5 rounded text-[10px] ${
+            value >= 85 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+            value >= 70 ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
+            value >= 50 ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20" : "bg-white/5 text-gray-400"
+          }`}>
+            {value}
+          </span>
+        </div>
+
+        {/* LED Grid Tracker */}
+        <div className="flex gap-1 items-center h-4 w-full select-none touch-none">
+          {[...Array(totalBlocks)].map((_, idx) => {
+            const isActive = idx < activeBlocks;
+            return (
+              <div
+                key={idx}
+                onPointerDown={() => handleBlockInteraction(idx)}
+                className={`h-full flex-1 rounded-[3px] border transition-all duration-150 cursor-pointer ${
+                  isActive
+                    ? `${colorClass} ${glowClass} border-transparent scale-y-105`
+                    : "bg-white/[0.02] border-white/5 hover:bg-white/10"
+                }`}
+                title={`Set to ${Math.round(30 + ((idx + 1) / totalBlocks) * (99 - 30))}`}
+              />
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   const getTacticalVerdict = () => {
     if (!comparePlayer || !targetStats) return "";
@@ -865,7 +998,7 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-150 flex items-center justify-center p-4">
       <div 
-        className={`bg-[#0f0f12] border border-white/10 rounded-3xl w-full overflow-hidden shadow-2xl flex flex-col transition-all duration-300 ${showComparison || showPrintMode ? "max-w-[850px]" : "max-w-[420px]"} max-h-[95vh] md:max-h-[90vh]`}
+        className={`bg-[#0f0f12] border border-white/10 rounded-3xl w-full overflow-hidden shadow-2xl flex flex-col transition-all duration-300 ${showComparison || showPrintMode ? "max-w-[850px]" : "max-w-[420px]"} max-h-[95vh] md:max-h-[90vh] relative`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header bar */}
@@ -1049,122 +1182,159 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
                 </div>
               </div>
 
-              {/* Athlete Capabilities Panel (0-100 attributes) */}
+              {/* Athlete Capabilities Panel (0-100 attributes) with dynamic graphic editorial grid and layout */}
               <div className="border-t border-white/5 pt-4">
                 <span className="text-[10px] text-indigo-400 font-black uppercase tracking-wider block mb-3.5 flex items-center gap-1.5">
                   ⚡ {t.attributesTitle}
                 </span>
 
-                <div className="space-y-3.5">
-                  {/* Speed Attribute */}
-                  <div className="bg-white/[0.02] border border-white/5 p-2.5 rounded-xl">
-                    <div className="flex justify-between items-center mb-1.5 text-xs">
-                      <span className="text-gray-300 font-semibold flex items-center gap-1">🏃 {t.speedLabel}</span>
-                      <div className="flex items-center gap-1 font-mono">
-                        <span className={`font-black tracking-tight px-2 py-0.5 rounded text-[10px] ${
-                          speed >= 85 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                          speed >= 70 ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                          speed >= 50 ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20" : "bg-white/5 text-gray-400"
-                        }`}>{speed}</span>
-                      </div>
-                    </div>
-                    <input
-                      type="range"
-                      min="30"
-                      max="99"
-                      value={speed}
-                      onChange={(e) => setSpeed(parseInt(e.target.value))}
-                      className="w-full accent-blue-500 bg-black/60 h-1.5 rounded-lg cursor-pointer"
-                    />
-                  </div>
+                {/* 1. Radar Graphical Grid Box */}
+                <div className="bg-slate-950/50 border border-white/5 rounded-2xl p-4 flex flex-col items-center justify-center relative shadow-inner mb-4 overflow-hidden group touch-none">
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+                  
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-3 text-center block z-10 select-none">
+                    {lang === "id" ? "🎛️ Grafik Radar Interaktif (Sentuh & Geser)" : "🎛️ Interactive Radar HUD (Touch & Drag)"}
+                  </span>
+                  
+                  <div className="relative w-full max-w-[220px] mx-auto z-10">
+                    <svg 
+                      width="100%" 
+                      viewBox="0 0 240 240" 
+                      className="overflow-visible select-none touch-none"
+                      onPointerMove={handleRadarPointerMove}
+                      onPointerUp={handleRadarPointerUp}
+                      onPointerLeave={handleRadarPointerUp}
+                    >
+                      {/* Grid pentagons */}
+                      {editBgPentagons.map((points, idx) => (
+                        <polygon
+                          key={idx}
+                          points={points}
+                          fill="none"
+                          stroke="rgba(255, 255, 255, 0.05)"
+                          strokeWidth="1.2"
+                          strokeDasharray={idx === 4 ? "none" : "3,3"}
+                        />
+                      ))}
 
-                  {/* Stamina Attribute */}
-                  <div className="bg-white/[0.02] border border-white/5 p-2.5 rounded-xl">
-                    <div className="flex justify-between items-center mb-1.5 text-xs">
-                      <span className="text-gray-300 font-semibold flex items-center gap-1">🔋 {t.staminaLabel}</span>
-                      <div className="flex items-center gap-1 font-mono">
-                        <span className={`font-black tracking-tight px-2 py-0.5 rounded text-[10px] ${
-                          stamina >= 85 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                          stamina >= 70 ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                          stamina >= 50 ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20" : "bg-white/5 text-gray-400"
-                        }`}>{stamina}</span>
-                      </div>
-                    </div>
-                    <input
-                      type="range"
-                      min="30"
-                      max="99"
-                      value={stamina}
-                      onChange={(e) => setStamina(parseInt(e.target.value))}
-                      className="w-full accent-blue-500 bg-black/60 h-1.5 rounded-lg cursor-pointer"
-                    />
-                  </div>
+                      {/* Axis Lines */}
+                      {editAxisLines.map((line, idx) => (
+                        <line
+                          key={idx}
+                          x1={line.x1}
+                          y1={line.y1}
+                          x2={line.x2}
+                          y2={line.y2}
+                          stroke="rgba(255, 255, 255, 0.06)"
+                          strokeWidth="1.2"
+                        />
+                      ))}
 
-                  {/* Passing Attribute */}
-                  <div className="bg-white/[0.02] border border-white/5 p-2.5 rounded-xl">
-                    <div className="flex justify-between items-center mb-1.5 text-xs">
-                      <span className="text-gray-300 font-semibold flex items-center gap-1">🎯 {t.passingLabel}</span>
-                      <div className="flex items-center gap-1 font-mono">
-                        <span className={`font-black tracking-tight px-2 py-0.5 rounded text-[10px] ${
-                          passing >= 85 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                          passing >= 70 ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                          passing >= 50 ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20" : "bg-white/5 text-gray-400"
-                        }`}>{passing}</span>
-                      </div>
-                    </div>
-                    <input
-                      type="range"
-                      min="30"
-                      max="99"
-                      value={passing}
-                      onChange={(e) => setPassing(parseInt(e.target.value))}
-                      className="w-full accent-blue-500 bg-black/60 h-1.5 rounded-lg cursor-pointer"
-                    />
-                  </div>
+                      {/* Active Player fill region polygon */}
+                      <polygon
+                        points={editLocalPoints}
+                        fill="rgba(99, 102, 241, 0.18)"
+                        stroke="rgba(99, 102, 241, 0.85)"
+                        strokeWidth="2.5"
+                        strokeLinejoin="round"
+                        className="transition-all duration-75"
+                      />
 
-                  {/* Dribbling Attribute */}
-                  <div className="bg-white/[0.02] border border-white/5 p-2.5 rounded-xl">
-                    <div className="flex justify-between items-center mb-1.5 text-xs">
-                      <span className="text-gray-300 font-semibold flex items-center gap-1">⚽ {t.dribblingLabel}</span>
-                      <div className="flex items-center gap-1 font-mono">
-                        <span className={`font-black tracking-tight px-2 py-0.5 rounded text-[10px] ${
-                          dribbling >= 85 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                          dribbling >= 70 ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                          dribbling >= 50 ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20" : "bg-white/5 text-gray-400"
-                        }`}>{dribbling}</span>
-                      </div>
-                    </div>
-                    <input
-                      type="range"
-                      min="30"
-                      max="99"
-                      value={dribbling}
-                      onChange={(e) => setDribbling(parseInt(e.target.value))}
-                      className="w-full accent-blue-500 bg-black/60 h-1.5 rounded-lg cursor-pointer"
-                    />
-                  </div>
+                      {/* Center Overall Score OVR circle widget */}
+                      <rect
+                        x="102"
+                        y="108"
+                        width="36"
+                        height="24"
+                        rx="6"
+                        fill="#0b0b0f"
+                        stroke="rgba(255, 255, 255, 0.08)"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x="120"
+                        y="121"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="#38bdf8"
+                        className="text-[10px] font-mono leading-none font-black tracking-tight"
+                      >
+                        {Math.round((speed + stamina + passing + dribbling + defending) / 5)}
+                      </text>
 
-                  {/* Defending Attribute */}
-                  <div className="bg-white/[0.02] border border-white/5 p-2.5 rounded-xl">
-                    <div className="flex justify-between items-center mb-1.5 text-xs">
-                      <span className="text-gray-300 font-semibold flex items-center gap-1">🛡️ {t.defendingLabel}</span>
-                      <div className="flex items-center gap-1 font-mono">
-                        <span className={`font-black tracking-tight px-2 py-0.5 rounded text-[10px] ${
-                          defending >= 85 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                          defending >= 70 ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                          defending >= 50 ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20" : "bg-white/5 text-gray-400"
-                        }`}>{defending}</span>
-                      </div>
-                    </div>
-                    <input
-                      type="range"
-                      min="30"
-                      max="99"
-                      value={defending}
-                      onChange={(e) => setDefending(parseInt(e.target.value))}
-                      className="w-full accent-blue-500 bg-black/60 h-1.5 rounded-lg cursor-pointer"
-                    />
+                      {/* Vertex interactive handles with double-click capability */}
+                      {traits.map((trait, idx) => {
+                        const val = localStats[trait.key];
+                        const pos = getEditCoordinates(val, idx);
+                        const isDragging = draggingIndex === idx;
+                        
+                        return (
+                          <g 
+                            key={trait.key}
+                            onDoubleClick={() => setShowEqualizerOverlay(true)}
+                            className="cursor-pointer"
+                          >
+                            {/* Inner core circle handle for interaction */}
+                            <circle
+                              cx={pos.x}
+                              cy={pos.y}
+                              r={isDragging ? "10" : "7"}
+                              fill={isDragging ? "rgba(99, 102, 241, 0.7)" : "rgba(30, 41, 59, 0.9)"}
+                              stroke={isDragging ? "#818cf8" : "rgba(99, 102, 241, 0.7)"}
+                              strokeWidth={isDragging ? "3" : "2"}
+                              className="cursor-grab active:cursor-grabbing transition-all duration-100"
+                              style={{ touchAction: "none" }}
+                              onPointerDown={(e) => {
+                                e.currentTarget.setPointerCapture(e.pointerId);
+                                setDraggingIndex(idx);
+                              }}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setShowEqualizerOverlay(true);
+                              }}
+                            />
+                            {/* Solid white bullet center point */}
+                            <circle
+                              cx={pos.x}
+                              cy={pos.y}
+                              r="2.5"
+                              fill="#ffffff"
+                              className="pointer-events-none"
+                            />
+                          </g>
+                        );
+                      })}
+
+                      {/* Axis Labels */}
+                      {traits.map((trait, idx) => {
+                        const pos = editLabelPositions[idx];
+                        const anchor = getLabelAnchor(idx);
+                        
+                        return (
+                          <text
+                            key={idx}
+                            x={pos.x}
+                            y={pos.y}
+                            textAnchor={anchor}
+                            dominantBaseline="middle"
+                            fill={draggingIndex === idx ? "#818cf8" : "#94a3b8"}
+                            className={`text-[9px] font-black uppercase tracking-tight transition-colors ${draggingIndex === idx ? "font-extrabold" : ""}`}
+                          >
+                            {trait.icon} {trait.key.substring(0, 3).toUpperCase()}
+                          </text>
+                        );
+                      })}
+                    </svg>
                   </div>
+                  
+                  <span className="text-[9.5px] text-indigo-400 font-bold mt-3.5 px-3 block text-center leading-normal select-none max-w-[280px]">
+                    {lang === "id" 
+                      ? "💡 Klik 2x pada salah satu titik statistik untuk membuka Equalizer presisi!" 
+                      : "💡 Double-click any point core overlay to open the precision Equalizer!"}
+                  </span>
+                  <span className="text-[8.5px] text-gray-400/60 mt-1 italic text-center leading-none select-none">
+                    {lang === "id" ? "*Atau seret langsung poin statistik untuk memodifikasi" : "*Or drag points directly to reshape metrics"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1512,6 +1682,53 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
             </button>
           </div>
         </div>
+
+        {/* Dynamic Equalizer Overlay (triggers when double-clicking the points) */}
+        {showEqualizerOverlay && (
+          <div className="absolute inset-0 bg-[#07070a]/98 backdrop-blur-md z-50 flex flex-col p-6 animate-fade-in">
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-white/10 pb-4 mb-4">
+              <div className="flex items-center gap-2.5">
+                <Sliders className="w-5 h-5 text-indigo-400 animate-pulse" />
+                <div>
+                  <h4 className="font-extrabold text-sm text-white uppercase tracking-wider">
+                    {lang === "id" ? "🎛️ Equalizer Kemampuan Atlet" : "🎛️ Athlete Skill Equalizer"}
+                  </h4>
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    {lang === "id" ? "Sesuaikan parameter kemampuan atlet secara presisi" : "Configure athlete skill thresholds precisely"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEqualizerOverlay(false)}
+                className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-all cursor-pointer hover:bg-white/10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable LED Equalisers */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
+              {renderLedGrid(t.speedLabel, speed, setSpeed, "🏃", "bg-cyan-500", "shadow-[0_0_8px_rgba(6,182,212,0.45)]")}
+              {renderLedGrid(t.staminaLabel, stamina, setStamina, "🔋", "bg-emerald-500", "shadow-[0_0_8px_rgba(16,185,129,0.45)]")}
+              {renderLedGrid(t.passingLabel, passing, setPassing, "🎯", "bg-indigo-500", "shadow-[0_0_8px_rgba(99,102,241,0.45)]")}
+              {renderLedGrid(t.dribblingLabel, dribbling, setDribbling, "⚽", "bg-yellow-500", "shadow-[0_0_8px_rgba(234,179,8,0.45)]")}
+              {renderLedGrid(t.defendingLabel, defending, setDefending, "🛡️", "bg-rose-500", "shadow-[0_0_8px_rgba(244,63,94,0.45)]")}
+            </div>
+
+            {/* Close Button */}
+            <div className="border-t border-white/10 pt-4 mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowEqualizerOverlay(false)}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-lg shadow-indigo-950/40 cursor-pointer active:scale-95"
+              >
+                {lang === "id" ? "Selesai" : "Done"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
