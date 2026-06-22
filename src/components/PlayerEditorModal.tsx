@@ -12,15 +12,6 @@ interface PlayerEditorModalProps {
   setLang: (lang: "id" | "en") => void;
 }
 
-// Creative preset cartoon illustration avatars
-const PRESET_AVATARS = [
-  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-  "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&auto=format&fit=crop&q=60&ixlib=rb-4.0.3"
-];
-
 export default function PlayerEditorModal({ player, allPlayers = [], onSave, onClose, onDelete, lang, setLang }: PlayerEditorModalProps) {
   const [name, setName] = useState("");
   const [number, setNumber] = useState<number>(10);
@@ -874,7 +865,7 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-150 flex items-center justify-center p-4">
       <div 
-        className={`bg-[#0f0f12] border border-white/10 rounded-3xl w-full overflow-hidden shadow-2xl flex flex-col transition-all duration-300 ${showComparison || showPrintMode ? "max-w-[850px]" : "max-w-[420px]"}`}
+        className={`bg-[#0f0f12] border border-white/10 rounded-3xl w-full overflow-hidden shadow-2xl flex flex-col transition-all duration-300 ${showComparison || showPrintMode ? "max-w-[850px]" : "max-w-[420px]"} max-h-[95vh] md:max-h-[90vh]`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header bar */}
@@ -923,21 +914,24 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
         {/* Multi-column Body layout */}
         <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-white/10 overflow-hidden">
           {/* Left Column: Form area */}
-          <div className="flex-1 p-5 flex flex-col gap-5 overflow-y-auto max-h-[72vh]">
+          <div className="flex-1 p-4 sm:p-5 flex flex-col gap-4 sm:gap-5 overflow-y-auto max-h-[65vh] sm:max-h-[72vh] md:max-h-[78vh] scrollbar-thin">
             {/* Avatar Profile custom uploads */}
             <div className="flex flex-col items-center gap-3">
               <div className="relative group">
-                <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-blue-500 bg-black flex items-center justify-center shadow-lg">
+                <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-blue-500/50 bg-[#121214] flex items-center justify-center shadow-lg transition-colors group-hover:border-blue-500">
                   {photo ? (
                     <img src={photo} alt={name} className="w-full h-full object-cover" />
                   ) : (
-                    <User className="w-8 h-8 text-gray-600" />
+                    <div className="w-full h-full bg-[#121214]" />
                   )}
                 </div>
 
                 {/* Upload input overlay */}
-                <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-full cursor-pointer transition-opacity">
-                  <Camera className="w-5 h-5 text-white" />
+                <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center rounded-full cursor-pointer transition-opacity text-center p-1">
+                  <Camera className="w-5 h-5 text-white mb-0.5" />
+                  <span className="text-[7.5px] text-gray-300 font-bold uppercase tracking-wider">
+                    {lang === "id" ? "Unggah" : "Upload"}
+                  </span>
                   <input 
                     type="file" 
                     accept="image/*" 
@@ -948,30 +942,25 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
               </div>
               
               <div className="text-center">
-                <p className="text-[10px] text-gray-400">{t.avatarSelectSubtitle}</p>
+                <p className="text-[10px] text-gray-400">
+                  {photo 
+                    ? (lang === "id" ? "Klik lingkaran foto untuk mengganti foto" : "Click image circle to replace photo") 
+                    : (lang === "id" ? "Klik lingkaran untuk mengunggah foto atlet" : "Click circle above to upload athlete photo")
+                  }
+                </p>
                 
-                {/* Profile preset selections */}
-                <div className="flex justify-center gap-2 mt-2">
-                  {PRESET_AVATARS.map((preset, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setPhoto(preset)}
-                      className="w-8 h-8 rounded-full overflow-hidden border border-white/10 hover:border-blue-500 transition-all active:scale-95 shrink-0"
-                    >
-                      <img src={preset} className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                  {photo && (
+                {photo && (
+                  <div className="flex justify-center mt-2">
                     <button
                       type="button"
                       onClick={() => setPhoto(null)}
-                      className="text-[9px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 rounded-xl h-8 shrink-0 flex items-center justify-center"
+                      className="text-[9px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1 rounded-xl transition-all hover:bg-rose-500/20 active:scale-95 flex items-center gap-1 cursor-pointer"
                     >
+                      <Trash className="w-2.5 h-2.5" />
                       {t.deletePhotoText}
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -988,6 +977,43 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
                   placeholder="Nando"
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500"
                 />
+              </div>
+
+              {/* Compare and Statistics Buttons right below the Player Name */}
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowComparison(!showComparison);
+                    if (!showComparison) setShowPrintMode(false);
+                  }}
+                  className={`py-2 px-3 rounded-xl border font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all transform active:scale-95 shadow-md cursor-pointer ${
+                    showComparison 
+                      ? "bg-indigo-600 border-indigo-400/40 text-white shadow-lg font-extrabold" 
+                      : "bg-[#16161a] text-blue-400 border-blue-900/30 hover:bg-blue-950/40 hover:text-blue-300"
+                  }`}
+                  title={showComparison ? (lang === "id" ? "Sembunyikan Perbandingan" : "Hide Comparison") : (lang === "id" ? "Bandingkan Atlet Ini dengan Rekan Tim" : "Compare with Teammates")}
+                >
+                  <Scale className="w-3.5 h-3.5" /> 
+                  <span className="truncate">{showComparison ? t.btnhideCompare : t.btnShowCompare}</span>
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowPrintMode(!showPrintMode);
+                    if (!showPrintMode) setShowComparison(false);
+                  }}
+                  className={`py-2 px-3 rounded-xl border font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all transform active:scale-95 shadow-md cursor-pointer ${
+                    showPrintMode 
+                      ? "bg-emerald-600 border-emerald-400/40 text-white shadow-lg font-extrabold" 
+                      : "bg-[#16161a] text-indigo-400 border-indigo-900/30 hover:bg-indigo-950/40 hover:text-indigo-300"
+                  }`}
+                  title={showPrintMode ? (lang === "id" ? "Sembunyikan Statistik & Kartu" : "Hide Stats Card") : (lang === "id" ? "Tinggi & Statistik Cetak Kartu" : "Card Stats & Print")}
+                >
+                  <Printer className="w-3.5 h-3.5" /> 
+                  <span className="truncate">{showPrintMode ? t.btnHidePrint : t.btnShowPrint}</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-3.5">
@@ -1146,7 +1172,7 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
 
           {/* Right Column: Comparative Dashboard (shown if showComparison is true) */}
           {showComparison && (
-            <div className="flex-1 p-5 flex flex-col gap-4 bg-slate-950/45 overflow-y-auto max-h-[72vh] border-t md:border-t-0 border-white/10">
+            <div className="flex-1 p-4 sm:p-5 flex flex-col gap-4 bg-slate-950/45 overflow-y-auto max-h-[65vh] sm:max-h-[72vh] md:max-h-[78vh] border-t md:border-t-0 border-white/10 scrollbar-thin">
               <div>
                 <span className="text-[10px] text-indigo-400 font-black uppercase tracking-wider block mb-2 flex items-center gap-1.5">
                   📊 Pilih Atlet Untuk Dibandingkan
@@ -1292,17 +1318,17 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
                               </div>
                             </div>
 
-                            {/* Dual stacked visual gauge */}
-                            <div className="relative h-2 bg-black/60 rounded-full overflow-hidden flex gap-[2px]">
-                              {/* Left bar layer for Player A */}
-                              <div 
-                                style={{ width: `${valA}%` }} 
-                                className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-l-full transition-all duration-300" 
-                              />
-                              {/* Right base offset / comparative */}
+                            {/* Dual stacked visual gauge with absolute overlap so they normalize perfectly to width without wrapping/overflowing */}
+                            <div className="relative h-2 bg-black/60 rounded-full overflow-hidden">
+                              {/* Background compare bar (Player B) - Pink */}
                               <div 
                                 style={{ width: `${valB}%` }} 
-                                className="h-full bg-gradient-to-r from-rose-600 to-rose-400 rounded-r-full transition-all duration-300 opacity-60" 
+                                className="absolute left-0 top-0 h-full bg-gradient-to-r from-rose-600 to-rose-400 opacity-50 rounded-full transition-all duration-300" 
+                              />
+                              {/* Foreground current active bar (Player A) - Blue */}
+                              <div 
+                                style={{ width: `${valA}%` }} 
+                                className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full transition-all duration-300" 
                               />
                             </div>
                           </div>
@@ -1324,7 +1350,7 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
 
           {/* Right Column: Interactive Print Card Preview (shown if showPrintMode is true) */}
           {showPrintMode && (
-            <div className="flex-1 p-5 flex flex-col gap-4 bg-[#0a0a0c] overflow-y-auto max-h-[72vh] border-t md:border-t-0 border-white/10 scrollbar-thin">
+            <div className="flex-1 p-4 sm:p-5 flex flex-col gap-4 bg-[#0a0a0c] overflow-y-auto max-h-[65vh] sm:max-h-[72vh] md:max-h-[78vh] border-t md:border-t-0 border-white/10 scrollbar-thin">
               <div className="flex justify-between items-center border-b border-white/5 pb-2.5">
                 <span className="text-[10px] text-indigo-400 font-black uppercase tracking-wider flex items-center gap-1.5">
                   {t.cardPreviewHeader}
@@ -1461,36 +1487,6 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
         {/* Footer actions */}
         <div className="px-5 py-4 border-t border-white/10 bg-black/40 flex flex-col sm:flex-row gap-2.5 justify-between">
           <div className="flex gap-2 flex-wrap">
-            <button 
-              type="button"
-              onClick={() => {
-                setShowComparison(!showComparison);
-                if (!showComparison) setShowPrintMode(false);
-              }}
-              className={`px-3.5 py-2 rounded-xl border font-bold text-xs flex items-center gap-1.5 transition-all transform active:scale-95 ${
-                showComparison 
-                  ? "bg-indigo-950/40 text-indigo-300 border-indigo-950/60 hover:bg-indigo-950/60" 
-                  : "bg-blue-950/30 text-blue-400 border-blue-900/30 hover:bg-blue-950/50 hover:text-blue-300"
-              }`}
-            >
-              <Scale className="w-3.5 h-3.5" /> 
-              {showComparison ? t.btnhideCompare : t.btnShowCompare}
-            </button>
-            <button 
-              type="button"
-              onClick={() => {
-                setShowPrintMode(!showPrintMode);
-                if (!showPrintMode) setShowComparison(false);
-              }}
-              className={`px-3.5 py-2 rounded-xl border font-bold text-xs flex items-center gap-1.5 transition-all transform active:scale-95 ${
-                showPrintMode 
-                  ? "bg-emerald-950/40 text-emerald-300 border-emerald-950/60 hover:bg-emerald-950/60" 
-                  : "bg-indigo-950/30 text-indigo-400 border-indigo-900/30 hover:bg-indigo-950/50 hover:text-indigo-300"
-              }`}
-            >
-              <Printer className="w-3.5 h-3.5" /> 
-              {showPrintMode ? t.btnHidePrint : t.btnShowPrint}
-            </button>
             <button 
               type="button"
               onClick={() => onDelete(player.id)}
