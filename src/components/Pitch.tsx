@@ -1189,6 +1189,210 @@ export default function Pitch({
            </AnimatePresence>
         </div>
 
+        {/* BOTTOM REFERENCE MEASUREMENT RULER (ALIGNED WITH FIELD TOUCHLINES) */}
+        <div
+          id="pitch-measurement-ruler"
+          className="absolute bottom-[17%] sm:bottom-[16%] left-[3%] right-[3%] h-9 z-[35] pointer-events-none select-none flex flex-col justify-end"
+          style={{
+            background: "linear-gradient(to top, rgba(11, 12, 16, 0.45) 0%, rgba(11, 12, 16, 0) 100%)",
+          }}
+        >
+          <svg
+            className="w-full h-full"
+            viewBox="0 0 500 32"
+            preserveAspectRatio="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {useGlow && (
+              <defs>
+                <filter id="ruler-line-glow" x="-10%" y="-10%" width="120%" height="120%">
+                  <feGaussianBlur stdDeviation="0.4" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+            )}
+
+            {/* Main Baseline */}
+            <line
+              x1="0"
+              y1="14"
+              x2="500"
+              y2="14"
+              stroke={lineStroke}
+              strokeWidth="0.8"
+              opacity="0.35"
+              filter={useGlow ? "url(#ruler-line-glow)" : "none"}
+            />
+
+            {!showTacticalGrid ? (
+              // --- STANDARD METRIC SCALING (GRID INACTIVE) ---
+              <>
+                {/* Major Ticks at every 10m */}
+                {[
+                  { m: 0, x: 0, label: "0m" },
+                  { m: 10, x: 73.5, label: "10m" },
+                  { m: 20, x: 147.1, label: "20m" },
+                  { m: 30, x: 220.6, label: "30m" },
+                  { m: 40, x: 294.1, label: "40m" },
+                  { m: 50, x: 367.6, label: "50m" },
+                  { m: 60, x: 441.2, label: "60m" },
+                  { m: 68, x: 500, label: "68m" }
+                ].map((tick, idx) => (
+                  <g key={`standard-major-${idx}`}>
+                    <line
+                      x1={tick.x}
+                      y1="14"
+                      x2={tick.x}
+                      y2="6"
+                      stroke={lineStroke}
+                      strokeWidth="0.75"
+                      opacity="0.5"
+                      filter={useGlow ? "url(#ruler-line-glow)" : "none"}
+                    />
+                    <text
+                      x={tick.x}
+                      y="1"
+                      textAnchor={tick.m === 0 ? "start" : tick.m === 68 ? "end" : "middle"}
+                      dominantBaseline="hanging"
+                      fill={lineStroke}
+                      opacity="0.65"
+                      fontSize="7"
+                      fontWeight="700"
+                      fontFamily="monospace, sans-serif"
+                    >
+                      {tick.label}
+                    </text>
+                  </g>
+                ))}
+
+                {/* Minor Ticks at every 5m */}
+                {[36.8, 110.3, 183.8, 257.4, 330.9, 404.4, 477.9].map((mx, idx) => (
+                  <line
+                    key={`standard-minor-${idx}`}
+                    x1={mx}
+                    y1="14"
+                    x2={mx}
+                    y2="10"
+                    stroke={lineStroke}
+                    strokeWidth="0.5"
+                    opacity="0.25"
+                    filter={useGlow ? "url(#ruler-line-glow)" : "none"}
+                  />
+                ))}
+
+                {/* Label description standard scale */}
+                <text
+                  x="250"
+                  y="24"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill={lineStroke}
+                  opacity="0.45"
+                  fontSize="6.5"
+                  fontWeight="bold"
+                  fontFamily="sans-serif"
+                  letterSpacing="0.05em"
+                >
+                  {lang === "id"
+                    ? "📏 Lebar Lapangan Standar (68m)"
+                    : "📏 Standard Field Width (68m)"}
+                </text>
+              </>
+            ) : (
+              // --- TACTICAL COLLABORATION CORRIDOR SCALING (GRID ACTIVE) ---
+              <>
+                {/* Major Corridor Boundary Ticks */}
+                {[
+                  { x: 0, m: "0m", sub: lang === "id" ? "SAYAP KIRI" : "LEFT WING", textAnchor: "start" },
+                  { x: 117, m: "15.9m", sub: "LINE A", textAnchor: "middle" },
+                  { x: 250, m: "34.0m", sub: lang === "id" ? "G-TENGAH" : "CENTRE", textAnchor: "middle" },
+                  { x: 383, m: "52.1m", sub: "LINE B", textAnchor: "middle" },
+                  { x: 500, m: "68.0m", sub: lang === "id" ? "SAYAP KANAN" : "RIGHT WING", textAnchor: "end" }
+                ].map((tick, idx) => (
+                  <g key={`tactical-major-${idx}`}>
+                    <line
+                      x1={tick.x}
+                      y1="14"
+                      x2={tick.x}
+                      y2="4"
+                      stroke={tick.x === 117 || tick.x === 383 ? "#3b82f6" : lineStroke}
+                      strokeWidth={tick.x === 117 || tick.x === 383 ? "1.0" : "0.75"}
+                      opacity="0.65"
+                      strokeDasharray={tick.x === 117 || tick.x === 383 ? "1,1" : "none"}
+                      filter={useGlow ? "url(#ruler-line-glow)" : "none"}
+                    />
+                    <text
+                      x={tick.x}
+                      y="1"
+                      textAnchor={tick.textAnchor as any}
+                      dominantBaseline="hanging"
+                      fill={tick.x === 117 || tick.x === 383 ? "#60a5fa" : lineStroke}
+                      opacity="0.85"
+                      fontSize="7"
+                      fontWeight="900"
+                      fontFamily="monospace, sans-serif"
+                    >
+                      {tick.m}
+                    </text>
+                  </g>
+                ))}
+
+                {/* Sub annotations with colored channels */}
+                {/* Left wing region: centers around X=58.5 */}
+                <text
+                  x="58.5"
+                  y="24"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill={lineStroke}
+                  opacity="0.5"
+                  fontSize="6.5"
+                  fontWeight="900"
+                  fontFamily="sans-serif"
+                  letterSpacing="0.05em"
+                >
+                  {lang === "id" ? "SAYAP KIRI (15.9m)" : "LEFT WING (15.9m)"}
+                </text>
+
+                {/* Center field corridor region: centers around X=250 */}
+                <text
+                  x="250"
+                  y="24"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#60a5fa"
+                  opacity="0.6"
+                  fontSize="6.5"
+                  fontWeight="900"
+                  fontFamily="sans-serif"
+                  letterSpacing="0.08em"
+                >
+                  {lang === "id" ? "CORRIDOR TENGAH (36.2m)" : "CENTRAL CORRIDOR (36.2m)"}
+                </text>
+
+                {/* Right wing region: centers around X=441.5 */}
+                <text
+                  x="441.5"
+                  y="24"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill={lineStroke}
+                  opacity="0.5"
+                  fontSize="6.5"
+                  fontWeight="900"
+                  fontFamily="sans-serif"
+                  letterSpacing="0.05em"
+                >
+                  {lang === "id" ? "SAYAP KANAN (15.9m)" : "RIGHT WING (15.9m)"}
+                </text>
+              </>
+            )}
+          </svg>
+        </div>
+
         {/* BOTTOM SECTION: DETACH RECTANGLE ZONE AS THE SQUAD BENCH (17% HEIGHT ON MOBILE, 16% ON LAPTOPS) */}
         <div className="absolute bottom-0 left-0 right-0 h-[17%] sm:h-[16%] bg-[#0f0f12]/95 backdrop-blur-md border-t border-white/10 flex flex-col justify-start p-1.5 sm:p-2.5 z-40">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-0.5 sm:gap-1.5 mb-1.5 select-none shrink-0">

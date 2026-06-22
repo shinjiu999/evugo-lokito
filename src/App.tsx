@@ -10,6 +10,7 @@ import PlayerEditorModal from "./components/PlayerEditorModal";
 import SquadImport from "./components/SquadImport";
 import BroadcastTV from "./components/BroadcastTV";
 import { AppTutorialSocialKit } from "./components/AppTutorialSocialKit";
+import { PlaybookSaveLoadModal } from "./components/PlaybookSaveLoadModal";
 import { toPng } from "html-to-image";
 import {
   Sparkles,
@@ -31,7 +32,9 @@ import {
   Shirt,
   Slash,
   ArrowUpRight,
-  ChevronDown
+  ChevronDown,
+  Save,
+  FolderOpen
 } from "lucide-react";
 
 const TRANSLATIONS = {
@@ -357,7 +360,7 @@ export default function App() {
   const [numberColor, setNumberColor] = useState("#ffffff");
 
   // Tools state
-  const [activeTool, setActiveTool] = useState<"select" | "draw">("draw");
+  const [activeTool, setActiveTool] = useState<"select" | "draw">("select");
   const [brushColor, setBrushColor] = useState("#ffffff");
   const [brushSize, setBrushSize] = useState(4);
   const [brushStyle, setBrushStyle] = useState<"solid" | "arrow">("solid");
@@ -401,6 +404,42 @@ export default function App() {
 
   // Help guides collapse
   const [showGuide, setShowGuide] = useState(false);
+
+  // Save and Load Pitch & Formation slots
+  const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
+  const [saveLoadMode, setSaveLoadMode] = useState<"save" | "load">("save");
+
+  const handleLoadPlaybook = (data: {
+    players: Player[];
+    items: TacticalItem[];
+    formation: any;
+    teamName: string;
+    teamLogo: string | null;
+    primaryColor: string;
+    gkColor: string;
+    numberColor: string;
+  }) => {
+    if (data.players) setPlayers(data.players);
+    if (data.items) setItems(data.items);
+    if (data.formation) setFormation(data.formation);
+    if (data.teamName) setTeamName(data.teamName);
+    if (data.teamLogo !== undefined) setTeamLogo(data.teamLogo);
+    if (data.primaryColor) setPrimaryColor(data.primaryColor);
+    if (data.gkColor) setGkColor(data.gkColor);
+    if (data.numberColor) setNumberColor(data.numberColor);
+
+    // Synchronize default frame with loaded scenario so replay works natively
+    setFrames([{
+      id: "frame-init",
+      name: lang === "id" ? "Fasa 1: Posisi Standard" : "Phase 1: Standard Positions",
+      players: data.players.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
+      items: (data.items || []).map((item) => ({ id: item.id, x: item.x, y: item.y })),
+      instruction: lang === "id" 
+        ? "Organisasi taktik berhasil dimuat dari penyimpanan." 
+        : "Tactical playground successfully loaded from memory."
+    }]);
+    setActiveFrameIndex(0);
+  };
 
   // --- TRANSITION POSITIONS WHEN MANUAL DRAGGING ---
   const handleUpdatePlayerPosition = (id: string, x: number, y: number) => {
@@ -1523,6 +1562,47 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Mini subtle Divider */}
+                <div className="w-6 sm:w-8 h-[1px] bg-white/[0.08] my-0.5 sm:my-1 shrink-0" />
+
+                {/* Save Setup Button */}
+                <div className="relative group" id="btn-save-playbook-wrapper">
+                  <button
+                    id="btn-save-playbook-trigger"
+                    onClick={() => {
+                      setSaveLoadMode("save");
+                      setSaveLoadModalOpen(true);
+                    }}
+                    className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-emerald-600/20 hover:text-emerald-400 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md"
+                  >
+                    <Save className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                  </button>
+                  {/* Floating Tooltip Help */}
+                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-emerald-400 uppercase">{lang === "id" ? "PENYIMPANAN" : "SAVE STATE"}</span>
+                    <span className="text-white font-black">{lang === "id" ? "Simpan Formasi & Skuad" : "Save Pitch & Squad"}</span>
+                  </div>
+                </div>
+
+                {/* Load Setup Button */}
+                <div className="relative group" id="btn-load-playbook-wrapper">
+                  <button
+                    id="btn-load-playbook-trigger"
+                    onClick={() => {
+                      setSaveLoadMode("load");
+                      setSaveLoadModalOpen(true);
+                    }}
+                    className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-blue-600/20 hover:text-blue-400 hover:border-blue-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md"
+                  >
+                    <FolderOpen className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                  </button>
+                  {/* Floating Tooltip Help */}
+                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-blue-400 uppercase">{lang === "id" ? "MEMORI" : "LOAD BOARD"}</span>
+                    <span className="text-white font-black">{lang === "id" ? "Muat Formasi Tersimpan" : "Load Saved Playbook"}</span>
+                  </div>
+                </div>
+
               </div>
 
               {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
@@ -1630,6 +1710,27 @@ export default function App() {
             teamLogo={teamLogo}
             primaryColor={primaryColor}
             gkColor={gkColor}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* PLAYBOOK SAVE AND LOAD MANAGER MODAL */}
+      <AnimatePresence>
+        {saveLoadModalOpen && (
+          <PlaybookSaveLoadModal
+            isOpen={saveLoadModalOpen}
+            onClose={() => setSaveLoadModalOpen(false)}
+            mode={saveLoadMode}
+            lang={lang}
+            players={players}
+            items={items}
+            formation={formation}
+            teamName={teamName}
+            teamLogo={teamLogo}
+            primaryColor={primaryColor}
+            gkColor={gkColor}
+            numberColor={numberColor}
+            onLoadPlaybook={handleLoadPlaybook}
           />
         )}
       </AnimatePresence>
