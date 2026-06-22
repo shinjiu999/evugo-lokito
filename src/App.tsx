@@ -969,25 +969,28 @@ export default function App() {
               </div>
 
               {/* Floating thin overlay for Pitch Board Theme option dropdown */}
-              <div className="absolute top-2.5 sm:top-4 left-2.5 sm:left-4 z-40 flex flex-col items-start">
+              <div className="absolute top-2.5 sm:top-4 left-2.5 sm:left-4 z-40 flex flex-col items-start group/themeselect">
                 <button
                   onClick={() => setShowThemeDropdown(!showThemeDropdown)}
-                  className="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-[#0b0c10]/75 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex items-center gap-1.5 sm:gap-2 shadow-xl border border-white/[0.08] hover:border-emerald-500/20 backdrop-blur-md cursor-pointer text-[9.5px] sm:text-[11px] font-black tracking-wide select-none active:scale-95"
+                  className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/75 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex items-center justify-center shadow-xl border border-white/[0.08] hover:border-emerald-500/20 backdrop-blur-md cursor-pointer select-none active:scale-95"
                 >
-                  <span className="text-sm shrink-0">
+                  <span className="text-sm sm:text-base shrink-0">
                     {pitchTheme === "emerald-grass" && "🌿"}
                     {pitchTheme === "neon-hologram" && "⚡"}
                     {pitchTheme === "dark-slate" && "📓"}
                     {pitchTheme === "aurora-stadium" && "🌌"}
                   </span>
-                  <span>
+                </button>
+
+                {/* Floating tooltip showing the current active style name */}
+                {!showThemeDropdown && (
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 opacity-0 group-hover/themeselect:opacity-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-gray-200 backdrop-blur-md whitespace-nowrap z-50">
                     {pitchTheme === "emerald-grass" && (lang === "id" ? "Padang Klasik" : "Classic Grass")}
                     {pitchTheme === "neon-hologram" && (lang === "id" ? "Hologram Neon" : "Neon Hologram")}
                     {pitchTheme === "dark-slate" && (lang === "id" ? "Taktis Gelap" : "Dark Tactical Slate")}
                     {pitchTheme === "aurora-stadium" && (lang === "id" ? "Stadion Aurora" : "Aurora Stadium")}
-                  </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${showThemeDropdown ? "rotate-180" : ""}`} />
-                </button>
+                  </div>
+                )}
 
                 {showThemeDropdown && (
                   <div className="absolute left-0 top-full mt-1.5 w-42 sm:w-48 bg-[#0b0c10]/95 border border-white/[0.12] rounded-xl sm:rounded-2xl shadow-2xl z-55 overflow-hidden flex flex-col gap-0.5 p-1 animate-fadeIn backdrop-blur-md max-h-48 overflow-y-auto">

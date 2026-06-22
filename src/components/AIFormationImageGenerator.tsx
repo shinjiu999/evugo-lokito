@@ -328,8 +328,8 @@ export default function AIFormationImageGenerator({
           const teamColor = isGK ? gkColor : primaryColor;
 
           const cx = pt.x;
-          const cy = pt.y - 10; // offset up so player looks standing
-          const k = 0.95; // scaling jerseys
+          const cy = pt.y - 12; // offset up so player looks standing
+          const k = 1.32; // significantly expanded scaling factor for jerseys and names
 
           const hasPhoto = !!(player.photo && loadedImages[player.id]);
 
@@ -375,7 +375,7 @@ export default function AIFormationImageGenerator({
 
             // Premium frame Border
             ctx.strokeStyle = teamColor;
-            ctx.lineWidth = 3.5;
+            ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.arc(cx, cy, radius, 0, Math.PI * 2);
             ctx.stroke();
@@ -383,18 +383,18 @@ export default function AIFormationImageGenerator({
             // Overlay squad number badge at the bottom-right of the disc
             const numBadgeX = cx + 18 * k;
             const numBadgeY = cy + 14 * k;
-            const numRadius = 9 * k;
+            const numRadius = 10 * k;
 
             ctx.fillStyle = "#0c0c0e";
             ctx.strokeStyle = numberColor;
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = 1.8;
             ctx.beginPath();
             ctx.arc(numBadgeX, numBadgeY, numRadius, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
 
             ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 9.5px 'Courier New', 'JetBrains Mono', monospace";
+            ctx.font = `bold ${10 * k}px 'Courier New', 'JetBrains Mono', monospace`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(player.number.toString(), numBadgeX, numBadgeY + 0.5);
@@ -434,7 +434,7 @@ export default function AIFormationImageGenerator({
 
             // White or black lines/trims on sleeves
             ctx.strokeStyle = numberColor;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
             // left cuff
             ctx.moveTo(cx - 31 * k, cy - 6 * k);
@@ -452,7 +452,7 @@ export default function AIFormationImageGenerator({
 
             // Draw Jersey Number on back/chest
             ctx.fillStyle = numberColor;
-            ctx.font = "bold 15px 'Courier New', 'JetBrains Mono', monospace";
+            ctx.font = `bold ${15 * k}px 'Courier New', 'JetBrains Mono', monospace`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(player.number.toString(), cx, cy + 1 * k);
@@ -462,22 +462,22 @@ export default function AIFormationImageGenerator({
           const badgeY = cy + 28 * k;
           ctx.fillStyle = "#111116";
           ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-          ctx.lineWidth = 1;
+          ctx.lineWidth = 1.2;
           ctx.beginPath();
-          ctx.roundRect(cx - 20, badgeY - 7, 40, 14, 4);
+          ctx.roundRect(cx - 23 * k, badgeY - 8.5 * k, 46 * k, 17 * k, 5 * k);
           ctx.fill();
           ctx.stroke();
 
           ctx.fillStyle = "#ffffff";
-          ctx.font = "900 8.5px sans-serif";
+          ctx.font = `900 ${10 * k}px sans-serif`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          ctx.fillText(player.role, cx, badgeY + 1.2);
+          ctx.fillText(player.role, cx, badgeY + 1 * k);
 
           // Player Name Label below
           ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 12.5px sans-serif";
-          ctx.fillText(player.name.toUpperCase(), cx, badgeY + 18);
+          ctx.font = `bold ${13 * k}px sans-serif`;
+          ctx.fillText(player.name.toUpperCase(), cx, badgeY + 20 * k);
         });
 
       // 8. WRITE HEADER INFOGRAPHIC SPORTS TELECAST OVERLAYS
@@ -486,7 +486,7 @@ export default function AIFormationImageGenerator({
       ctx.fillStyle = "#ffffff";
       ctx.shadowColor = "rgba(0,0,0,0.8)";
       ctx.shadowBlur = 8;
-      ctx.font = "900 48px sans-serif";
+      ctx.font = "900 64px sans-serif";
       ctx.fillText(`${formation.toUpperCase()} FORMATION`, 600, 75);
 
       // Accent Golden Highlight Underline Bar
@@ -519,13 +519,13 @@ export default function AIFormationImageGenerator({
 
         ctx.fillStyle = "#eab308";
         ctx.shadowBlur = 0;
-        ctx.font = "800 21px sans-serif";
-        ctx.fillText(teamName.toUpperCase(), 600, logoY + logoSize + 26);
+        ctx.font = "800 27px sans-serif";
+        ctx.fillText(teamName.toUpperCase(), 600, logoY + logoSize + 28);
       } else {
         ctx.fillStyle = "#eab308";
         ctx.shadowBlur = 0;
-        ctx.font = "800 21px sans-serif";
-        ctx.fillText(teamName.toUpperCase(), 600, 126);
+        ctx.font = "800 27px sans-serif";
+        ctx.fillText(teamName.toUpperCase(), 600, 131);
       }
 
       // Watermark indicator on lower-right

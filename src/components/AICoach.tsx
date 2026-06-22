@@ -17,6 +17,8 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestAnalysis, setLatestAnalysis] = useState<{ title: string; desc: string } | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [activeScoutDetail, setActiveScoutDetail] = useState<{ title: string; content: React.ReactNode } | null>(null);
   const [selectedModel, setSelectedModel] = useState<"gemini-3.5-flash" | "gemini-3.1-pro-preview" | "gemini-3.1-flash-lite" | "claude" | "deepseek" | "gpt4">(() => {
     const saved = localStorage.getItem("tactigen_selected_model") || "gemini-3.5-flash";
     if (saved === "gemini") return "gemini-3.5-flash";
@@ -341,22 +343,68 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
         </div>
       )}
 
-      {/* Prompt Result Output */}
+      {/* Prompt Result Output - Simplified as button which triggers modal overlay */}
       {latestAnalysis && !loading && (
-        <div className="bg-black/20 border border-white/5 rounded-xl p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20 font-bold uppercase">
-              {l.analysisLabel}
-            </span>
-            <span className="text-[10px] text-gray-500 flex items-center gap-1">
+        <div className="pt-1">
+          <button
+            onClick={() => setShowAnalysisModal(true)}
+            className="w-full bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500/20 hover:to-indigo-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-300 font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98] shadow-md group"
+          >
+            <Sparkles className="w-4 h-4 text-blue-400 group-hover:rotate-12 transition-transform duration-200" />
+            <span>{lang === "id" ? "Buka Analisis Taktik" : "Open Tactical Analysis"}</span>
+            <span className="text-[9px] bg-blue-500/20 text-blue-200 px-1.5 py-0.5 rounded ml-1 truncate max-w-[120px]" title={latestAnalysis.title}>
               {latestAnalysis.title}
             </span>
-          </div>
-          <div className="text-gray-200 text-xs text-justify leading-relaxed markdown-body max-h-32 overflow-y-auto pr-1">
-            <Markdown>{latestAnalysis.desc}</Markdown>
-          </div>
+          </button>
         </div>
       )}
+
+      {/* Tactical Analysis Detailed Modal Overlay */}
+      <AnimatePresence>
+        {showAnalysisModal && latestAnalysis && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[5200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#0f0f13] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+            >
+              <div className="p-4 border-b border-white/5 bg-gradient-to-r from-blue-950/20 to-indigo-950/20 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white tracking-wide uppercase font-sans">
+                      {lang === "id" ? "Analisis Strategi Taktis" : "Tactical Strategy Analysis"}
+                    </h3>
+                    <p className="text-[10px] text-gray-400 font-medium font-sans font-mono">
+                      {latestAnalysis.title}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAnalysisModal(false)}
+                  className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-all cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-5 flex-1 overflow-y-auto space-y-3 font-sans text-xs text-gray-200 leading-relaxed text-justify markdown-body">
+                <Markdown>{latestAnalysis.desc}</Markdown>
+              </div>
+              <div className="p-3 bg-black/40 border-t border-white/5 flex justify-end">
+                <button
+                  onClick={() => setShowAnalysisModal(false)}
+                  className="px-4 py-2 bg-[#1c1d24] hover:bg-[#252630] text-white border border-white/10 rounded-xl hover:border-white/20 transition-all font-bold text-xs cursor-pointer"
+                >
+                  {lang === "id" ? "Tutup" : "Close"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Floating Settings Modal */}
       <AnimatePresence>
@@ -662,59 +710,143 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
                       </div>
                     </div>
 
-                    {/* Technical Narrative Card */}
-                    <div className="space-y-3 bg-white/5 border border-white/5 p-4 rounded-2xl">
-                      <div className="space-y-1">
-                        <h4 className="font-bold text-gray-200 uppercase tracking-wide text-[10px] text-indigo-400 flex items-center gap-1">🗺️ Corak Serangan (Attacking Style)</h4>
-                        <p className="text-gray-300 leading-relaxed text-justify">{scoutReport.attackingStyle}</p>
-                      </div>
-                      <hr className="border-white/5" />
-                      <div className="space-y-1">
-                        <h4 className="font-bold text-gray-200 uppercase tracking-wide text-[10px] text-indigo-400 flex items-center gap-1">⚓ Laras Tengah (Midfield Anchor)</h4>
-                        <p className="text-gray-300 leading-relaxed text-justify">{scoutReport.midfieldCore}</p>
-                      </div>
-                      <hr className="border-white/5" />
-                      <div className="space-y-1">
-                        <h4 className="font-bold text-gray-200 uppercase tracking-wide text-[10px] text-indigo-400 flex items-center gap-1">🛡️ Kerapatan Benteng (Defensive Layout)</h4>
-                        <p className="text-gray-300 leading-relaxed text-justify">{scoutReport.defensiveCompactness}</p>
+                    {/* Simplified Interactive Dashboard Buttons */}
+                    <div className="space-y-2.5">
+                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider font-sans block">
+                        {lang === "id" ? "Detail Analisis Skuad" : "Squad Analysis Details"}
+                      </span>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                          onClick={() => setActiveScoutDetail({
+                            title: lang === "id" ? "🗺️ Corak Serangan (Attacking Style)" : "🗺️ Attacking Style",
+                            content: <p className="text-xs text-gray-300 leading-relaxed text-justify">{scoutReport.attackingStyle}</p>
+                          })}
+                          className="bg-white/[0.03] hover:bg-indigo-950/20 border border-white/5 hover:border-indigo-500/30 rounded-xl p-3 text-left transition-all cursor-pointer flex flex-col gap-1 active:scale-95 group"
+                        >
+                          <span className="text-xs font-bold text-gray-200 group-hover:text-indigo-400 font-sans">🗺️ Style Serangan</span>
+                          <span className="text-[9.5px] text-gray-500 line-clamp-1">{scoutReport.attackingStyle}</span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveScoutDetail({
+                            title: lang === "id" ? "⚓ Laras Tengah (Midfield Anchor)" : "⚓ Midfield Anchor",
+                            content: <p className="text-xs text-gray-300 leading-relaxed text-justify">{scoutReport.midfieldCore}</p>
+                          })}
+                          className="bg-white/[0.03] hover:bg-indigo-950/20 border border-white/5 hover:border-indigo-500/30 rounded-xl p-3 text-left transition-all cursor-pointer flex flex-col gap-1 active:scale-95 group"
+                        >
+                          <span className="text-xs font-bold text-gray-200 group-hover:text-indigo-400 font-sans">⚓ Laras Tengah</span>
+                          <span className="text-[9.5px] text-gray-500 line-clamp-1">{scoutReport.midfieldCore}</span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveScoutDetail({
+                            title: lang === "id" ? "🛡️ Kerapatan Benteng (Defensive Layout)" : "🛡️ Defensive Layout",
+                            content: <p className="text-xs text-gray-300 leading-relaxed text-justify">{scoutReport.defensiveCompactness}</p>
+                          })}
+                          className="bg-white/[0.03] hover:bg-indigo-950/20 border border-white/5 hover:border-indigo-500/30 rounded-xl p-3 text-left transition-all cursor-pointer flex flex-col gap-1 active:scale-95 group"
+                        >
+                          <span className="text-xs font-bold text-gray-200 group-hover:text-indigo-400 font-sans">🛡️ Kerapatan Benteng</span>
+                          <span className="text-[9.5px] text-gray-500 line-clamp-1">{scoutReport.defensiveCompactness}</span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveScoutDetail({
+                            title: lang === "id" ? "💪 Kekuatan Skuad" : "💪 Squad Strengths",
+                            content: (
+                              <ul className="space-y-2 list-disc list-inside text-xs text-gray-300">
+                                {scoutReport.strengths?.map((str: string, index: number) => (
+                                  <li key={index} className="leading-relaxed">{str}</li>
+                                ))}
+                              </ul>
+                            )
+                          })}
+                          className="bg-white/[0.03] hover:bg-[#152e25]/20 border border-white/5 hover:border-emerald-500/30 rounded-xl p-3 text-left transition-all cursor-pointer flex flex-col gap-1 active:scale-95 group"
+                        >
+                          <span className="text-xs font-bold text-gray-200 group-hover:text-emerald-400 font-sans">💪 Kekuatan Skuad</span>
+                          <span className="text-[9.5px] text-gray-500 line-clamp-1">
+                            {scoutReport.strengths && scoutReport.strengths[0] || "Lihat kekuatan utama..."}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveScoutDetail({
+                            title: lang === "id" ? "⚠️ Kelemahan Taktikal" : "⚠️ Tactical Weaknesses",
+                            content: (
+                              <ul className="space-y-2 list-disc list-inside text-xs text-gray-300">
+                                {scoutReport.weaknesses?.map((wk: string, index: number) => (
+                                  <li key={index} className="leading-relaxed">{wk}</li>
+                                ))}
+                              </ul>
+                            )
+                          })}
+                          className="bg-white/[0.03] hover:bg-[#2d1215]/20 border border-white/5 hover:border-red-500/30 rounded-xl p-3 text-left transition-all cursor-pointer flex flex-col gap-1 active:scale-95 group"
+                        >
+                          <span className="text-xs font-bold text-gray-200 group-hover:text-red-400 font-sans">⚠️ Kelemahan Skuad</span>
+                          <span className="text-[9.5px] text-gray-500 line-clamp-1">
+                            {scoutReport.weaknesses && scoutReport.weaknesses[0] || "Lihat celah taktis..."}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => setActiveScoutDetail({
+                            title: lang === "id" ? "🔧 Pengubahsuaian Disyorkan" : "🔧 Recommendations Advice",
+                            content: (
+                              <ul className="space-y-2 list-none text-xs text-gray-300">
+                                {scoutReport.recommendations?.map((rec: string, index: number) => (
+                                  <li key={index} className="flex items-start gap-1.5 leading-relaxed">
+                                    <span className="text-blue-400 font-bold">➢</span>
+                                    <span>{rec}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )
+                          })}
+                          className="bg-white/[0.03] hover:bg-[#112431]/20 border border-white/5 hover:border-blue-500/30 rounded-xl p-3 text-left transition-all cursor-pointer flex flex-col gap-1 active:scale-95 group"
+                        >
+                          <span className="text-xs font-bold text-gray-200 group-hover:text-blue-400 font-sans">🔧 Rekomendasi Solusi</span>
+                          <span className="text-[9.5px] text-gray-500 line-clamp-1">
+                            {scoutReport.recommendations && scoutReport.recommendations[0] || "Rekomendasi taktis olahraga..."}
+                          </span>
+                        </button>
                       </div>
                     </div>
 
-                    {/* Strengths & Weaknesses SWOT */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Strengths */}
-                      <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-2xl space-y-2">
-                        <h4 className="font-bold text-emerald-400 uppercase tracking-wide text-[10px] flex items-center gap-1">💪 Kekuatan Skuad</h4>
-                        <ul className="space-y-1.5 list-disc list-inside text-[10px] text-gray-300">
-                          {scoutReport.strengths?.map((str: string, index: number) => (
-                            <li key={index} className="leading-relaxed">{str}</li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Weaknesses */}
-                      <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-2xl space-y-2">
-                        <h4 className="font-bold text-red-400 uppercase tracking-wide text-[10px] flex items-center gap-1">⚠️ Kelemahan Taktikal</h4>
-                        <ul className="space-y-1.5 list-disc list-inside text-[10px] text-gray-300">
-                          {scoutReport.weaknesses?.map((wk: string, index: number) => (
-                            <li key={index} className="leading-relaxed">{wk}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Recommendations */}
-                    <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-2xl space-y-2">
-                      <h4 className="font-bold text-blue-400 uppercase tracking-wide text-[10px] flex items-center gap-1">🔧 Pengubahsuaian Disyorkan UEFA Pro</h4>
-                      <ul className="space-y-1.5 list-none text-[10px] text-gray-300">
-                        {scoutReport.recommendations?.map((rec: string, index: number) => (
-                          <li key={index} className="flex items-start gap-1.5 leading-relaxed">
-                            <span className="text-blue-400 font-bold">➢</span>
-                            <span>{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    {/* Pop-up Overlay for Selected Scout Detail Option */}
+                    <AnimatePresence>
+                      {activeScoutDetail && (
+                        <div className="absolute inset-0 bg-[#07080c]/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                          <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-[#121217] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[85%]"
+                          >
+                            <div className="p-4 border-b border-white/5 bg-gradient-to-r from-indigo-950/40 to-purple-950/40 flex items-center justify-between">
+                              <span className="text-xs font-bold text-white uppercase tracking-wider font-sans">
+                                {activeScoutDetail.title}
+                              </span>
+                              <button
+                                onClick={() => setActiveScoutDetail(null)}
+                                className="p-1 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-all cursor-pointer"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div className="p-5 flex-1 overflow-y-auto space-y-2 font-sans text-xs">
+                              {activeScoutDetail.content}
+                            </div>
+                            <div className="p-3 bg-black/40 border-t border-white/5 flex justify-end">
+                              <button
+                                onClick={() => setActiveScoutDetail(null)}
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-md active:scale-95"
+                              >
+                                {lang === "id" ? "Kembali" : "Back"}
+                              </button>
+                            </div>
+                          </motion.div>
+                        </div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
               </div>
