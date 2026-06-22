@@ -39,6 +39,7 @@ interface PitchProps {
   showTacticalGrid?: boolean;
   showHeatmap?: boolean;
   lang?: "id" | "en";
+  sportMode?: "soccer" | "minisoccer" | "futsal" | "custom";
 }
 
 export default function Pitch({
@@ -71,7 +72,8 @@ export default function Pitch({
   transitionType = "spring",
   showTacticalGrid = false,
   showHeatmap = false,
-  lang = "id"
+  lang = "id",
+  sportMode = "soccer"
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -854,22 +856,87 @@ export default function Pitch({
           {/* Pitch borders */}
           <rect x="3" y="3" width="94" height="94" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
           
-          {/* Halfway line */}
-          <line x1="3" y1="50" x2="97" y2="50" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
-          <circle cx="50" cy="50" r="12" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
-          <circle cx="50" cy="50" r="0.8" fill={lineStroke} />
+           {/* Halfway line & sports markings dynamically adjusted based on active arena (sportMode) */}
+          {sportMode === "futsal" ? (
+            <>
+              {/* Futsal center circle (smaller) */}
+              <line x1="3" y1="50" x2="97" y2="50" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              <circle cx="50" cy="50" r="8" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              <circle cx="50" cy="50" r="0.8" fill={lineStroke} />
 
-          {/* Top Penalty Box */}
-          <rect x="25" y="3" width="50" height="18" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
-          <rect x="38" y="3" width="24" height="6" fill="none" stroke={lineStroke} strokeWidth="0.5" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
-          <circle cx="50" cy="14" r="0.6" fill={lineStroke} />
-          <path d="M 40 21 A 12 12 0 0 0 60 21" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              {/* Futsal Top Penalty Area (D-style arcs) */}
+              <path d="M 32 3 A 18 15 0 0 0 68 3" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              {/* Penalty spot (6m) */}
+              <circle cx="50" cy="15" r="0.6" fill={lineStroke} />
+              {/* Double penalty marks (10m) */}
+              <line x1="48.5" y1="25" x2="51.5" y2="25" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
 
-          {/* Bottom Penalty Box */}
-          <rect x="25" y="79" width="50" height="18" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
-          <rect x="38" y="91" width="24" height="6" fill="none" stroke={lineStroke} strokeWidth="0.5" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
-          <circle cx="50" cy="86" r="0.6" fill={lineStroke} />
-          <path d="M 40 79 A 12 12 0 0 1 60 79" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              {/* Futsal Bottom Penalty Area (D-style arcs) */}
+              <path d="M 32 97 A 18 15 0 0 1 68 97" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              {/* Penalty spot (6m) */}
+              <circle cx="50" cy="85" r="0.6" fill={lineStroke} />
+              {/* Double penalty marks (10m) */}
+              <line x1="48.5" y1="75" x2="51.5" y2="75" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+
+              {/* Goal nets (futsal-sized) */}
+              <rect x="42" y="0.5" width="16" height="2.5" rx="0.5" fill="none" stroke={lineStroke} strokeWidth="0.5" strokeDasharray="1,1" opacity="0.6" />
+              <rect x="42" y="97" width="16" height="2.5" rx="0.5" fill="none" stroke={lineStroke} strokeWidth="0.5" strokeDasharray="1,1" opacity="0.6" />
+
+              {/* Substitution zones */}
+              <line x1="1.5" y1="42" x2="3" y2="42" stroke={lineStroke} strokeWidth="0.5" />
+              <line x1="1.5" y1="48" x2="3" y2="48" stroke={lineStroke} strokeWidth="0.5" />
+              <line x1="1.5" y1="52" x2="3" y2="52" stroke={lineStroke} strokeWidth="0.5" />
+              <line x1="1.5" y1="58" x2="3" y2="58" stroke={lineStroke} strokeWidth="0.5" />
+            </>
+          ) : sportMode === "minisoccer" ? (
+            <>
+              {/* Mini Soccer halfway & circle (medium) */}
+              <line x1="3" y1="50" x2="97" y2="50" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              <circle cx="50" cy="50" r="10" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              <circle cx="50" cy="50" r="0.8" fill={lineStroke} />
+
+              {/* Mini Soccer Top Penalty Box (compact rectangular) */}
+              <rect x="28" y="3" width="44" height="15" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              {/* Penalty spot */}
+              <circle cx="50" cy="11.5" r="0.6" fill={lineStroke} />
+              {/* Penalty arc */}
+              <path d="M 42 18 A 8 8 0 0 0 58 18" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+
+              {/* Mini Soccer Bottom Penalty Box */}
+              <rect x="28" y="82" width="44" height="15" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              {/* Penalty spot */}
+              <circle cx="50" cy="88.5" r="0.6" fill={lineStroke} />
+              {/* Penalty arc */}
+              <path d="M 42 82 A 8 8 0 0 1 58 82" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+
+              {/* Intermediate goal nets */}
+              <rect x="40" y="0.5" width="20" height="2.5" rx="0.5" fill="none" stroke={lineStroke} strokeWidth="0.5" strokeDasharray="1,1" opacity="0.6" />
+              <rect x="40" y="97" width="20" height="2.5" rx="0.5" fill="none" stroke={lineStroke} strokeWidth="0.5" strokeDasharray="1,1" opacity="0.6" />
+            </>
+          ) : (
+            <>
+              {/* Standard Soccer halfway & circle (large) */}
+              <line x1="3" y1="50" x2="97" y2="50" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              <circle cx="50" cy="50" r="12" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              <circle cx="50" cy="50" r="0.8" fill={lineStroke} />
+
+              {/* Top Penalty Box */}
+              <rect x="25" y="3" width="50" height="18" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              <rect x="38" y="3" width="24" height="6" fill="none" stroke={lineStroke} strokeWidth="0.5" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              <circle cx="50" cy="14" r="0.6" fill={lineStroke} />
+              <path d="M 40 21 A 12 12 0 0 0 60 21" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+
+              {/* Bottom Penalty Box */}
+              <rect x="25" y="79" width="50" height="18" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              <rect x="38" y="91" width="24" height="6" fill="none" stroke={lineStroke} strokeWidth="0.5" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+              <circle cx="50" cy="86" r="0.6" fill={lineStroke} />
+              <path d="M 40 79 A 12 12 0 0 1 60 79" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+
+              {/* Goal nets (large) */}
+              <rect x="38" y="0.5" width="24" height="2.5" rx="0.5" fill="none" stroke={lineStroke} strokeWidth="0.5" strokeDasharray="1,1" opacity="0.6" />
+              <rect x="38" y="97" width="24" height="2.5" rx="0.5" fill="none" stroke={lineStroke} strokeWidth="0.5" strokeDasharray="1,1" opacity="0.6" />
+            </>
+          )}
 
           {/* Tactical 18-Zone Grid Overlay */}
           {showTacticalGrid && (

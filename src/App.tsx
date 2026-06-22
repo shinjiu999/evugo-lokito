@@ -1723,6 +1723,7 @@ export default function App() {
                 showTacticalGrid={showTacticalGrid}
                 showHeatmap={showHeatmap}
                 lang={lang}
+                sportMode={sportMode}
               />
 
               {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
