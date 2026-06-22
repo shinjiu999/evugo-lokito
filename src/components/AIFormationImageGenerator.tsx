@@ -10,6 +10,7 @@ interface AIFormationImageGeneratorProps {
   gkColor: string;
   numberColor: string;
   players: Player[];
+  teamLogo?: string | null;
 }
 
 export default function AIFormationImageGenerator({
@@ -18,7 +19,8 @@ export default function AIFormationImageGenerator({
   primaryColor,
   gkColor,
   numberColor,
-  players
+  players,
+  teamLogo
 }: AIFormationImageGeneratorProps) {
   const [activeTab, setActiveTab] = useState<"instant" | "gemini">("instant");
   const [customApiKey, setCustomApiKey] = useState(() => localStorage.getItem("tactigen_custom_key") || "");
@@ -496,11 +498,35 @@ export default function AIFormationImageGenerator({
       ctx.fillStyle = bGrad;
       ctx.fillRect(400, 95, 400, 4);
 
-      // Team Title name label
-      ctx.fillStyle = "#eab308";
-      ctx.shadowBlur = 0;
-      ctx.font = "800 21px sans-serif";
-      ctx.fillText(teamName.toUpperCase(), 600, 126);
+      // Team Logo and Title name label rendering
+      const logoImg = loadedImages["teamLogo"];
+      if (logoImg) {
+        // Draw centered above team name
+        const logoSize = 65;
+        const logoX = 600 - logoSize / 2;
+        const logoY = 105;
+
+        // Draw a clean background subtle circle for the logo
+        ctx.fillStyle = "rgba(17, 17, 22, 0.4)";
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(600, logoY + logoSize / 2, (logoSize / 2) + 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+
+        ctx.fillStyle = "#eab308";
+        ctx.shadowBlur = 0;
+        ctx.font = "800 21px sans-serif";
+        ctx.fillText(teamName.toUpperCase(), 600, logoY + logoSize + 26);
+      } else {
+        ctx.fillStyle = "#eab308";
+        ctx.shadowBlur = 0;
+        ctx.font = "800 21px sans-serif";
+        ctx.fillText(teamName.toUpperCase(), 600, 126);
+      }
 
       // Watermark indicator on lower-right
       ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
@@ -520,7 +546,20 @@ export default function AIFormationImageGenerator({
     let active = true;
     const playersWithPhotos = players.filter((p) => p.isStarting && p.photo);
 
-    if (playersWithPhotos.length === 0) {
+    // List of items to load
+    const toLoad: { id: string; url: string }[] = [];
+
+    playersWithPhotos.forEach((player) => {
+      if (player.photo) {
+        toLoad.push({ id: player.id, url: player.photo });
+      }
+    });
+
+    if (teamLogo) {
+      toLoad.push({ id: "teamLogo", url: teamLogo });
+    }
+
+    if (toLoad.length === 0) {
       handleRenderInstantPoster({});
       return;
     }
@@ -528,35 +567,34 @@ export default function AIFormationImageGenerator({
     const loadedImages: Record<string, HTMLImageElement> = {};
     let loadedCount = 0;
 
-    playersWithPhotos.forEach((player) => {
-      if (!player.photo) return;
+    toLoad.forEach((item) => {
       const img = new window.Image();
       img.crossOrigin = "anonymous";
-      img.src = player.photo;
+      img.src = item.url;
       img.onload = () => {
         if (!active) return;
-        loadedImages[player.id] = img;
+        loadedImages[item.id] = img;
         loadedCount++;
-        if (loadedCount === playersWithPhotos.length) {
+        if (loadedCount === toLoad.length) {
           handleRenderInstantPoster(loadedImages);
         }
       };
       img.onerror = () => {
         if (!active) return;
         loadedCount++;
-        if (loadedCount === playersWithPhotos.length) {
+        if (loadedCount === toLoad.length) {
           handleRenderInstantPoster(loadedImages);
         }
       };
     });
 
-    // Render immediately (it will update as photos finish loading)
+    // Render immediately (it will update as files finish loading)
     handleRenderInstantPoster(loadedImages);
 
     return () => {
       active = false;
     };
-  }, [players, formation, teamName, primaryColor, gkColor, numberColor]);
+  }, [players, formation, teamName, primaryColor, gkColor, numberColor, teamLogo]);
 
   // Helper utility to adjust HEX brightness for shadow curves
   const adjustColorBrightness = (hex: string, percent: number): string => {

@@ -34,6 +34,22 @@
         }
       })();
     </script>
+    <script id="json-parse-patch">
+      (function() {
+        try {
+          var originalParse = JSON.parse;
+          JSON.parse = function(text, reviver) {
+            if (text === undefined || text === null || text === "undefined" || text === "null") {
+              console.warn("Intercepted JSON.parse of invalid token:", text);
+              return undefined;
+            }
+            return originalParse(text, reviver);
+          };
+        } catch (e) {
+          console.error("Failed to apply patch for JSON.parse:", e);
+        }
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Google AI Studio App</title>

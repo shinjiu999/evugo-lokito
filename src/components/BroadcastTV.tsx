@@ -12,9 +12,11 @@ interface BroadcastTVProps {
   formationName: string;
   frames: AnimationFrame[];
   onClose: () => void;
+  teamLogo?: string | null;
+  lang?: "id" | "en";
 }
 
-export default function BroadcastTV({ players, items, teamName, formationName, frames, onClose }: BroadcastTVProps) {
+export default function BroadcastTV({ players, items, teamName, formationName, frames, onClose, teamLogo, lang = "id" }: BroadcastTVProps) {
   const [isPlayingAnthem, setIsPlayingAnthem] = useState(false);
   const [activeFrameIndex, setActiveFrameIndex] = useState(0);
   const [isPlayingSimulation, setIsPlayingSimulation] = useState(false);
@@ -254,14 +256,16 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
           
           {/* Custom Music Manual Input */}
           <div className="flex items-center gap-2 bg-black/40 border border-white/10 px-3 py-1.5 rounded-xl w-full md:w-80 shadow">
-            <span className="text-[9px] text-blue-400 font-extrabold uppercase shrink-0">🎵 MUSIK KUSTOM:</span>
+            <span className="text-[9px] text-blue-400 font-extrabold uppercase shrink-0">
+              {lang === "id" ? "🎵 MUSIK KUSTOM:" : "🎵 CUSTOM MUSIC:"}
+            </span>
             <input
               type="text"
               value={musicUrl}
               onChange={(e) => handleMusicUrlChange(e.target.value)}
-              placeholder="Tempel URL Live Audio / MP3"
+              placeholder={lang === "id" ? "Tempel URL Live Audio / MP3" : "Paste Live Audio / MP3 format URL"}
               className="w-full bg-transparent text-[11px] text-white placeholder-gray-600 focus:outline-none border-none outline-none focus:ring-0 p-0"
-              title="Masukkan URL musik latar pilihan Anda secara manual (.mp3/ .wav)"
+              title={lang === "id" ? "Masukkan URL musik latar pilihan Anda secara manual (.mp3/ .wav)" : "Manually enter background track music URL (.mp3 or .wav format)"}
             />
           </div>
         </div>
@@ -276,13 +280,13 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
             }`}
           >
             <Volume2 className={`w-4 h-4 ${(isPlayingCustomMusic || isPlayingAnthem) ? "animate-bounce" : ""}`} /> 
-            {isPlayingCustomMusic ? "JEDA MUSIK" : "ANTHEM / PLAY"}
+            {isPlayingCustomMusic ? (lang === "id" ? "JEDA MUSIK" : "PAUSE SOUND") : (lang === "id" ? "ANTHEM / PLAY" : "PLAY ANTHEM")}
           </button>
           <button
             onClick={onClose}
             className="bg-white/5 border border-white/10 text-gray-400 hover:text-white px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all shadow-xl hover:border-rose-500/40 active:scale-95 flex items-center gap-1.5"
           >
-            <X className="w-4 h-4" /> Tutup
+            <X className="w-4 h-4" /> {lang === "id" ? "Tutup" : "Close"}
           </button>
         </div>
       </div>
@@ -292,13 +296,24 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="text-center space-y-1.5 my-4 z-10"
+        className="text-center space-y-1.5 my-4 z-10 flex flex-col items-center justify-center text-center"
       >
+        {teamLogo && (
+          <motion.img
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            src={teamLogo}
+            className="w-16 h-16 object-contain mb-1 shadow-xl bg-black/35 p-1 rounded-xl border border-white/10"
+            alt="Logo"
+            referrerPolicy="no-referrer"
+          />
+        )}
         <h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 tracking-wider uppercase drop-shadow-xl select-none">
           {teamName || "GARUDA FC"}
         </h2>
-        <p className="text-xs text-blue-400 font-extrabold tracking-widest uppercase flex items-center justify-center gap-1.5">
-          <Layers className="w-3.5 h-3.5" /> FORMASI TAKTIS: {formationName}
+        <p className="text-xs text-blue-400 font-extrabold tracking-widest uppercase flex items-center justify-center gap-1.5 mt-1">
+          <Layers className="w-3.5 h-3.5" /> {lang === "id" ? "FORMASI TAKTIS:" : "TACTICAL FORMATION:"} {formationName}
         </p>
       </motion.div>
 
@@ -437,7 +452,7 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
                 }`}
               >
                 {isPlayingSimulation ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                {isPlayingSimulation ? "JEDA" : "SIMULASI PLAYBACK"}
+                {isPlayingSimulation ? (lang === "id" ? "JEDA" : "PAUSE") : (lang === "id" ? "SIMULASI PLAYBACK" : "SIMULATE PLAYBACK")}
               </button>
 
               <button
@@ -445,7 +460,7 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
                 disabled={isExportingGif}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs p-2 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
               >
-                <Download className="w-4 h-4" /> EKSPOR GIF ANIMASI
+                <Download className="w-4 h-4" /> {isExportingGif ? (lang === "id" ? "MENGEKSPOR..." : "EXPORTING...") : (lang === "id" ? "EKSPOR GIF ANIMASI" : "EXPORT ANIMATED GIF")}
               </button>
             </div>
 
@@ -464,7 +479,7 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
                       : "text-gray-500 hover:text-gray-300"
                   }`}
                 >
-                  Fase {idx + 1}
+                  {lang === "id" ? "Fase" : "Phase"} {idx + 1}
                 </button>
               ))}
             </div>

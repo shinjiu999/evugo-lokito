@@ -36,6 +36,8 @@ interface PitchProps {
   showMovementTrails?: boolean;
   playSpeed?: "slow" | "normal" | "fast" | "superfast";
   transitionType?: "spring" | "linear" | "stealth";
+  showTacticalGrid?: boolean;
+  lang?: "id" | "en";
 }
 
 export default function Pitch({
@@ -65,7 +67,9 @@ export default function Pitch({
   activeFrameIndex = 0,
   showMovementTrails = true,
   playSpeed = "normal",
-  transitionType = "spring"
+  transitionType = "spring",
+  showTacticalGrid = false,
+  lang = "id"
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -742,7 +746,7 @@ export default function Pitch({
 
         {/* Stadium tactical markings standard overlay SVG */}
         <svg
-          className="absolute inset-0 w-full h-[84%] pointer-events-none z-10"
+          className="absolute inset-0 w-full h-[83%] sm:h-[84%] pointer-events-none z-10"
           style={{ opacity: lineOpacity }}
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
@@ -779,6 +783,53 @@ export default function Pitch({
           <rect x="38" y="91" width="24" height="6" fill="none" stroke={lineStroke} strokeWidth="0.5" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
           <circle cx="50" cy="86" r="0.6" fill={lineStroke} />
           <path d="M 40 79 A 12 12 0 0 1 60 79" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+
+          {/* Tactical 18-Zone Grid Overlay */}
+          {showTacticalGrid && (
+            <g id="tactical-18-grid" style={{ transition: "all 0.3s ease-in-out" }}>
+              {/* Vertical outer alignment lines */}
+              <line x1="25" y1="3" x2="25" y2="97" stroke={lineStroke} strokeWidth="0.3" strokeDasharray="1, 1.5" opacity="0.35" />
+              <line x1="75" y1="3" x2="75" y2="97" stroke={lineStroke} strokeWidth="0.3" strokeDasharray="1, 1.5" opacity="0.35" />
+
+              {/* Horizontal outer grid lines matching tactical divisions */}
+              <line x1="3" y1="21" x2="97" y2="21" stroke={lineStroke} strokeWidth="0.3" strokeDasharray="1, 1.5" opacity="0.35" />
+              <line x1="3" y1="35.5" x2="97" y2="35.5" stroke={lineStroke} strokeWidth="0.3" strokeDasharray="1, 1.5" opacity="0.35" />
+              <line x1="3" y1="50" x2="97" y2="50" stroke={lineStroke} strokeWidth="0.3" strokeDasharray="1, 1.5" opacity="0.25" />
+              <line x1="3" y1="64.5" x2="97" y2="64.5" stroke={lineStroke} strokeWidth="0.3" strokeDasharray="1, 1.5" opacity="0.35" />
+              <line x1="3" y1="79" x2="97" y2="79" stroke={lineStroke} strokeWidth="0.3" strokeDasharray="1, 1.5" opacity="0.35" />
+
+              {/* Zone Labels for high precision spacing (Malaysia / Malay literal coach layout) */}
+              {/* Row 1 (Bawah / Gawang Sendiri) */}
+              <text x="14" y="88" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z1</text>
+              <text x="50" y="88" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z2</text>
+              <text x="86" y="88" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z3</text>
+
+              {/* Row 2 (Kawasan Bertahan) */}
+              <text x="14" y="71.7" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z4</text>
+              <text x="50" y="71.7" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z5</text>
+              <text x="86" y="71.7" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z6</text>
+
+              {/* Row 3 (Tengah Bertahan) */}
+              <text x="14" y="57.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z7</text>
+              <text x="50" y="57.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z8</text>
+              <text x="86" y="57.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z9</text>
+
+              {/* Row 4 (Tengah Menyerang) */}
+              <text x="14" y="42.75" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z10</text>
+              <text x="50" y="42.75" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z11</text>
+              <text x="86" y="42.75" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z12</text>
+
+              {/* Row 5 (Zon Kreatif / Sepertiga Akhir) */}
+              <text x="14" y="28.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z13</text>
+              <text x="50" y="28.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z14</text>
+              <text x="86" y="28.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z15</text>
+
+              {/* Row 6 (Kawasan Kotak Penalti Lawan / Atas) */}
+              <text x="14" y="12" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z16</text>
+              <text x="50" y="12" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z17</text>
+              <text x="86" y="12" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z18</text>
+            </g>
+          )}
         </svg>
 
         {/* DRAWING CANVAS FOR COUCH ROUTINES */}
@@ -790,7 +841,7 @@ export default function Pitch({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleMouseUp}
-          className={`absolute inset-0 w-full h-[84%] z-20 ${
+          className={`absolute inset-0 w-full h-[83%] sm:h-[84%] z-20 ${
             activeTool === "draw" ? "cursor-pencil pointer-events-auto" : "pointer-events-none"
           }`}
         />
@@ -798,7 +849,7 @@ export default function Pitch({
         {/* DYNAMIC TACTICAL MOVEMENT TRAILS */}
         {showMovementTrails && activeFrameIndex > 0 && frames && frames[activeFrameIndex - 1] && (
           <svg
-            className="absolute inset-0 w-full h-[84%] pointer-events-none z-15"
+            className="absolute inset-0 w-full h-[83%] sm:h-[84%] pointer-events-none z-15"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
           >
@@ -940,7 +991,7 @@ export default function Pitch({
         )}
 
         {/* INTERACTIVE PLAYERS AND DRAGGABLE BALLS & CONES */}
-        <div className="absolute inset-0 w-full h-[84%] z-30 pointer-events-none">
+        <div className="absolute inset-0 w-full h-[83%] sm:h-[84%] z-30 pointer-events-none">
           <AnimatePresence>
             {starters.map((player) => {
               const isGK = player.role === "GK";
@@ -1022,10 +1073,46 @@ export default function Pitch({
 
                   {/* Player Name Tag */}
                   <div
-                    className="mt-1 px-1.5 py-0.5 bg-[#0f0f12]/95 backdrop-blur-md rounded border border-white/10 text-white font-bold whitespace-nowrap shadow select-none uppercase tracking-wide leading-tight"
+                    className="mt-1 px-1.5 py-0.5 bg-[#0f0f12]/95 backdrop-blur-md rounded border border-white/10 text-white font-bold whitespace-nowrap shadow select-none uppercase tracking-wide leading-tight animate-fade-in"
                     style={{ fontSize: `${nameFontSize}px` }}
                   >
                     {player.name}
+                  </div>
+
+                  {/* Floating Mini Stats HUD on Hover */}
+                  <div className="absolute top-[108%] z-50 bg-[#0f0f12]/95 border border-white/10 p-2 rounded-xl shadow-2xl opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex flex-col gap-1 select-none backdrop-blur-md">
+                    <div className="text-[8px] font-black uppercase text-indigo-400 tracking-wider mb-1 text-center border-b border-white/5 pb-1 flex justify-between items-center px-1">
+                      <span>Kemampuan</span>
+                      <span className="text-emerald-400 font-extrabold font-mono">
+                        OVR {Math.round(((player.stats?.speed ?? (player.role === "FWD" ? 85 : player.role === "MID" ? 78 : player.role === "DEF" ? 72 : 65)) +
+                          (player.stats?.stamina ?? (player.role === "MID" ? 85 : player.role === "DEF" ? 80 : player.role === "FWD" ? 75 : 70)) +
+                          (player.stats?.passing ?? (player.role === "MID" ? 84 : player.role === "FWD" ? 72 : player.role === "DEF" ? 68 : 55)) +
+                          (player.stats?.dribbling ?? (player.role === "FWD" ? 84 : player.role === "MID" ? 78 : player.role === "DEF" ? 60 : 30)) +
+                          (player.stats?.defending ?? (player.role === "DEF" ? 86 : player.role === "GK" ? 80 : player.role === "MID" ? 70 : 35))) / 5)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-0.5 text-[8px] font-sans text-center">
+                      <div className="flex flex-col items-center">
+                        <span className="text-gray-400 font-bold">SPD</span>
+                        <span className="font-extrabold text-blue-400">{player.stats?.speed ?? (player.role === "FWD" ? 85 : player.role === "MID" ? 78 : player.role === "DEF" ? 72 : 65)}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-gray-400 font-bold">STM</span>
+                        <span className="font-extrabold text-emerald-400">{player.stats?.stamina ?? (player.role === "MID" ? 85 : player.role === "DEF" ? 80 : player.role === "FWD" ? 75 : 70)}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-gray-400 font-bold">PAS</span>
+                        <span className="font-extrabold text-amber-400">{player.stats?.passing ?? (player.role === "MID" ? 84 : player.role === "FWD" ? 72 : player.role === "DEF" ? 68 : 55)}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-gray-400 font-bold">DRI</span>
+                        <span className="font-extrabold text-pink-400">{player.stats?.dribbling ?? (player.role === "FWD" ? 84 : player.role === "MID" ? 78 : player.role === "DEF" ? 60 : 30)}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-gray-400 font-bold">DEF</span>
+                        <span className="font-extrabold text-purple-400">{player.stats?.defending ?? (player.role === "DEF" ? 86 : player.role === "GK" ? 80 : player.role === "MID" ? 70 : 35)}</span>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               );
@@ -1102,14 +1189,14 @@ export default function Pitch({
            </AnimatePresence>
         </div>
 
-        {/* BOTTOM SECTION: DETACH RECTANGLE ZONE AS THE SQUAD BENCH (16% HEIGHT) */}
-        <div className="absolute bottom-0 left-0 right-0 h-[16%] bg-[#0f0f12]/95 backdrop-blur-md border-t border-white/10 flex flex-col justify-start p-2.5 z-40">
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-[9px] font-black text-gray-400 tracking-wider uppercase flex items-center gap-1">
-              👥 Bangku Cadangan (Dugout)
+        {/* BOTTOM SECTION: DETACH RECTANGLE ZONE AS THE SQUAD BENCH (17% HEIGHT ON MOBILE, 16% ON LAPTOPS) */}
+        <div className="absolute bottom-0 left-0 right-0 h-[17%] sm:h-[16%] bg-[#0f0f12]/95 backdrop-blur-md border-t border-white/10 flex flex-col justify-start p-1.5 sm:p-2.5 z-40">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-0.5 sm:gap-1.5 mb-1.5 select-none shrink-0">
+            <span className="text-[8px] sm:text-[9.5px] font-black text-gray-400 tracking-wider uppercase flex items-center gap-1 select-none">
+              👥 {lang === "id" ? "Bangku Cadangan (Dugout)" : "Squad Bench (Dugout)"}
             </span>
-            <span className="text-[8px] text-gray-500 italic">
-              Seret pemain ke atas untuk memasukkannya ke lapangan
+            <span className="text-gray-500 italic text-[7.2px] sm:text-[8px] leading-none shrink-0">
+              {lang === "id" ? "Seret pemain ke atas untuk bermain" : "Drag players up onto field to play"}
             </span>
           </div>
 
@@ -1151,8 +1238,44 @@ export default function Pitch({
                         gap: `${itemGap}px`,
                         borderRadius: `${scale > 0.82 ? 12 : 8}px`,
                       }}
-                      className="flex items-center bg-white/5 hover:bg-white/10 border border-white/5 shrink-0 cursor-grab active:cursor-grabbing hover:border-blue-500/50 transition-all select-none"
+                      className="group relative flex items-center bg-white/5 hover:bg-white/10 border border-white/5 shrink-0 cursor-grab active:cursor-grabbing hover:border-blue-500/50 transition-all select-none"
                     >
+                      {/* Floating Mini Stats HUD for Bench on Hover */}
+                      <div className="absolute bottom-[115%] left-[50%] -translate-x-[50%] z-50 bg-[#0f0f12]/95 border border-white/10 p-2 rounded-xl shadow-2xl opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex flex-col gap-1 select-none backdrop-blur-md">
+                        <div className="text-[8px] font-black uppercase text-indigo-400 tracking-wider mb-1 text-center border-b border-white/5 pb-1 flex justify-between items-center px-1">
+                          <span>Kemampuan</span>
+                          <span className="text-emerald-400 font-extrabold font-mono">
+                            OVR {Math.round(((sub.stats?.speed ?? (sub.role === "FWD" ? 85 : sub.role === "MID" ? 78 : sub.role === "DEF" ? 72 : 65)) +
+                              (sub.stats?.stamina ?? (sub.role === "MID" ? 85 : sub.role === "DEF" ? 80 : sub.role === "FWD" ? 75 : 70)) +
+                              (sub.stats?.passing ?? (sub.role === "MID" ? 84 : sub.role === "FWD" ? 72 : sub.role === "DEF" ? 68 : 55)) +
+                              (sub.stats?.dribbling ?? (sub.role === "FWD" ? 84 : sub.role === "MID" ? 78 : sub.role === "DEF" ? 60 : 30)) +
+                              (sub.stats?.defending ?? (sub.role === "DEF" ? 86 : sub.role === "GK" ? 80 : sub.role === "MID" ? 70 : 35))) / 5)}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-0.5 text-[8px] font-sans text-center">
+                          <div className="flex flex-col items-center">
+                            <span className="text-gray-400 font-bold">SPD</span>
+                            <span className="font-extrabold text-blue-400">{sub.stats?.speed ?? (sub.role === "FWD" ? 85 : sub.role === "MID" ? 78 : sub.role === "DEF" ? 72 : 65)}</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <span className="text-gray-400 font-bold">STM</span>
+                            <span className="font-extrabold text-emerald-400">{sub.stats?.stamina ?? (sub.role === "MID" ? 85 : sub.role === "DEF" ? 80 : sub.role === "FWD" ? 75 : 70)}</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <span className="text-gray-400 font-bold">PAS</span>
+                            <span className="font-extrabold text-amber-400">{sub.stats?.passing ?? (sub.role === "MID" ? 84 : sub.role === "FWD" ? 72 : sub.role === "DEF" ? 68 : 55)}</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <span className="text-gray-400 font-bold">DRI</span>
+                            <span className="font-extrabold text-pink-400">{sub.stats?.dribbling ?? (sub.role === "FWD" ? 84 : sub.role === "MID" ? 78 : sub.role === "DEF" ? 60 : 30)}</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <span className="text-gray-400 font-bold">DEF</span>
+                            <span className="font-extrabold text-purple-400">{sub.stats?.defending ?? (sub.role === "DEF" ? 86 : sub.role === "GK" ? 80 : sub.role === "MID" ? 70 : 35)}</span>
+                          </div>
+                        </div>
+                      </div>
+
                       {sub.photo ? (
                         <img
                           src={sub.photo}

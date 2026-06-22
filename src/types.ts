@@ -7,6 +7,13 @@ export interface Player {
   y: number; // 0-100 percentage
   isStarting: boolean;
   photo: string | null;
+  stats?: {
+    speed: number;
+    stamina: number;
+    passing: number;
+    defending: number;
+    dribbling: number;
+  };
 }
 
 export interface TacticalItem {
