@@ -6,6 +6,8 @@ import AICoach from "./components/AICoach";
 import AIFormationImageGenerator from "./components/AIFormationImageGenerator";
 import AdSlotManager from "./components/AdSlotManager";
 import AnimationTimeline from "./components/AnimationTimeline";
+import TacticalDrills from "./components/TacticalDrills";
+import { TacticalDrill } from "./data/tacticalDrills";
 import PlayerEditorModal from "./components/PlayerEditorModal";
 import SquadImport from "./components/SquadImport";
 import BroadcastTV from "./components/BroadcastTV";
@@ -23,6 +25,7 @@ import {
   RotateCcw,
   Palette,
   LayoutGrid,
+  Flame,
   Upload,
   FileSpreadsheet,
   Globe,
@@ -72,6 +75,8 @@ const TRANSLATIONS = {
     brushColor: "Warna coretan",
     brushThickness: "Tingkat ketebalan",
     tacticalGrid: "Grid Taktis",
+    heatmapTitle: "Peta Panas Taktis",
+    heatmapDesc: "Visualisasi Heatmap",
     show: "Tampil",
     hide: "Sembunyi",
     control: "Metode Kontrol",
@@ -123,6 +128,8 @@ const TRANSLATIONS = {
     brushColor: "Brush color",
     brushThickness: "Stroke thickness",
     tacticalGrid: "Tactical Grid Overlay",
+    heatmapTitle: "Tactical Heatmap",
+    heatmapDesc: "Heatmap Visualization",
     show: "Show",
     hide: "Hide",
     control: "Control Mode",
@@ -452,6 +459,7 @@ export default function App() {
   // Line drawings brush strokes records
   const [drawHistory, setDrawHistory] = useState<DrawingStroke[]>([]);
   const [showTacticalGrid, setShowTacticalGrid] = useState<boolean>(false);
+  const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
 
   // Sequential Playbook Animation Steps
   const [frames, setFrames] = useState<AnimationFrame[]>([
@@ -469,7 +477,7 @@ export default function App() {
   // Detailed Movement Simulation States
   const [showMovementTrails, setShowMovementTrails] = useState(true);
   const [playSpeed, setPlaySpeed] = useState<"slow" | "normal" | "fast" | "superfast">("normal");
-  const [transitionType, setTransitionType] = useState<"spring" | "linear" | "stealth">("spring");
+  const [transitionType, setTransitionType] = useState<"spring" | "linear" | "stealth" | "ease-in-out" | "elastic">("spring");
 
   // Selected player for Modal Editor
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
@@ -685,6 +693,38 @@ export default function App() {
 
     // Apply first frame positions immediately on load
     const firstFrame = parsedFrames[0];
+    if (firstFrame) {
+      setPlayers((prev) =>
+        prev.map((player) => {
+          const matched = firstFrame.players.find((p) => p.id === player.id);
+          if (matched) {
+            return { ...player, x: matched.x, y: matched.y, isStarting: true };
+          }
+          return player;
+        })
+      );
+      setItems((prev) =>
+        prev.map((item) => {
+          const matched = firstFrame.items.find((i) => i.id === item.id);
+          if (matched) {
+            return { ...item, x: matched.x, y: matched.y };
+          }
+          return item;
+        })
+      );
+    }
+  };
+
+  const handleLoadTacticalDrill = (drill: TacticalDrill) => {
+    if (drill.sportMode) {
+      setSportMode(drill.sportMode);
+    }
+    
+    setFrames(drill.frames);
+    setActiveFrameIndex(0);
+
+    // Apply first frame positions immediately on load
+    const firstFrame = drill.frames[0];
     if (firstFrame) {
       setPlayers((prev) =>
         prev.map((player) => {
@@ -1238,8 +1278,8 @@ export default function App() {
         <div className="lg:col-span-6 flex flex-col gap-4 items-center h-full">
 
           {/* DIGITAL FIELD SCREEN WITH VERTICAL BALL AND CONE CONTROLS */}
-          <div className="w-full flex flex-col md:flex-row gap-4 items-stretch relative">
-            <div className="flex-1 min-w-0 w-full max-w-[580px] mx-auto relative group/pitch">
+          <div className="w-full flex flex-row gap-2.5 sm:gap-4 items-start justify-center relative">
+            <div className="flex-1 min-w-0 w-full max-w-[580px] relative group/pitch">
               {/* Floating scoreboard overlay for Team Name and Formation at the top-middle of the pitch */}
               <div className="absolute top-2.5 sm:top-4 left-1/2 -translate-x-1/2 z-40 bg-[#0b0c10]/85 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/[0.08] px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)] hover:border-emerald-500/20 hover:bg-[#0b0c10]/95 transition-all duration-300 whitespace-nowrap">
                 <div className="flex items-center gap-1.5 sm:gap-2.5 border-r border-white/10 pr-2 sm:pr-3.5">
@@ -1567,7 +1607,7 @@ export default function App() {
               </div>
 
               {/* Floating thin overlay for Default Formation Selector at the bottom-left inside the pitch */}
-              <div className="absolute bottom-[18%] sm:bottom-[18.5%] left-2.5 sm:left-4 z-45">
+              <div className="absolute bottom-[29%] sm:bottom-[18.5%] left-2.5 sm:left-4 z-45">
                 <div className="relative group/formation">
                   <button
                     onClick={() => setShowFormationMenu(!showFormationMenu)}
@@ -1678,409 +1718,432 @@ export default function App() {
                 playSpeed={playSpeed}
                 transitionType={transitionType}
                 showTacticalGrid={showTacticalGrid}
+                showHeatmap={showHeatmap}
                 lang={lang}
               />
 
-              {/* Floating thin overlay for Tactical Tools Sidebar at the right edge */}
-              <div className="absolute right-2 sm:right-3 md:-right-16 md:top-1 z-45 top-14 sm:top-18 flex flex-col gap-1.5 sm:gap-2.5 p-1.5 sm:p-2.5 bg-[#0b0c10]/75 hover:bg-[#0b0c10]/90 backdrop-blur-md rounded-2xl border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.5)] select-none items-center justify-center shrink-0 hover:border-white/15 transition-all duration-300">
-                
-                {/* Active Tool select (Mode Geser/Drag) */}
-                <div className="relative group">
+              {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
+              <div className="absolute bottom-[29%] sm:bottom-[18.5%] right-2.5 sm:right-4 z-45">
+                <SquadImport onImport={handleImportSquad} lang={lang} />
+              </div>
+            </div>
+
+            {/* Tactical Tools Sidebar (Always vertical at the side of the field) */}
+            <div className="flex flex-col gap-1.5 sm:gap-2 p-1.5 bg-[#0b0c10]/75 hover:bg-[#0b0c10]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.5)] select-none items-center justify-center shrink-0 hover:border-white/15 transition-all duration-300 z-45">
+              
+              {/* Active Tool select (Mode Geser/Drag) */}
+              <div className="relative group shrink-0">
+                <button
+                  onClick={() => setActiveTool("select")}
+                  className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                    activeTool === "select"
+                      ? "bg-blue-600 text-white border-blue-400/30 shadow-[0_0_12px_rgba(37,99,235,0.35)]"
+                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <Move className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
+                </button>
+                {/* Floating Tooltip Help sliding leftwards securely */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.control}</span>
+                  <span className="text-white font-black">{lang === "id" ? "Mode Geser & Susun (Drag)" : "Drag & Drop Mode"}</span>
+                </div>
+              </div>
+
+              {/* Active Tool draw (Mode Coret/Draw) dengan Overlay & Dropdown Warna Pop-up */}
+              <div className="relative group/draw shrink-0">
+                <div className="flex items-center shrink-0">
                   <button
-                    onClick={() => setActiveTool("select")}
-                    className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border ${
-                      activeTool === "select"
+                    onClick={() => {
+                      if (activeTool !== "draw") {
+                        setActiveTool("draw");
+                        setShowDrawConfig(true);
+                      } else {
+                        setShowDrawConfig(!showDrawConfig);
+                      }
+                    }}
+                    className={`relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                      activeTool === "draw"
                         ? "bg-blue-600 text-white border-blue-400/30 shadow-[0_0_12px_rgba(37,99,235,0.35)]"
                         : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    <Move className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                    <PenTool className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
+                    {/* Active Color dot indicator in the corner of draw button */}
+                    <span 
+                      className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full border border-black/45 shadow-sm"
+                      style={{ backgroundColor: brushColor }}
+                    />
                   </button>
-                  {/* Floating Tooltip Help sliding leftwards securely */}
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.control}</span>
-                    <span className="text-white font-black">{lang === "id" ? "Mode Geser & Susun (Drag)" : "Drag & Drop Mode"}</span>
-                  </div>
                 </div>
 
-                {/* Active Tool draw (Mode Coret/Draw) dengan Overlay & Dropdown Warna Pop-up */}
-                <div className="relative group/draw">
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => {
-                        if (activeTool !== "draw") {
-                          setActiveTool("draw");
-                          setShowDrawConfig(true);
-                        } else {
-                          setShowDrawConfig(!showDrawConfig);
-                        }
-                      }}
-                      className={`relative w-9 h-9 sm:w-11 sm:h-11 rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border ${
-                        activeTool === "draw"
-                          ? "bg-blue-600 text-white border-blue-400/30 shadow-[0_0_12px_rgba(37,99,235,0.35)]"
-                          : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      <PenTool className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-                      {/* Active Color dot indicator in the corner of draw button */}
-                      <span 
-                        className="absolute bottom-1 right-1 w-2 h-2 rounded-full border border-black/45 shadow-sm"
-                        style={{ backgroundColor: brushColor }}
-                      />
-                    </button>
+                {/* Floating Tooltip Help (when config overlay is closed) */}
+                {(!showDrawConfig || activeTool !== "draw") && (
+                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover/draw:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.control}</span>
+                    <span className="text-white font-black">{lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}</span>
                   </div>
+                )}
 
-                  {/* Floating Tooltip Help (when config overlay is closed) */}
-                  {(!showDrawConfig || activeTool !== "draw") && (
-                    <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover/draw:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                      <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.control}</span>
-                      <span className="text-white font-black">{lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}</span>
+                {/* GORGEOUS SKETCH SETUP OVERLAY (Anchored next to Draw Button) */}
+                {activeTool === "draw" && showDrawConfig && (
+                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 z-50 w-52 p-3 sm:p-4 bg-[#0d0e14]/98 border border-white/[0.12] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-xl animate-fadeIn flex flex-col gap-3 text-left">
+                    
+                    {/* Sub-header inside overlay with minimize toggle control */}
+                    <div className="flex justify-between items-center pb-1.5 border-b border-white/[0.06]">
+                      <span className="text-[9.5px] text-gray-300 font-extrabold uppercase tracking-widest flex items-center gap-1.5 matches-draft">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                        {lang === "id" ? "CORETAN TAKTIS" : "TACTICAL INK"}
+                      </span>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDrawConfig(false);
+                        }}
+                        className="text-[9px] font-bold text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 w-4.5 h-4.5 rounded flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        ✕
+                      </button>
                     </div>
-                  )}
 
-                  {/* GORGEOUS SKETCH SETUP OVERLAY (Anchored next to Draw Button) */}
-                  {activeTool === "draw" && showDrawConfig && (
-                    <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 z-50 w-52 p-3 sm:p-4 bg-[#0d0e14]/98 border border-white/[0.12] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-xl animate-fadeIn flex flex-col gap-3 text-left">
-                      
-                      {/* Sub-header inside overlay with minimize toggle control */}
-                      <div className="flex justify-between items-center pb-1.5 border-b border-white/[0.06]">
-                        <span className="text-[9.5px] text-gray-300 font-extrabold uppercase tracking-widest flex items-center gap-1.5 matches-draft">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                          {lang === "id" ? "CORETAN TAKTIS" : "TACTICAL INK"}
-                        </span>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowDrawConfig(false);
-                          }}
-                          className="text-[9px] font-bold text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 w-4.5 h-4.5 rounded flex items-center justify-center transition-colors cursor-pointer"
+                    {/* 1. GAYA CORETAN (Logo buttons choices) */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
+                        {lang === "id" ? "PILIHAN GAYA" : "LINE STYLE"}
+                      </span>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => setBrushStyle("solid")}
+                          className={`flex-1 py-1 px-1.5 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
+                            brushStyle === "solid"
+                              ? "bg-blue-600/25 border-blue-500/70 text-blue-300 shadow-inner"
+                              : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                          }`}
+                          title={lang === "id" ? "Garis Lurus" : "Straight Line"}
                         >
-                          ✕
+                          <Slash className="w-3 h-3 text-blue-400" />
+                          <span>{lang === "id" ? "Lurus" : "Line"}</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => setBrushStyle("arrow")}
+                          className={`flex-1 py-1 px-1.5 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
+                            brushStyle === "arrow"
+                              ? "bg-blue-600/25 border-blue-500/70 text-blue-300 shadow-inner"
+                              : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                          }`}
+                          title={lang === "id" ? "Garis Panah" : "Arrow Line"}
+                        >
+                          <ArrowUpRight className="w-3.5 h-3.5 text-blue-400" />
+                          <span>{lang === "id" ? "Panah" : "Arrow"}</span>
                         </button>
                       </div>
+                    </div>
 
-                      {/* 1. GAYA CORETAN (Logo buttons choices) */}
-                      <div className="flex flex-col gap-1">
+                    {/* 2. WARNA CORETAN (Popup palette / trigger) */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between items-center">
                         <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
-                          {lang === "id" ? "PILIHAN GAYA" : "LINE STYLE"}
+                          {lang === "id" ? "WARNA CORET" : "DRAW COLOR"}
                         </span>
-                        <div className="flex gap-1.5">
-                          <button
-                            onClick={() => setBrushStyle("solid")}
-                            className={`flex-1 py-1 px-1.5 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
-                              brushStyle === "solid"
-                                ? "bg-blue-600/25 border-blue-500/70 text-blue-300 shadow-inner"
-                                : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-                            }`}
-                            title={lang === "id" ? "Garis Lurus" : "Straight Line"}
-                          >
-                            <Slash className="w-3 h-3 text-blue-400" />
-                            <span>{lang === "id" ? "Lurus" : "Line"}</span>
-                          </button>
-                          
-                          <button
-                            onClick={() => setBrushStyle("arrow")}
-                            className={`flex-1 py-1 px-1.5 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
-                              brushStyle === "arrow"
-                                ? "bg-blue-600/25 border-blue-500/70 text-blue-300 shadow-inner"
-                                : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-                            }`}
-                            title={lang === "id" ? "Garis Panah" : "Arrow Line"}
-                          >
-                            <ArrowUpRight className="w-3.5 h-3.5 text-blue-400" />
-                            <span>{lang === "id" ? "Panah" : "Arrow"}</span>
-                          </button>
-                        </div>
+                        <span className="text-[8.5px] font-mono font-bold text-gray-300 uppercase shrink-0">{brushColor}</span>
                       </div>
 
-                      {/* 2. WARNA CORETAN (Popup palette / trigger) */}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
-                            {lang === "id" ? "WARNA CORET" : "DRAW COLOR"}
-                          </span>
-                          <span className="text-[8.5px] font-mono font-bold text-gray-300 uppercase shrink-0">{brushColor}</span>
+                      <div className="relative">
+                        {/* Main Trigger as custom selectable active palette */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setShowColorPickerPopup(!showColorPickerPopup)}
+                            className="w-full h-8 px-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between active:scale-95 cursor-pointer text-[10px] transition-all"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-inner flex shrink-0" style={{ backgroundColor: brushColor }} />
+                              <span className="text-gray-300 font-bold">{lang === "id" ? "Ubah Warna" : "Select Color"}</span>
+                            </div>
+                            <Palette className="w-3.5 h-3.5 text-blue-400" />
+                          </button>
                         </div>
 
-                        <div className="relative">
-                          {/* Main Trigger as custom selectable active palette */}
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => setShowColorPickerPopup(!showColorPickerPopup)}
-                              className="w-full h-8 px-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between active:scale-95 cursor-pointer text-[10px] transition-all"
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <span className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-inner flex shrink-0" style={{ backgroundColor: brushColor }} />
-                                <span className="text-gray-300 font-bold">{lang === "id" ? "Ubah Warna" : "Select Color"}</span>
-                              </div>
-                              <Palette className="w-3.5 h-3.5 text-blue-400" />
-                            </button>
-                          </div>
-
-                          {/* Animated Dropdown Pop-up Palette */}
-                          {showColorPickerPopup && (
-                            <div className="absolute right-0 bottom-full mb-1.5 w-max max-w-[180px] z-55 p-2 bg-[#08090d]/95 border border-white/15 rounded-xl shadow-2xl flex flex-col gap-2 backdrop-blur-md animate-fadeIn">
-                              {/* Standard High Contrast Palette Presets Grid */}
-                              <div className="grid grid-cols-5 gap-1.5 justify-items-center">
-                                {[
-                                  "#ffffff", // White
-                                  "#ef4444", // Red
-                                  "#facc15", // Neon Yellow
-                                  "#22c55e", // Neon Green
-                                  "#3b82f6", // Neon Blue
-                                  "#fb923c", // Neon Orange
-                                  "#a855f7", // Violet Purple
-                                  "#2dd4bf", // Teal
-                                  "#ec4899", // Pink
-                                  "#000000"  // Black
-                                ].map((colorHex) => {
-                                  const isSelected = brushColor.toLowerCase() === colorHex.toLowerCase();
-                                  return (
-                                    <button
-                                      key={colorHex}
-                                      onClick={() => {
-                                        setBrushColor(colorHex);
-                                        setShowColorPickerPopup(false);
-                                      }}
-                                      style={{ backgroundColor: colorHex }}
-                                      className={`w-5 h-5 rounded-full border cursor-pointer hover:scale-110 active:scale-95 transition-all ${
-                                        isSelected 
-                                          ? "border-white ring-2 ring-blue-500/50 scale-105" 
-                                          : colorHex === "#000000" ? "border-white/25" : "border-transparent"
-                                      }`}
-                                      title={colorHex}
-                                    />
-                                  );
-                                })}
-                              </div>
-
-                              {/* Custom Infinite Palette Picker Option */}
-                              <div className="border-t border-white/[0.08] pt-1.5 flex items-center justify-between">
-                                <span className="text-[8px] text-gray-500 font-bold uppercase">{lang === "id" ? "Kustom" : "Custom"}</span>
-                                <div className="relative w-5 h-5 rounded-md bg-white/5 hover:bg-white/10 border border-white/15 cursor-pointer flex items-center justify-center transition-all overflow-hidden shrink-0">
-                                  <Palette className="w-3 h-3 text-gray-300" />
-                                  <input
-                                    type="color"
-                                    value={brushColor}
-                                    onChange={(e) => setBrushColor(e.target.value)}
-                                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                        {/* Animated Dropdown Pop-up Palette */}
+                        {showColorPickerPopup && (
+                          <div className="absolute right-0 bottom-full mb-1.5 w-max max-w-[180px] z-55 p-2 bg-[#08090d]/95 border border-white/15 rounded-xl shadow-2xl flex flex-col gap-2 backdrop-blur-md animate-fadeIn">
+                            {/* Standard High Contrast Palette Presets Grid */}
+                            <div className="grid grid-cols-5 gap-1.5 justify-items-center">
+                              {[
+                                "#ffffff", // White
+                                "#ef4444", // Red
+                                "#facc15", // Neon Yellow
+                                "#22c55e", // Neon Green
+                                "#3b82f6", // Neon Blue
+                                "#fb923c", // Neon Orange
+                                "#a855f7", // Violet Purple
+                                "#2dd4bf", // Teal
+                                "#ec4899", // Pink
+                                "#000000"  // Black
+                              ].map((colorHex) => {
+                                const isSelected = brushColor.toLowerCase() === colorHex.toLowerCase();
+                                return (
+                                  <button
+                                    key={colorHex}
+                                    onClick={() => {
+                                      setBrushColor(colorHex);
+                                      setShowColorPickerPopup(false);
+                                    }}
+                                    style={{ backgroundColor: colorHex }}
+                                    className={`w-5 h-5 rounded-full border cursor-pointer hover:scale-110 active:scale-95 transition-all ${
+                                      isSelected 
+                                        ? "border-white ring-2 ring-blue-500/50 scale-105" 
+                                        : colorHex === "#000000" ? "border-white/25" : "border-transparent"
+                                    }`}
+                                    title={colorHex}
                                   />
-                                </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Custom Infinite Palette Picker Option */}
+                            <div className="border-t border-white/[0.08] pt-1.5 flex items-center justify-between">
+                              <span className="text-[8px] text-gray-500 font-bold uppercase">{lang === "id" ? "Kustom" : "Custom"}</span>
+                              <div className="relative w-5 h-5 rounded-md bg-white/5 hover:bg-white/10 border border-white/15 cursor-pointer flex items-center justify-center transition-all overflow-hidden shrink-0">
+                                <Palette className="w-3.5 h-3.5 text-gray-300" />
+                                <input
+                                  type="color"
+                                  value={brushColor}
+                                  onChange={(e) => setBrushColor(e.target.value)}
+                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                                />
                               </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* 3. KETEBALAN CORETAN */}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex justify-between items-center text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
-                          <span>{lang === "id" ? "UKURAN CORET" : "BRUSH SIZE"}</span>
-                          <span className="text-white font-mono text-[9px]">{brushSize}px</span>
-                        </div>
-                        <input
-                          type="range"
-                          min={2}
-                          max={10}
-                          value={brushSize}
-                          onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                          className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                        />
-                      </div>
-
-                      {/* 4. ACTIONS (Undo & Clear) inside pop-up */}
-                      <div className="flex gap-1.5 border-t border-white/[0.06] pt-2">
-                        <button
-                          onClick={handleUndoDraw}
-                          disabled={drawHistory.length === 0}
-                          className="flex-1 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 disabled:opacity-40 text-[9px] font-extrabold uppercase flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
-                        >
-                          <Undo className="w-2.5 h-2.5" />
-                          <span>Undo</span>
-                        </button>
-                        <button
-                          onClick={() => setDrawHistory([])}
-                          disabled={drawHistory.length === 0}
-                          className="flex-1 py-1 rounded-lg bg-red-950/25 hover:bg-red-950/45 border border-red-900/30 text-red-300 disabled:opacity-40 text-[9px] font-extrabold uppercase flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
-                        >
-                          <Trash2 className="w-2.5 h-2.5" />
-                          <span>Clear</span>
-                        </button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Mini subtle Divider */}
-                <div className="w-6 sm:w-8 h-[1px] bg-white/[0.08] my-0.5 sm:my-1 shrink-0" />
-
-                {/* Add Ball Button */}
-                <div className="relative group">
-                  <button
-                    onClick={() => handleAddTacticalItem("ball")}
-                    className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white/5 hover:bg-emerald-600/20 text-white hover:text-emerald-400 border border-white/10 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md"
-                  >
-                    <span className="text-[15px] sm:text-[19px] hover:scale-110 transition-transform">⚽</span>
-                  </button>
-                  {/* Floating Tooltip Help */}
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.elements}</span>
-                    <span className="text-white font-black">{lang === "id" ? "Tambah Bola Baru" : "Spawn New Ball"}</span>
-                  </div>
-                </div>
-
-                {/* Add Cone Button */}
-                <div className="relative group">
-                  <button
-                    onClick={() => handleAddTacticalItem("cone")}
-                    className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white/5 hover:bg-orange-650/20 text-white hover:text-orange-400 border border-white/10 hover:border-orange-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md"
-                  >
-                    <div className="relative flex flex-col items-center">
-                      <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 bg-gradient-to-t from-orange-600 via-orange-500 to-amber-300 rounded-t-full border-t border-amber-200 flex items-center justify-center shadow-lg">
-                        <div className="w-1.5 h-0.5 sm:w-2 sm:h-0.5 bg-white/50 rounded-full mb-0.5"></div>
+                    {/* 3. KETEBALAN CORETAN */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between items-center text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
+                        <span>{lang === "id" ? "UKURAN CORET" : "BRUSH SIZE"}</span>
+                        <span className="text-white font-mono text-[9px]">{brushSize}px</span>
                       </div>
-                      <div className="w-4.5 h-0.5 sm:w-5.5 sm:h-1 bg-orange-700 rounded-full -mt-0.5 shadow-md"></div>
-                    </div>
-                  </button>
-                  {/* Floating Tooltip Help */}
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.elements}</span>
-                    <span className="text-white font-black">{lang === "id" ? "Tambah Cone Latihan" : "Spawn Practice Cone"}</span>
-                  </div>
-                </div>
-
-                {/* Mini subtle Divider */}
-                <div className="w-6 sm:w-8 h-[1px] bg-white/[0.08] my-0.5 sm:my-1 shrink-0" />
-
-                {/* Jersey Utama */}
-                <div className="relative group">
-                  <div className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden">
-                    <div className="relative flex items-center justify-center">
-                      <Shirt className="w-4 h-4 sm:w-5 sm:h-5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: primaryColor, color: primaryColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
                       <input
-                        type="color"
-                        value={primaryColor}
-                        onChange={(e) => setPrimaryColor(e.target.value)}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                        type="range"
+                        min={2}
+                        max={10}
+                        value={brushSize}
+                        onChange={(e) => setBrushSize(parseInt(e.target.value))}
+                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
                       />
                     </div>
-                  </div>
-                  {/* Floating Tooltip Help */}
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.uniform}</span>
-                    <span className="text-white font-black">{lang === "id" ? "Jersey Tim Utama" : "Primary Kit Color"}</span>
-                  </div>
-                </div>
 
-                {/* Jersey Keeper */}
-                <div className="relative group">
-                  <div className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden">
-                    <div className="relative flex items-center justify-center">
-                      <Shirt className="w-4 h-4 sm:w-5 sm:h-5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: gkColor, color: gkColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
-                      <input
-                        type="color"
-                        value={gkColor}
-                        onChange={(e) => setGkColor(e.target.value)}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
-                      />
+                    {/* 4. ACTIONS (Undo & Clear) inside pop-up */}
+                    <div className="flex gap-1.5 border-t border-white/[0.06] pt-2">
+                      <button
+                        onClick={handleUndoDraw}
+                        disabled={drawHistory.length === 0}
+                        className="flex-1 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 disabled:opacity-40 text-[9px] font-extrabold uppercase flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                      >
+                        <Undo className="w-2.5 h-2.5" />
+                        <span>Undo</span>
+                      </button>
+                      <button
+                        onClick={() => setDrawHistory([])}
+                        disabled={drawHistory.length === 0}
+                        className="flex-1 py-1 rounded-lg bg-red-950/25 hover:bg-red-950/45 border border-red-900/30 text-red-300 disabled:opacity-40 text-[9px] font-extrabold uppercase flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" />
+                        <span>Clear</span>
+                      </button>
                     </div>
                   </div>
-                  {/* Floating Tooltip Help */}
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.uniform}</span>
-                    <span className="text-white font-black">{lang === "id" ? "Jersey Kiper (GK)" : "Goalkeeper Kit Color"}</span>
-                  </div>
-                </div>
-
-                {/* Warna Nomor Punggung */}
-                <div className="relative group">
-                  <div className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden">
-                    <div className="relative flex items-center justify-center w-5 h-5">
-                      <span className="text-[10px] sm:text-[12px] font-black tracking-tighter transition-transform group-hover:scale-115 duration-205" style={{ color: numberColor }}>10</span>
-                      <input
-                        type="color"
-                        value={numberColor}
-                        onChange={(e) => setNumberColor(e.target.value)}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
-                      />
-                    </div>
-                  </div>
-                  {/* Floating Tooltip Help */}
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.uniform}</span>
-                    <span className="text-white font-black">{lang === "id" ? "Warna Nomor" : "Numbers Color"}</span>
-                  </div>
-                </div>
-
-                {/* Mini subtle Divider */}
-                <div className="w-6 sm:w-8 h-[1px] bg-white/[0.08] my-0.5 sm:my-1 shrink-0" />
-
-                {/* Tactical Grid Overlay Toggle Button */}
-                <div className="relative group">
-                  <button
-                    onClick={() => setShowTacticalGrid(!showTacticalGrid)}
-                    className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border ${
-                      showTacticalGrid
-                        ? "bg-indigo-600 text-white border-indigo-400/30 shadow-[0_0_12px_rgba(99,102,241,0.35)]"
-                        : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
-                    }`}
-                  >
-                    <LayoutGrid className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-                  </button>
-                  {/* Floating Tooltip Help */}
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.tacticalGrid}</span>
-                    <span className="text-white font-black">{lang === "id" ? "Grid Taktis" : "Tactical Grid"}</span>
-                  </div>
-                </div>
-
-                {/* Mini subtle Divider */}
-                <div className="w-6 sm:w-8 h-[1px] bg-white/[0.08] my-0.5 sm:my-1 shrink-0" />
-
-                {/* Save Setup Button */}
-                <div className="relative group" id="btn-save-playbook-wrapper">
-                  <button
-                    id="btn-save-playbook-trigger"
-                    onClick={() => {
-                      setSaveLoadMode("save");
-                      setSaveLoadModalOpen(true);
-                    }}
-                    className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-emerald-600/20 hover:text-emerald-400 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md"
-                  >
-                    <Save className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-                  </button>
-                  {/* Floating Tooltip Help */}
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-emerald-400 uppercase">{lang === "id" ? "PENYIMPANAN" : "SAVE STATE"}</span>
-                    <span className="text-white font-black">{lang === "id" ? "Simpan Formasi & Skuad" : "Save Pitch & Squad"}</span>
-                  </div>
-                </div>
-
-                {/* Load Setup Button */}
-                <div className="relative group" id="btn-load-playbook-wrapper">
-                  <button
-                    id="btn-load-playbook-trigger"
-                    onClick={() => {
-                      setSaveLoadMode("load");
-                      setSaveLoadModalOpen(true);
-                    }}
-                    className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-blue-600/20 hover:text-blue-400 hover:border-blue-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md"
-                  >
-                    <FolderOpen className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-                  </button>
-                  {/* Floating Tooltip Help */}
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 md:mr-3 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-blue-400 uppercase">{lang === "id" ? "MEMORI" : "LOAD BOARD"}</span>
-                    <span className="text-white font-black">{lang === "id" ? "Muat Formasi Tersimpan" : "Load Saved Playbook"}</span>
-                  </div>
-                </div>
-
+                )}
               </div>
 
-              {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
-              <div className="absolute bottom-[18%] sm:bottom-[18.5%] right-2.5 sm:right-4 z-45">
-                <SquadImport onImport={handleImportSquad} lang={lang} />
+              {/* Responsive separation line (divider) */}
+              <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
+
+              {/* Add Ball Button */}
+              <div className="relative group shrink-0">
+                <button
+                  onClick={() => handleAddTacticalItem("ball")}
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-emerald-600/20 text-white hover:text-emerald-400 border border-white/10 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
+                >
+                  <span className="text-[12px] sm:text-[14px] md:text-[19px] hover:scale-110 transition-transform">⚽</span>
+                </button>
+                {/* Floating Tooltip Help */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.elements}</span>
+                  <span className="text-white font-black">{lang === "id" ? "Tambah Bola Baru" : "Spawn New Ball"}</span>
+                </div>
               </div>
+
+              {/* Add Cone Button */}
+              <div className="relative group shrink-0">
+                <button
+                  onClick={() => handleAddTacticalItem("cone")}
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-orange-650/20 text-white hover:text-orange-400 border border-white/10 hover:border-orange-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
+                >
+                  <div className="relative flex flex-col items-center">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 bg-gradient-to-t from-orange-600 via-orange-500 to-amber-300 rounded-t-full border-t border-amber-200 flex items-center justify-center shadow-lg">
+                      <div className="w-1 h-0.5 md:w-2 md:h-0.5 bg-white/50 rounded-full mb-0.5"></div>
+                    </div>
+                    <div className="w-3.5 h-0.5 sm:w-4 sm:h-0.5 md:w-5.5 md:h-1 bg-orange-700 rounded-full -mt-0.5 shadow-md"></div>
+                  </div>
+                </button>
+                {/* Floating Tooltip Help */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.elements}</span>
+                  <span className="text-white font-black">{lang === "id" ? "Tambah Cone Latihan" : "Spawn Practice Cone"}</span>
+                </div>
+              </div>
+
+              {/* Responsive separation line (divider) */}
+              <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
+
+              {/* Jersey Utama */}
+              <div className="relative group shrink-0">
+                <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
+                  <div className="relative flex items-center justify-center">
+                    <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: primaryColor, color: primaryColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
+                    <input
+                      type="color"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                    />
+                  </div>
+                </div>
+                {/* Floating Tooltip Help */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.uniform}</span>
+                  <span className="text-white font-black">{lang === "id" ? "Jersey Tim Utama" : "Primary Kit Color"}</span>
+                </div>
+              </div>
+
+              {/* Jersey Keeper */}
+              <div className="relative group shrink-0">
+                <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
+                  <div className="relative flex items-center justify-center">
+                    <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: gkColor, color: gkColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
+                    <input
+                      type="color"
+                      value={gkColor}
+                      onChange={(e) => setGkColor(e.target.value)}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                    />
+                  </div>
+                </div>
+                {/* Floating Tooltip Help */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.uniform}</span>
+                  <span className="text-white font-black">{lang === "id" ? "Jersey Kiper (GK)" : "Goalkeeper Kit Color"}</span>
+                </div>
+              </div>
+
+              {/* Warna Nomor Punggung */}
+              <div className="relative group shrink-0">
+                <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
+                  <div className="relative flex items-center justify-center w-5 h-5">
+                    <span className="text-[9px] md:text-[12px] font-black tracking-tighter transition-transform group-hover:scale-115 duration-205" style={{ color: numberColor }}>10</span>
+                    <input
+                      type="color"
+                      value={numberColor}
+                      onChange={(e) => setNumberColor(e.target.value)}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                    />
+                  </div>
+                </div>
+                {/* Floating Tooltip Help */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.uniform}</span>
+                  <span className="text-white font-black">{lang === "id" ? "Warna Nomor" : "Numbers Color"}</span>
+                </div>
+              </div>
+
+              {/* Responsive separation line (divider) */}
+              <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
+
+              {/* Tactical Grid Overlay Toggle Button */}
+              <div className="relative group shrink-0">
+                <button
+                  onClick={() => setShowTacticalGrid(!showTacticalGrid)}
+                  className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                    showTacticalGrid
+                      ? "bg-indigo-600 text-white border-indigo-400/30 shadow-[0_0_12px_rgba(99,102,241,0.35)]"
+                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
+                </button>
+                {/* Floating Tooltip Help */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.tacticalGrid}</span>
+                  <span className="text-white font-black">{lang === "id" ? "Grid Taktis" : "Tactical Grid"}</span>
+                </div>
+              </div>
+
+              {/* Responsive separation line (divider) */}
+              <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
+
+              {/* Tactical Heatmap Overlay Toggle Button */}
+              <div className="relative group shrink-0">
+                <button
+                  onClick={() => setShowHeatmap(!showHeatmap)}
+                  className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                    showHeatmap
+                      ? "bg-red-600 text-white border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.45)]"
+                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <Flame className={`w-3.5 h-3.5 md:w-4.5 md:h-4.5 ${showHeatmap ? 'animate-pulse text-orange-200' : ''}`} />
+                </button>
+                {/* Floating Tooltip Help */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.heatmapTitle}</span>
+                  <span className="text-white font-black">{t.heatmapDesc}</span>
+                </div>
+              </div>
+
+              {/* Responsive separation line (divider) */}
+              <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
+
+              {/* Save Playbook Button */}
+              <div className="relative group shrink-0" id="btn-save-playbook-wrapper">
+                <button
+                  id="btn-save-playbook-trigger"
+                  onClick={() => {
+                    setSaveLoadMode("save");
+                    setSaveLoadModalOpen(true);
+                  }}
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-emerald-600/20 hover:text-emerald-400 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
+                >
+                  <Save className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
+                </button>
+                {/* Floating Tooltip Help */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-emerald-400 uppercase">{lang === "id" ? "PENYIMPANAN" : "SAVE STATE"}</span>
+                  <span className="text-white font-black">{lang === "id" ? "Simpan Formasi & Skuad" : "Save Pitch & Squad"}</span>
+                </div>
+              </div>
+
+              {/* Load Setup Button */}
+              <div className="relative group shrink-0" id="btn-load-playbook-wrapper">
+                <button
+                  id="btn-load-playbook-trigger"
+                  onClick={() => {
+                    setSaveLoadMode("load");
+                    setSaveLoadModalOpen(true);
+                  }}
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-blue-600/20 hover:text-blue-400 hover:border-blue-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
+                </button>
+                {/* Floating Tooltip Help */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-blue-400 uppercase">{lang === "id" ? "MEMORI" : "LOAD BOARD"}</span>
+                  <span className="text-white font-black">{lang === "id" ? "Muat Formasi Tersimpan" : "Load Saved Playbook"}</span>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -2102,6 +2165,12 @@ export default function App() {
             setTransitionType={setTransitionType}
             showMovementTrails={showMovementTrails}
             setShowMovementTrails={setShowMovementTrails}
+            lang={lang}
+          />
+
+          {/* Tactical Drills Menu to load exercises */}
+          <TacticalDrills
+            onLoadDrill={handleLoadTacticalDrill}
             lang={lang}
           />
 

@@ -11,8 +11,8 @@ interface AnimationTimelineProps {
   onSaveCurrentFrameAsNew: () => void;
   playSpeed: "slow" | "normal" | "fast" | "superfast";
   setPlaySpeed: (speed: "slow" | "normal" | "fast" | "superfast") => void;
-  transitionType: "spring" | "linear" | "stealth";
-  setTransitionType: (type: "spring" | "linear" | "stealth") => void;
+  transitionType: "spring" | "linear" | "stealth" | "ease-in-out" | "elastic";
+  setTransitionType: (type: "spring" | "linear" | "stealth" | "ease-in-out" | "elastic") => void;
   showMovementTrails: boolean;
   setShowMovementTrails: (show: boolean) => void;
   lang?: "id" | "en";
@@ -89,6 +89,8 @@ export default function AnimationTimeline({
     modelSpring: lang === "id" ? "Pegas" : "Spring",
     modelLinear: lang === "id" ? "Uniform" : "Linear",
     modelStealth: lang === "id" ? "Stealth" : "Stealth",
+    modelEaseInOut: lang === "id" ? "Perlahan" : "Ease-in-out",
+    modelElastic: lang === "id" ? "Elastis" : "Elastic",
     defaultInstruction: lang === "id" ? "Gerakkan posisi pemain sesuka Anda secara manual, atau klik '+ Keyframe' untuk menambah fasa lanjutan." : "Drag and drop players to manually tweak positions, or click '+ Keyframe' to record a sequential tactical transition phase.",
     btnPause: lang === "id" ? "Jeda Simulasi" : "Pause Simulation",
     btnPlay: lang === "id" ? "Jalankan Playbook" : "Run Playbook simulation"
@@ -216,20 +218,32 @@ export default function AnimationTimeline({
             <label className="text-[9px] font-extrabold uppercase text-gray-400 tracking-wider flex items-center gap-1">
               <Zap className="w-3 h-3 text-amber-400" /> {t.physicalModelLabel}
             </label>
-            <div className="grid grid-cols-3 gap-1">
-              {(["spring", "linear", "stealth"] as const).map((style) => {
-                const label = style === "spring" ? t.modelSpring : style === "linear" ? t.modelLinear : t.modelStealth;
+            <div className="grid grid-cols-5 gap-1">
+              {(["spring", "linear", "stealth", "ease-in-out", "elastic"] as const).map((style) => {
+                const label = 
+                  style === "spring" ? t.modelSpring : 
+                  style === "linear" ? t.modelLinear : 
+                  style === "stealth" ? t.modelStealth :
+                  style === "ease-in-out" ? t.modelEaseInOut : t.modelElastic;
                 const isSelected = transitionType === style;
+
+                let titleDesc = "";
+                if (style === "spring") titleDesc = "Bouncing natural spring physics";
+                else if (style === "linear") titleDesc = "Uniform constant velocity linear movement";
+                else if (style === "stealth") titleDesc = "Tactical anticipation ease acceleration";
+                else if (style === "ease-in-out") titleDesc = "Smooth quadratic acceleration and deceleration";
+                else if (style === "elastic") titleDesc = "Dynamic elastic rebound overshoot effect";
+
                 return (
                   <button
                     key={style}
                     onClick={() => setTransitionType(style)}
-                    className={`py-1 text-[9px] rounded-lg font-bold border transition-all truncate cursor-pointer ${
+                    className={`py-1 text-[8px] rounded-lg font-bold border transition-all truncate cursor-pointer ${
                       isSelected
-                        ? "bg-amber-500/10 border-amber-400 text-amber-300 shadow-sm"
+                        ? "bg-amber-500/10 border-amber-400 text-amber-100 shadow-sm"
                         : "bg-white/5 border-transparent text-gray-400 hover:bg-white/10"
                     }`}
-                    title={style === "spring" ? "Bouncing natural spring" : style === "linear" ? "Pergerakan linear konstan" : "Akselerasi taktis halus"}
+                    title={titleDesc}
                   >
                     {label}
                   </button>

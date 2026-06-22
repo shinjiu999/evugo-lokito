@@ -35,8 +35,9 @@ interface PitchProps {
   activeFrameIndex?: number;
   showMovementTrails?: boolean;
   playSpeed?: "slow" | "normal" | "fast" | "superfast";
-  transitionType?: "spring" | "linear" | "stealth";
+  transitionType?: "spring" | "linear" | "stealth" | "ease-in-out" | "elastic";
   showTacticalGrid?: boolean;
+  showHeatmap?: boolean;
   lang?: "id" | "en";
 }
 
@@ -69,6 +70,7 @@ export default function Pitch({
   playSpeed = "normal",
   transitionType = "spring",
   showTacticalGrid = false,
+  showHeatmap = false,
   lang = "id"
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
@@ -130,6 +132,22 @@ export default function Pitch({
       type: "tween",
       ease: "anticipate",
       duration: duration
+    };
+  } else if (transitionType === "ease-in-out") {
+    const duration = playSpeed === "slow" ? 2.5 : playSpeed === "fast" ? 0.8 : playSpeed === "superfast" ? 0.4 : 1.6;
+    dynamicTransition = {
+      type: "tween",
+      ease: "easeInOut",
+      duration: duration
+    };
+  } else if (transitionType === "elastic") {
+    const stiffness = playSpeed === "slow" ? 60 : playSpeed === "fast" ? 250 : playSpeed === "superfast" ? 400 : 150;
+    const damping = playSpeed === "slow" ? 7 : playSpeed === "fast" ? 11 : playSpeed === "superfast" ? 13 : 9;
+    dynamicTransition = {
+      type: "spring",
+      stiffness,
+      damping,
+      mass: 0.85
     };
   } else {
     // spring
@@ -201,7 +219,7 @@ export default function Pitch({
       resizeObserver.disconnect();
       clearTimeout(timer);
     };
-  }, [drawHistory]);
+  }, [drawHistory, showHeatmap, players]);
 
   const drawAllStrokes = () => {
     const canvas = canvasRef.current;
@@ -211,6 +229,75 @@ export default function Pitch({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // --- HEATMAP RENDERING ENGINE ---
+    if (showHeatmap) {
+      // Gather points from all strokes
+      const pts: { x: number; y: number }[] = [];
+      drawHistory.forEach((stroke) => {
+        stroke.points.forEach((pt) => {
+          pts.push(pt);
+        });
+      });
+
+      // Calculate dynamic heatmap point radius proportional to width
+      const heatRadius = Math.max(18, Math.min(45, Math.round(30 * (canvas.width / 540))));
+
+      if (pts.length > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = "screen"; // screen blending merges soft radial glow beautifully
+
+        pts.forEach((pt) => {
+          const grad = ctx.createRadialGradient(pt.x, pt.y, 1, pt.x, pt.y, heatRadius);
+          grad.addColorStop(0, "rgba(239, 68, 68, 0.28)");    // Intensive Red Core
+          grad.addColorStop(0.35, "rgba(249, 115, 22, 0.16)"); // Warm orange density
+          grad.addColorStop(0.7, "rgba(234, 179, 8, 0.06)");  // Subtle yellow tail
+          grad.addColorStop(1, "rgba(234, 179, 8, 0)");        // Outer bounds transition
+          
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, heatRadius, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+      } else {
+        // Fallback: If drawHistory is empty, construct starting-player visual heat concentrations
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        starters.forEach((player) => {
+          const px = (player.x / 100) * canvas.width;
+          const actualPy = (player.y / 100) * canvas.height;
+          
+          const playerRadius = heatRadius * 1.35;
+          const grad = ctx.createRadialGradient(px, actualPy, 2, px, actualPy, playerRadius);
+
+          if (player.role === "FWD") {
+            // FWD high fire energy hot points
+            grad.addColorStop(0, "rgba(239, 68, 68, 0.22)");    // Red
+            grad.addColorStop(0.4, "rgba(249, 115, 22, 0.12)"); // Orange
+            grad.addColorStop(0.8, "rgba(234, 179, 8, 0.04)");  // Yellow
+            grad.addColorStop(1, "rgba(234, 179, 8, 0)");
+          } else if (player.role === "MID") {
+            // Midfield high circulation orange-heavy energy
+            grad.addColorStop(0, "rgba(249, 115, 22, 0.20)");   // Orange
+            grad.addColorStop(0.5, "rgba(234, 179, 8, 0.10)");  // Yellow
+            grad.addColorStop(1, "rgba(234, 179, 8, 0)");
+          } else {
+            // Defense and GK safe green-blue structural control
+            grad.addColorStop(0, "rgba(59, 130, 246, 0.18)");   // Cyan
+            grad.addColorStop(0.5, "rgba(16, 185, 129, 0.08)");  // Emerald
+            grad.addColorStop(1, "rgba(16, 185, 129, 0)");
+          }
+
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(px, actualPy, playerRadius, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+      }
+    }
+
+    // --- ANNOTATION LINES RENDERING ---
     drawHistory.forEach((stroke) => {
       if (stroke.points.length < 2) return;
       ctx.beginPath();
@@ -402,7 +489,7 @@ export default function Pitch({
   // Re-draw on stroke update
   useEffect(() => {
     drawAllStrokes();
-  }, [drawHistory]);
+  }, [drawHistory, showHeatmap, players]);
 
   // --- DRAGGING CODES ---
   const handleDragStart = (id: string, type: "player" | "item") => {
@@ -661,7 +748,7 @@ export default function Pitch({
         onTouchMove={handleContainerTouchMove}
         onMouseUp={handleDragEnd}
         onTouchEnd={handleDragEnd}
-        className={`relative w-full max-w-[580px] aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`}
+        className={`relative w-full max-w-[580px] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`}
         style={{
           backgroundImage: customBackgroundUrl ? `url(${customBackgroundUrl})` : "none",
           backgroundSize: "cover",
@@ -746,7 +833,7 @@ export default function Pitch({
 
         {/* Stadium tactical markings standard overlay SVG */}
         <svg
-          className="absolute inset-0 w-full h-[83%] sm:h-[84%] pointer-events-none z-10"
+          className="absolute inset-0 w-full h-[72%] sm:h-[84%] pointer-events-none z-10"
           style={{ opacity: lineOpacity }}
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
@@ -841,7 +928,7 @@ export default function Pitch({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleMouseUp}
-          className={`absolute inset-0 w-full h-[83%] sm:h-[84%] z-20 ${
+          className={`absolute inset-0 w-full h-[72%] sm:h-[84%] z-20 ${
             activeTool === "draw" ? "cursor-pencil pointer-events-auto" : "pointer-events-none"
           }`}
         />
@@ -849,7 +936,7 @@ export default function Pitch({
         {/* DYNAMIC TACTICAL MOVEMENT TRAILS */}
         {showMovementTrails && activeFrameIndex > 0 && frames && frames[activeFrameIndex - 1] && (
           <svg
-            className="absolute inset-0 w-full h-[83%] sm:h-[84%] pointer-events-none z-15"
+            className="absolute inset-0 w-full h-[72%] sm:h-[84%] pointer-events-none z-15"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
           >
@@ -991,7 +1078,7 @@ export default function Pitch({
         )}
 
         {/* INTERACTIVE PLAYERS AND DRAGGABLE BALLS & CONES */}
-        <div className="absolute inset-0 w-full h-[83%] sm:h-[84%] z-30 pointer-events-none">
+        <div className="absolute inset-0 w-full h-[72%] sm:h-[84%] z-30 pointer-events-none">
           <AnimatePresence>
             {starters.map((player) => {
               const isGK = player.role === "GK";
@@ -1192,7 +1279,7 @@ export default function Pitch({
         {/* BOTTOM REFERENCE MEASUREMENT RULER (ALIGNED WITH FIELD TOUCHLINES) */}
         <div
           id="pitch-measurement-ruler"
-          className="absolute bottom-[17%] sm:bottom-[16%] left-[3%] right-[3%] h-9 z-[35] pointer-events-none select-none flex flex-col justify-end"
+          className="absolute bottom-[28%] sm:bottom-[16%] left-[3%] right-[3%] h-9 z-[35] pointer-events-none select-none flex flex-col justify-end"
           style={{
             background: "linear-gradient(to top, rgba(11, 12, 16, 0.45) 0%, rgba(11, 12, 16, 0) 100%)",
           }}
@@ -1393,8 +1480,8 @@ export default function Pitch({
           </svg>
         </div>
 
-        {/* BOTTOM SECTION: DETACH RECTANGLE ZONE AS THE SQUAD BENCH (17% HEIGHT ON MOBILE, 16% ON LAPTOPS) */}
-        <div className="absolute bottom-0 left-0 right-0 h-[17%] sm:h-[16%] bg-[#0f0f12]/95 backdrop-blur-md border-t border-white/10 flex flex-col justify-start p-1.5 sm:p-2.5 z-40">
+        {/* BOTTOM SECTION: DETACH RECTANGLE ZONE AS THE SQUAD BENCH (28% HEIGHT ON MOBILE, 16% ON LAPTOPS) */}
+        <div className="absolute bottom-0 left-0 right-0 h-[28%] sm:h-[16%] bg-[#0f0f12]/95 backdrop-blur-md border-t border-white/10 flex flex-col justify-start p-1.5 sm:p-2.5 z-40">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-0.5 sm:gap-1.5 mb-1.5 select-none shrink-0">
             <span className="text-[8px] sm:text-[9.5px] font-black text-gray-400 tracking-wider uppercase flex items-center gap-1 select-none">
               👥 {lang === "id" ? "Bangku Cadangan (Dugout)" : "Squad Bench (Dugout)"}
