@@ -39,7 +39,11 @@ import {
   ChevronUp,
   Sliders,
   Save,
-  FolderOpen
+  FolderOpen,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 const TRANSLATIONS = {
@@ -451,6 +455,9 @@ export default function App() {
   const [showDrawConfig, setShowDrawConfig] = useState(true);
   const [showColorPickerPopup, setShowColorPickerPopup] = useState(false);
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
+  const [isDrawLocked, setIsDrawLocked] = useState<boolean>(false);
+  const [activeSketchLayer, setActiveSketchLayer] = useState<number>(1);
+  const [visibleSketchLayers, setVisibleSketchLayers] = useState<number[]>([1, 2, 3]);
 
   // Custom textures backdrop URL
   const [customBackgroundUrl, setCustomBackgroundUrl] = useState<string | null>(null);
@@ -1284,413 +1291,423 @@ export default function App() {
           <div className="w-full flex flex-row gap-2.5 sm:gap-4 items-start justify-center relative">
             <div className="flex-1 min-w-0 w-full max-w-[580px] relative group/pitch">
               {/* Floating scoreboard overlay for Team Name and Formation at the top-middle of the pitch */}
-              <div className="absolute top-2.5 sm:top-4 left-1/2 -translate-x-1/2 z-40 bg-[#0b0c10]/85 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/[0.08] px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)] hover:border-emerald-500/20 hover:bg-[#0b0c10]/95 transition-all duration-300 whitespace-nowrap">
-                <div className="flex items-center gap-1.5 sm:gap-2.5 border-r border-white/10 pr-2 sm:pr-3.5">
-                  {teamLogo ? (
-                    <img 
-                      src={teamLogo} 
-                      className="w-4.5 h-4.5 sm:w-5.5 sm:h-5.5 object-contain bg-black/40 p-0.5 rounded-md border border-white/10" 
-                      alt="Logo" 
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div 
-                      className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full border border-black/45 shadow-inner animate-[pulse_1.8s_infinite] shrink-0" 
-                      style={{ backgroundColor: primaryColor }}
-                    />
-                  )}
-                  <span className="font-extrabold tracking-wider text-white text-[9.5px] sm:text-[11.5px] uppercase bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                    {teamName || "GARUDA FC"}
-                  </span>
+              {activeTool !== "draw" && (
+                <div className="absolute top-2.5 sm:top-4 left-1/2 -translate-x-1/2 z-40 bg-[#0b0c10]/85 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/[0.08] px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)] hover:border-emerald-500/20 hover:bg-[#0b0c10]/95 transition-all duration-300 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2.5 border-r border-white/10 pr-2 sm:pr-3.5">
+                    {teamLogo ? (
+                      <img 
+                        src={teamLogo} 
+                        className="w-4.5 h-4.5 sm:w-5.5 sm:h-5.5 object-contain bg-black/40 p-0.5 rounded-md border border-white/10" 
+                        alt="Logo" 
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div 
+                        className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full border border-black/45 shadow-inner animate-[pulse_1.8s_infinite] shrink-0" 
+                        style={{ backgroundColor: primaryColor }}
+                      />
+                    )}
+                    <span className="font-extrabold tracking-wider text-white text-[9.5px] sm:text-[11.5px] uppercase bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                      {teamName || "GARUDA FC"}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-[7px] sm:text-[8px] text-[#22c55e] bg-green-500/10 px-1 py-0.5 rounded border border-green-500/20 font-black tracking-widest uppercase animate-pulse select-none">
+                      LIVE
+                    </span>
+                    <span className="text-[9px] sm:text-[10px] text-blue-400 font-extrabold tracking-wider bg-blue-500/10 px-2 py-0.5 rounded-lg border border-blue-550/20 uppercase">
+                      {sportMode === "soccer" ? (lang === "id" ? "SEPAKBOLA" : "SOCCER") : sportMode === "minisoccer" ? "MINI SOCCER" : sportMode === "futsal" ? "FUTSAL" : (lang === "id" ? "KUSTOM" : "CUSTOM")}
+                    </span>
+                    <span className="text-[9px] sm:text-[10px] text-gray-200 font-extrabold tracking-wider bg-white/5 px-2 py-0.5 rounded-lg border border-white/5 uppercase">
+                      {formation}
+                    </span>
+                  </div>
                 </div>
-                
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <span className="text-[7px] sm:text-[8px] text-[#22c55e] bg-green-500/10 px-1 py-0.5 rounded border border-green-500/20 font-black tracking-widest uppercase animate-pulse select-none">
-                    LIVE
-                  </span>
-                  <span className="text-[9px] sm:text-[10px] text-blue-400 font-extrabold tracking-wider bg-blue-500/10 px-2 py-0.5 rounded-lg border border-blue-550/20 uppercase">
-                    {sportMode === "soccer" ? (lang === "id" ? "SEPAKBOLA" : "SOCCER") : sportMode === "minisoccer" ? "MINI SOCCER" : sportMode === "futsal" ? "FUTSAL" : (lang === "id" ? "KUSTOM" : "CUSTOM")}
-                  </span>
-                  <span className="text-[9px] sm:text-[10px] text-gray-200 font-extrabold tracking-wider bg-white/5 px-2 py-0.5 rounded-lg border border-white/5 uppercase">
-                    {formation}
-                  </span>
-                </div>
-              </div>
+              )}
 
               {/* Floating thin overlay for Pitch Board Theme option dropdown */}
-              <div className="absolute top-2.5 sm:top-4 left-2.5 sm:left-4 z-40 flex flex-col items-start group/themeselect">
-                <button
-                  onClick={() => setShowThemeDropdown(!showThemeDropdown)}
-                  className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/75 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex items-center justify-center shadow-xl border border-white/[0.08] hover:border-emerald-500/20 backdrop-blur-md cursor-pointer select-none active:scale-95"
-                >
-                  <span className="text-sm sm:text-base shrink-0">
-                    {pitchTheme === "emerald-grass" && "🌿"}
-                    {pitchTheme === "neon-hologram" && "⚡"}
-                    {pitchTheme === "dark-slate" && "📓"}
-                    {pitchTheme === "aurora-stadium" && "🌌"}
-                  </span>
-                </button>
-
-                {/* Floating tooltip showing the current active style name */}
-                {!showThemeDropdown && (
-                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 opacity-0 group-hover/themeselect:opacity-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-gray-200 backdrop-blur-md whitespace-nowrap z-50">
-                    {pitchTheme === "emerald-grass" && (lang === "id" ? "Padang Klasik" : "Classic Grass")}
-                    {pitchTheme === "neon-hologram" && (lang === "id" ? "Hologram Neon" : "Neon Hologram")}
-                    {pitchTheme === "dark-slate" && (lang === "id" ? "Taktis Gelap" : "Dark Tactical Slate")}
-                    {pitchTheme === "aurora-stadium" && (lang === "id" ? "Stadion Aurora" : "Aurora Stadium")}
-                  </div>
-                )}
-
-                {showThemeDropdown && (
-                  <div className="absolute left-0 top-full mt-1.5 w-42 sm:w-48 bg-[#0b0c10]/95 border border-white/[0.12] rounded-xl sm:rounded-2xl shadow-2xl z-55 overflow-hidden flex flex-col gap-0.5 p-1 animate-fadeIn backdrop-blur-md max-h-48 overflow-y-auto">
-                    {[
-                      { key: "emerald-grass", label: lang === "id" ? "Padang Klasik" : "Classic Grass", icon: "🌿" },
-                      { key: "neon-hologram", label: lang === "id" ? "Hologram Neon" : "Neon Hologram", icon: "⚡" },
-                      { key: "dark-slate", label: lang === "id" ? "Taktis Gelap" : "Dark Tactical Slate", icon: "📓" },
-                      { key: "aurora-stadium", label: lang === "id" ? "Stadion Aurora" : "Aurora Stadium", icon: "🌌" }
-                    ].map((th) => {
-                      const isActive = pitchTheme === th.key;
-                      return (
-                        <button
-                          key={th.key}
-                          onClick={() => {
-                            setPitchTheme(th.key as any);
-                            setShowThemeDropdown(false);
-                          }}
-                          className={`w-full text-left px-2 py-1.5 sm:py-2 rounded-lg text-[9.5px] sm:text-[11px] font-bold flex items-center gap-2 cursor-pointer transition-colors ${
-                            isActive
-                              ? "bg-blue-600/25 border border-blue-500/30 text-blue-300"
-                              : "bg-transparent border border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
-                          }`}
-                        >
-                          <span className="text-sm shrink-0">{th.icon}</span>
-                          <span className="truncate">{th.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Floating thin overlay for Reset Board button */}
-              <div className="absolute top-2.5 sm:top-4 right-2.5 sm:right-4 z-40 flex items-center justify-center">
-                {showResetConfirm ? (
-                  <div className="flex items-center gap-1 sm:gap-1.5 bg-[#0e0f13]/95 backdrop-blur-md px-1.5 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-2xl border border-red-500/40 shadow-2xl transition-all duration-300 animate-fadeIn text-[8px] sm:text-[10px] whitespace-nowrap">
-                    <span className="text-[7.5px] sm:text-[9px] text-red-400 font-extrabold uppercase tracking-wide">{t.resetConfirm}</span>
-                    <button
-                      onClick={() => {
-                        // Execute full reset
-                        setTeamName("GARUDA FC");
-                        setFormation("4-3-3");
-                        setPlayers(DEFAULT_PLAYERS);
-                        setItems(DEFAULT_ITEMS);
-                        setPrimaryColor("#dc2626");
-                        setGkColor("#eab308");
-                        setNumberColor("#ffffff");
-                        setActiveTool("draw");
-                        setBrushColor("#ffffff");
-                        setBrushSize(4);
-                        setBrushStyle("solid");
-                        setCustomBackgroundUrl(null);
-                        setPitchTheme("emerald-grass");
-                        setDrawHistory([]);
-                        setFrames([
-                          {
-                            id: "frame-init",
-                            name: t.standardPhase,
-                            players: DEFAULT_PLAYERS.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
-                            items: DEFAULT_ITEMS.map((item) => ({ id: item.id, x: item.x, y: item.y })),
-                            instruction: t.standardInstruction
-                          }
-                        ]);
-                        setActiveFrameIndex(0);
-                        setShowResetConfirm(false);
-                      }}
-                      className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-xl bg-red-600 hover:bg-red-500 text-white text-[7.5px] sm:text-[9px] font-black uppercase transition-colors cursor-pointer"
-                    >
-                      {t.yes}
-                    </button>
-                    <button
-                      onClick={() => setShowResetConfirm(false)}
-                      className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-[7.5px] sm:text-[9px] font-black uppercase transition-colors cursor-pointer"
-                    >
-                      {t.cancel}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative group/reset">
-                    <button
-                      onClick={() => setShowResetConfirm(true)}
-                      className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-red-900/30 text-gray-400 hover:text-red-400 shadow-xl backdrop-blur-md active:scale-95"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-300 group-hover/reset:rotate-45" />
-                    </button>
-                    {/* Floating descriptive tooltip/overlay */}
-                    <div className="absolute right-0 top-full mt-2.5 opacity-0 scale-90 pointer-events-none group-hover/reset:opacity-100 group-hover/reset:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                      <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{lang === "id" ? "SET SEMULA" : "RESET BOARD"}</span>
-                      <span className="text-white font-extrabold text-[9px] whitespace-nowrap">{t.resetAll}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Floating Match Sport Mode Selector at the left-middle side of the pitch */}
-              <div className="absolute top-1/2 -translate-y-1/2 left-2.5 sm:left-4 z-45 flex flex-col items-start group/sportselect">
-                <button
-                  onClick={() => setShowSportOverlay(!showSportOverlay)}
-                  className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex flex-col gap-0.5 items-center justify-center shadow-xl border border-white/[0.08] hover:border-indigo-500/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.25)] backdrop-blur-md cursor-pointer select-none active:scale-95"
-                >
-                  <span className="text-sm sm:text-base shrink-0 select-none animate-[pulse_2s_infinite]">
-                    {sportMode === "soccer" && "⚽"}
-                    {sportMode === "minisoccer" && "👟"}
-                    {sportMode === "futsal" && "💨"}
-                    {sportMode === "custom" && "⚙️"}
-                  </span>
-                  <span className="text-[6.5px] font-black uppercase text-indigo-400 tracking-tighter">
-                    {sportMode === "soccer" && "11v11"}
-                    {sportMode === "minisoccer" && "7v7"}
-                    {sportMode === "futsal" && "5v5"}
-                    {sportMode === "custom" && `${getSportModeLimit()}P`}
-                  </span>
-                </button>
-
-                {/* Floating helpful description overlay of what this button does when not open */}
-                {!showSportOverlay && (
-                  <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/sportselect:opacity-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-gray-200 backdrop-blur-md whitespace-nowrap z-50 flex flex-col">
-                    <span className="text-[7.5px] font-black tracking-widest text-indigo-400 uppercase select-none">
-                      {lang === "id" ? "MODE PERTANDINGAN" : "MATCH SPORT MODE"}
+              {activeTool !== "draw" && (
+                <div className="absolute top-2.5 sm:top-4 left-2.5 sm:left-4 z-40 flex flex-col items-start group/themeselect">
+                  <button
+                    onClick={() => setShowThemeDropdown(!showThemeDropdown)}
+                    className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/75 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex items-center justify-center shadow-xl border border-white/[0.08] hover:border-emerald-500/20 backdrop-blur-md cursor-pointer select-none active:scale-95"
+                  >
+                    <span className="text-sm sm:text-base shrink-0">
+                      {pitchTheme === "emerald-grass" && "🌿"}
+                      {pitchTheme === "neon-hologram" && "⚡"}
+                      {pitchTheme === "dark-slate" && "📓"}
+                      {pitchTheme === "aurora-stadium" && "🌌"}
                     </span>
-                    <span className="text-white mt-0.5 font-bold">
-                      {sportMode === "soccer" && (lang === "id" ? "Sepakbola (11 vs 11)" : "Soccer (11 vs 11)")}
-                      {sportMode === "minisoccer" && (lang === "id" ? "Mini Soccer (7 vs 7)" : "Mini Soccer (7 vs 7)")}
-                      {sportMode === "futsal" && (lang === "id" ? "Futsal (5 vs 5)" : "Futsal (5 vs 5)")}
-                      {sportMode === "custom" && (lang === "id" ? `Kustom (${getSportModeLimit()} Pemain)` : `Custom (${getSportModeLimit()} Players)`)}
-                    </span>
-                    <span className="text-[7.5px] text-gray-400 font-medium select-none mt-0.5">{lang === "id" ? "Klik untuk mengubah mode" : "Click to change mode"}</span>
-                  </div>
-                )}
+                  </button>
 
-                {/* Full overlay selector dropdown when clicked */}
-                {showSportOverlay && (
-                  <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 w-64 bg-[#0c0d12]/92 border border-white/[0.12] rounded-2xl sm:rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-55 p-3 flex flex-col gap-2.5 animate-fadeIn backdrop-blur-xl">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                      <div className="flex flex-col">
-                        <span className="text-[9.5px] font-black tracking-wider text-indigo-400 uppercase select-none">
-                          {lang === "id" ? "Aturan Tanding" : "Sport Arena Rules"}
-                        </span>
-                        <span className="text-[11px] font-extrabold text-white">
-                          {lang === "id" ? "Pilih Arena/Mode Baru" : "Choose Pitch Arena"}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setShowSportOverlay(false)}
-                        className="w-5 h-5 rounded-lg flex items-center justify-center hover:bg-white/10 cursor-pointer text-gray-400 hover:text-white transition-colors"
-                      >
-                        ✕
-                      </button>
+                  {/* Floating tooltip showing the current active style name */}
+                  {!showThemeDropdown && (
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 opacity-0 group-hover/themeselect:opacity-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-gray-200 backdrop-blur-md whitespace-nowrap z-50">
+                      {pitchTheme === "emerald-grass" && (lang === "id" ? "Padang Klasik" : "Classic Grass")}
+                      {pitchTheme === "neon-hologram" && (lang === "id" ? "Hologram Neon" : "Neon Hologram")}
+                      {pitchTheme === "dark-slate" && (lang === "id" ? "Taktis Gelap" : "Dark Tactical Slate")}
+                      {pitchTheme === "aurora-stadium" && (lang === "id" ? "Stadion Aurora" : "Aurora Stadium")}
                     </div>
+                  )}
 
-                    <div className="flex flex-col gap-1.5">
+                  {showThemeDropdown && (
+                    <div className="absolute left-0 top-full mt-1.5 w-42 sm:w-48 bg-[#0b0c10]/95 border border-white/[0.12] rounded-xl sm:rounded-2xl shadow-2xl z-55 overflow-hidden flex flex-col gap-0.5 p-1 animate-fadeIn backdrop-blur-md max-h-48 overflow-y-auto">
                       {[
-                        {
-                          key: "soccer",
-                          label: lang === "id" ? "Sepakbola (11 vs 11)" : "Football (11 vs 11)",
-                          desc: lang === "id" ? "Aturan lapangan penuh standar FIFA" : "Standard full-pitch game rules",
-                          icon: "⚽",
-                          activeColor: "bg-emerald-600/20 text-emerald-400 border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                        },
-                        {
-                          key: "minisoccer",
-                          label: lang === "id" ? "Mini Soccer (7 vs 7)" : "Mini Soccer (7 vs 7)",
-                          desc: lang === "id" ? "Taktik lapangan sedang & lincah" : "Medium turf and dynamic tactics",
-                          icon: "👟",
-                          activeColor: "bg-blue-600/20 text-blue-400 border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.15)]"
-                        },
-                        {
-                          key: "futsal",
-                          label: lang === "id" ? "Futsal (5 vs 5)" : "Futsal (5 vs 5)",
-                          desc: lang === "id" ? "Sirkuit dalam ruangan cepat & presis" : "High precision fast indoor game",
-                          icon: "💨",
-                          activeColor: "bg-amber-600/20 text-amber-400 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.15)]"
-                        },
-                        {
-                          key: "custom",
-                          label: lang === "id" ? "Kustom Manual (1 - 11)" : "Custom Count (1 - 11)",
-                          desc: lang === "id" ? "Atur jumlah pemain secara bebas" : "Freely set any player capacity",
-                          icon: "🛠️",
-                          activeColor: "bg-indigo-600/20 text-indigo-400 border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.15)]"
-                        }
-                      ].map((modeItem) => {
-                        const isActive = sportMode === modeItem.key;
+                        { key: "emerald-grass", label: lang === "id" ? "Padang Klasik" : "Classic Grass", icon: "🌿" },
+                        { key: "neon-hologram", label: lang === "id" ? "Hologram Neon" : "Neon Hologram", icon: "⚡" },
+                        { key: "dark-slate", label: lang === "id" ? "Taktis Gelap" : "Dark Tactical Slate", icon: "📓" },
+                        { key: "aurora-stadium", label: lang === "id" ? "Stadion Aurora" : "Aurora Stadium", icon: "🌌" }
+                      ].map((th) => {
+                        const isActive = pitchTheme === th.key;
                         return (
-                          <div key={modeItem.key} className="flex flex-col gap-1.5">
-                            <button
-                              onClick={() => {
-                                handleSetSportMode(modeItem.key as any);
-                                if (modeItem.key !== "custom") {
-                                  setShowSportOverlay(false);
-                                }
-                              }}
-                              className={`w-full text-left p-2 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2.5 transition-all duration-200 outline-none select-none ${
-                                isActive ? modeItem.activeColor : "bg-black/35 border-white/5 hover:border-white/15 text-gray-300"
-                              }`}
-                            >
-                              <span className="text-base bg-white/5 w-6.5 h-6.5 rounded-lg flex items-center justify-center shrink-0 border border-white/5">
-                                {modeItem.icon}
-                              </span>
-                              <div className="flex flex-col min-w-0">
-                                <span className="font-extrabold tracking-wide uppercase text-[9.5px] leading-tight">
-                                  {modeItem.label}
-                                </span>
-                                <span className="text-[8px] text-[#5e6680] font-medium leading-tight mt-0.5 truncate select-none">
-                                  {modeItem.desc}
-                                </span>
-                              </div>
-                            </button>
-
-                            {/* If custom is active and it's this mode, show custom controls */}
-                            {modeItem.key === "custom" && isActive && (
-                              <div className="px-2 py-1.5 bg-black/45 rounded-xl border border-white/[0.04] mt-0.5 flex flex-col gap-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[8px] uppercase tracking-wider font-extrabold text-gray-400">
-                                    {lang === "id" ? "JUMLAH PEMAIN" : "PLAYER COUNT"}
-                                  </span>
-                                  <span className="text-[10px] font-black text-indigo-400 bg-indigo-500/15 border border-indigo-500/25 px-1.5 py-0.5 rounded">
-                                    {customCount} {lang === "id" ? "Pemain" : "Players"}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    disabled={customCount <= 1}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (customCount > 1) {
-                                        handleSetSportMode("custom", customCount - 1);
-                                      }
-                                    }}
-                                    className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
-                                  >
-                                    -
-                                  </button>
-
-                                  <input
-                                    type="range"
-                                    min="1"
-                                    max="11"
-                                    value={customCount}
-                                    onChange={(e) => {
-                                      const newVal = parseInt(e.target.value);
-                                      handleSetSportMode("custom", newVal);
-                                    }}
-                                    className="flex-1 accent-indigo-500 h-1 rounded bg-white/10"
-                                  />
-
-                                  <button
-                                    disabled={customCount >= 11}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (customCount < 11) {
-                                        handleSetSportMode("custom", customCount + 1);
-                                      }
-                                    }}
-                                    className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            key={th.key}
+                            onClick={() => {
+                              setPitchTheme(th.key as any);
+                              setShowThemeDropdown(false);
+                            }}
+                            className={`w-full text-left px-2 py-1.5 sm:py-2 rounded-lg text-[9.5px] sm:text-[11px] font-bold flex items-center gap-2 cursor-pointer transition-colors ${
+                              isActive
+                                ? "bg-blue-600/25 border border-blue-500/30 text-blue-300"
+                                : "bg-transparent border border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
+                            }`}
+                          >
+                            <span className="text-sm shrink-0">{th.icon}</span>
+                            <span className="truncate">{th.label}</span>
+                          </button>
                         );
                       })}
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Floating thin overlay for Default Formation Selector at the bottom-left inside the pitch */}
-              <div className="absolute bottom-[29%] sm:bottom-[18.5%] left-2.5 sm:left-4 z-45">
-                <div className="relative group/formation">
-                  <button
-                    onClick={() => setShowFormationMenu(!showFormationMenu)}
-                    className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-blue-500/30 text-gray-300 hover:text-white shadow-xl backdrop-blur-md active:scale-95 text-[9.5px] sm:text-[11px] font-black tracking-wide"
-                  >
-                    <LayoutGrid className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-blue-400" />
-                    <span>{formation}</span>
-                  </button>
-                  
-                  {/* Floating helpful description overlay */}
-                  {!showFormationMenu && (
-                    <div className="absolute left-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/formation:opacity-100 group-hover/formation:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col gap-0.5 backdrop-blur-md whitespace-nowrap">
-                      <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.defaultFormation}</span>
-                      <span className="text-white font-extrabold text-[9px]">{lang === "id" ? "Klik ganti formasi" : "Click to change lineup"}</span>
-                    </div>
                   )}
+                </div>
+              )}
 
-                  {/* Dropdown list table descending downwards */}
-                  {showFormationMenu && (
-                    <div className="absolute top-full mt-1.5 left-0 w-52 bg-[#0e1017]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col divide-y divide-white/[0.06] animate-fadeIn">
-                      <div className="px-3 py-2 bg-white/[0.02] flex justify-between items-center select-none">
-                        <span className="text-[8px] font-black tracking-wider text-[#5e6680] uppercase">{lang === "id" ? "PILIHAN FORMASI" : "FORMATIONS LIST"}</span>
-                        <span className="text-[8px] text-blue-400 font-bold uppercase">{lang === "id" ? "Tabel" : "Table"}</span>
-                      </div>
-                      <div className="max-h-56 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                        {(() => {
-                          const formationsList = 
-                            sportMode === "futsal" ? [
-                              { key: "1-2-1", desc: lang === "id" ? "Diamond Taktikal" : "Tactical Diamond", icon: "💎" },
-                              { key: "2-2", desc: lang === "id" ? "Kotak Seimbang" : "Balanced Box", icon: "📦" },
-                              { key: "1-1-2", desc: lang === "id" ? "Y-Menyerang" : "Attacking Y", icon: "🔱" },
-                              { key: "3-1", desc: lang === "id" ? "Pyramid Bertahan" : "Defensive Pyramid", icon: "📐" }
-                            ] : sportMode === "minisoccer" ? [
-                              { key: "2-3-1", desc: lang === "id" ? "Sayap Agresif" : "Aggressive Wings", icon: "⚡" },
-                              { key: "3-2-1", desc: lang === "id" ? "Piramida Kokoh" : "Solid Pyramid", icon: "⛑️" },
-                              { key: "3-1-2", desc: lang === "id" ? "Ganda Striker" : "Double Attackers", icon: "🏹" },
-                              { key: "2-2-2", desc: lang === "id" ? "Simetris Box" : "Symmetric Box", icon: "⏹️" }
-                            ] : [
-                              { key: "4-3-3", desc: lang === "id" ? "Attack Klasik" : "Classic Attacking", icon: "⚔️" },
-                              { key: "4-4-2", desc: lang === "id" ? "Classic Seimbang" : "Classic Balanced", icon: "🛡️" },
-                              { key: "3-5-2", desc: lang === "id" ? "Kuasai Sayap" : "Midfield Domination", icon: "⛓️" },
-                              { key: "4-2-3-1", desc: lang === "id" ? "Taktis Modern" : "Modern Tactical", icon: "🎯" },
-                              { key: "3-4-3", desc: lang === "id" ? "Sangat Menyerang" : "Aggressive Attack", icon: "🔥" },
-                              { key: "4-5-1", desc: lang === "id" ? "Blok Bertahan" : "Defensive Block", icon: "🧱" },
-                              { key: "5-3-2", desc: lang === "id" ? "Ujung Bertahan" : "Ultra Defensive", icon: "🏔️" }
-                            ];
-                          return formationsList.map((item) => {
-                            const isSel = formation === item.key;
-                            return (
-                              <button
-                                key={item.key}
-                                onClick={() => {
-                                  applyPresetFormation(item.key as any);
-                                  setShowFormationMenu(false);
-                                }}
-                                className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer text-xs ${
-                                  isSel ? "bg-blue-600/20 text-blue-400 font-black" : "text-gray-300"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs">{item.icon}</span>
-                                  <div className="flex flex-col">
-                                    <span className="font-extrabold tracking-wide uppercase text-[10.5px]">{item.key}</span>
-                                    <span className="text-[8px] text-[#5e6680] font-medium leading-none">{item.desc}</span>
-                                  </div>
-                                </div>
-                                {isSel && (
-                                  <span className="text-[7.5px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20 font-black animate-pulse uppercase">
-                                    {lang === "id" ? "Aktif" : "Active"}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          });
-                        })()}
+              {/* Floating thin overlay for Reset Board button */}
+              {activeTool !== "draw" && (
+                <div className="absolute top-2.5 sm:top-4 right-2.5 sm:right-4 z-40 flex items-center justify-center">
+                  {showResetConfirm ? (
+                    <div className="flex items-center gap-1 sm:gap-1.5 bg-[#0e0f13]/95 backdrop-blur-md px-1.5 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-2xl border border-red-500/40 shadow-2xl transition-all duration-300 animate-fadeIn text-[8px] sm:text-[10px] whitespace-nowrap">
+                      <span className="text-[7.5px] sm:text-[9px] text-red-400 font-extrabold uppercase tracking-wide">{t.resetConfirm}</span>
+                      <button
+                        onClick={() => {
+                          // Execute full reset
+                          setTeamName("GARUDA FC");
+                          setFormation("4-3-3");
+                          setPlayers(DEFAULT_PLAYERS);
+                          setItems(DEFAULT_ITEMS);
+                          setPrimaryColor("#dc2626");
+                          setGkColor("#eab308");
+                          setNumberColor("#ffffff");
+                          setActiveTool("draw");
+                          setBrushColor("#ffffff");
+                          setBrushSize(4);
+                          setBrushStyle("solid");
+                          setCustomBackgroundUrl(null);
+                          setPitchTheme("emerald-grass");
+                          setDrawHistory([]);
+                          setFrames([
+                            {
+                              id: "frame-init",
+                              name: t.standardPhase,
+                              players: DEFAULT_PLAYERS.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
+                              items: DEFAULT_ITEMS.map((item) => ({ id: item.id, x: item.x, y: item.y })),
+                              instruction: t.standardInstruction
+                            }
+                          ]);
+                          setActiveFrameIndex(0);
+                          setShowResetConfirm(false);
+                        }}
+                        className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-xl bg-red-600 hover:bg-red-500 text-white text-[7.5px] sm:text-[9px] font-black uppercase transition-colors cursor-pointer"
+                      >
+                        {t.yes}
+                      </button>
+                      <button
+                        onClick={() => setShowResetConfirm(false)}
+                        className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-[7.5px] sm:text-[9px] font-black uppercase transition-colors cursor-pointer"
+                      >
+                        {t.cancel}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative group/reset">
+                      <button
+                        onClick={() => setShowResetConfirm(true)}
+                        className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-red-900/30 text-gray-400 hover:text-red-400 shadow-xl backdrop-blur-md active:scale-95"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-300 group-hover/reset:rotate-45" />
+                      </button>
+                      {/* Floating descriptive tooltip/overlay */}
+                      <div className="absolute right-0 top-full mt-2.5 opacity-0 scale-90 pointer-events-none group-hover/reset:opacity-100 group-hover/reset:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                        <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{lang === "id" ? "SET SEMULA" : "RESET BOARD"}</span>
+                        <span className="text-white font-extrabold text-[9px] whitespace-nowrap">{t.resetAll}</span>
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
+              )}
+
+              {/* Floating Match Sport Mode Selector at the left-middle side of the pitch */}
+              {activeTool !== "draw" && (
+                <div className="absolute top-1/2 -translate-y-1/2 left-2.5 sm:left-4 z-45 flex flex-col items-start group/sportselect">
+                  <button
+                    onClick={() => setShowSportOverlay(!showSportOverlay)}
+                    className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex flex-col gap-0.5 items-center justify-center shadow-xl border border-white/[0.08] hover:border-indigo-500/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.25)] backdrop-blur-md cursor-pointer select-none active:scale-95"
+                  >
+                    <span className="text-sm sm:text-base shrink-0 select-none animate-[pulse_2s_infinite]">
+                      {sportMode === "soccer" && "⚽"}
+                      {sportMode === "minisoccer" && "👟"}
+                      {sportMode === "futsal" && "💨"}
+                      {sportMode === "custom" && "⚙️"}
+                    </span>
+                    <span className="text-[6.5px] font-black uppercase text-indigo-400 tracking-tighter">
+                      {sportMode === "soccer" && "11v11"}
+                      {sportMode === "minisoccer" && "7v7"}
+                      {sportMode === "futsal" && "5v5"}
+                      {sportMode === "custom" && `${getSportModeLimit()}P`}
+                    </span>
+                  </button>
+
+                  {/* Floating helpful description overlay of what this button does when not open */}
+                  {!showSportOverlay && (
+                    <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/sportselect:opacity-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-gray-200 backdrop-blur-md whitespace-nowrap z-50 flex flex-col">
+                      <span className="text-[7.5px] font-black tracking-widest text-[#5e6680] uppercase select-none">
+                        {lang === "id" ? "MODE PERTANDINGAN" : "MATCH SPORT MODE"}
+                      </span>
+                      <span className="text-white mt-0.5 font-bold">
+                        {sportMode === "soccer" && (lang === "id" ? "Sepakbola (11 vs 11)" : "Soccer (11 vs 11)")}
+                        {sportMode === "minisoccer" && (lang === "id" ? "Mini Soccer (7 vs 7)" : "Mini Soccer (7 vs 7)")}
+                        {sportMode === "futsal" && (lang === "id" ? "Futsal (5 vs 5)" : "Futsal (5 vs 5)")}
+                        {sportMode === "custom" && (lang === "id" ? `Kustom (${getSportModeLimit()} Pemain)` : `Custom (${getSportModeLimit()} Players)`)}
+                      </span>
+                      <span className="text-[7.5px] text-gray-400 font-medium select-none mt-0.5">{lang === "id" ? "Klik untuk mengubah mode" : "Click to change mode"}</span>
+                    </div>
+                  )}
+
+                  {/* Full overlay selector dropdown when clicked */}
+                  {showSportOverlay && (
+                    <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 w-64 bg-[#0c0d12]/92 border border-white/[0.12] rounded-2xl sm:rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-55 p-3 flex flex-col gap-2.5 animate-fadeIn backdrop-blur-xl">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                        <div className="flex flex-col">
+                          <span className="text-[9.5px] font-black tracking-wider text-indigo-400 uppercase select-none">
+                            {lang === "id" ? "Aturan Tanding" : "Sport Arena Rules"}
+                          </span>
+                          <span className="text-[11px] font-extrabold text-white">
+                            {lang === "id" ? "Pilih Arena/Mode Baru" : "Choose Pitch Arena"}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setShowSportOverlay(false)}
+                          className="w-5 h-5 rounded-lg flex items-center justify-center hover:bg-white/10 cursor-pointer text-gray-400 hover:text-white transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        {[
+                          {
+                            key: "soccer",
+                            label: lang === "id" ? "Sepakbola (11 vs 11)" : "Football (11 vs 11)",
+                            desc: lang === "id" ? "Aturan lapangan penuh standar FIFA" : "Standard full-pitch game rules",
+                            icon: "⚽",
+                            activeColor: "bg-emerald-600/20 text-emerald-400 border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                          },
+                          {
+                            key: "minisoccer",
+                            label: lang === "id" ? "Mini Soccer (7 vs 7)" : "Mini Soccer (7 vs 7)",
+                            desc: lang === "id" ? "Taktik lapangan sedang & lincah" : "Medium turf and dynamic tactics",
+                            icon: "👟",
+                            activeColor: "bg-blue-600/20 text-blue-400 border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.15)]"
+                          },
+                          {
+                            key: "futsal",
+                            label: lang === "id" ? "Futsal (5 vs 5)" : "Futsal (5 vs 5)",
+                            desc: lang === "id" ? "Sirkuit dalam ruangan cepat & presis" : "High precision fast indoor game",
+                            icon: "💨",
+                            activeColor: "bg-amber-600/20 text-amber-400 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                          },
+                          {
+                            key: "custom",
+                            label: lang === "id" ? "Kustom Manual (1 - 11)" : "Custom Count (1 - 11)",
+                            desc: lang === "id" ? "Atur jumlah pemain secara bebas" : "Freely set any player capacity",
+                            icon: "🛠️",
+                            activeColor: "bg-indigo-600/20 text-indigo-400 border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.15)]"
+                          }
+                        ].map((modeItem) => {
+                          const isActive = sportMode === modeItem.key;
+                          return (
+                            <div key={modeItem.key} className="flex flex-col gap-1.5">
+                              <button
+                                onClick={() => {
+                                  handleSetSportMode(modeItem.key as any);
+                                  if (modeItem.key !== "custom") {
+                                    setShowSportOverlay(false);
+                                  }
+                                }}
+                                className={`w-full text-left p-2 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2.5 transition-all duration-200 outline-none select-none ${
+                                  isActive ? modeItem.activeColor : "bg-black/35 border-white/5 hover:border-white/15 text-gray-300"
+                                }`}
+                              >
+                                <span className="text-base bg-white/5 w-6.5 h-6.5 rounded-lg flex items-center justify-center shrink-0 border border-white/5">
+                                  {modeItem.icon}
+                                </span>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="font-extrabold tracking-wide uppercase text-[9.5px] leading-tight">
+                                    {modeItem.label}
+                                  </span>
+                                  <span className="text-[8px] text-[#5e6680] font-medium leading-tight mt-0.5 truncate select-none">
+                                    {modeItem.desc}
+                                  </span>
+                                </div>
+                              </button>
+
+                              {/* If custom is active and it's this mode, show custom controls */}
+                              {modeItem.key === "custom" && isActive && (
+                                <div className="px-2 py-1.5 bg-black/45 rounded-xl border border-white/[0.04] mt-0.5 flex flex-col gap-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[8px] uppercase tracking-wider font-extrabold text-gray-400">
+                                      {lang === "id" ? "JUMLAH PEMAIN" : "PLAYER COUNT"}
+                                    </span>
+                                    <span className="text-[10px] font-black text-indigo-400 bg-indigo-500/15 border border-indigo-500/25 px-1.5 py-0.5 rounded">
+                                      {customCount} {lang === "id" ? "Pemain" : "Players"}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      disabled={customCount <= 1}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (customCount > 1) {
+                                          handleSetSportMode("custom", customCount - 1);
+                                        }
+                                      }}
+                                      className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
+                                    >
+                                      -
+                                    </button>
+
+                                    <input
+                                      type="range"
+                                      min="1"
+                                      max="11"
+                                      value={customCount}
+                                      onChange={(e) => {
+                                        const newVal = parseInt(e.target.value);
+                                        handleSetSportMode("custom", newVal);
+                                      }}
+                                      className="flex-1 accent-indigo-500 h-1 rounded bg-white/10"
+                                    />
+
+                                    <button
+                                      disabled={customCount >= 11}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (customCount < 11) {
+                                          handleSetSportMode("custom", customCount + 1);
+                                        }
+                                      }}
+                                      className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Floating thin overlay for Default Formation Selector at the bottom-left inside the pitch */}
+              {activeTool !== "draw" && (
+                <div className="absolute bottom-[29%] sm:bottom-[18.5%] left-2.5 sm:left-4 z-45">
+                  <div className="relative group/formation">
+                    <button
+                      onClick={() => setShowFormationMenu(!showFormationMenu)}
+                      className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-blue-500/30 text-gray-300 hover:text-white shadow-xl backdrop-blur-md active:scale-95 text-[9.5px] sm:text-[11px] font-black tracking-wide"
+                    >
+                      <LayoutGrid className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-blue-400" />
+                      <span>{formation}</span>
+                    </button>
+                    
+                    {/* Floating helpful description overlay */}
+                    {!showFormationMenu && (
+                      <div className="absolute left-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/formation:opacity-100 group-hover/formation:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col gap-0.5 backdrop-blur-md whitespace-nowrap">
+                        <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.defaultFormation}</span>
+                        <span className="text-white font-extrabold text-[9px]">{lang === "id" ? "Klik ganti formasi" : "Click to change lineup"}</span>
+                      </div>
+                    )}
+
+                    {/* Dropdown list table descending downwards */}
+                    {showFormationMenu && (
+                      <div className="absolute top-full mt-1.5 left-0 w-52 bg-[#0e1017]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col divide-y divide-white/[0.06] animate-fadeIn">
+                        <div className="px-3 py-2 bg-white/[0.02] flex justify-between items-center select-none">
+                          <span className="text-[8px] font-black tracking-wider text-[#5e6680] uppercase">{lang === "id" ? "PILIHAN FORMASI" : "FORMATIONS LIST"}</span>
+                          <span className="text-[8px] text-blue-400 font-bold uppercase">{lang === "id" ? "Tabel" : "Table"}</span>
+                        </div>
+                        <div className="max-h-56 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                          {(() => {
+                            const formationsList = 
+                              sportMode === "futsal" ? [
+                                { key: "1-2-1", desc: lang === "id" ? "Diamond Taktikal" : "Tactical Diamond", icon: "💎" },
+                                { key: "2-2", desc: lang === "id" ? "Kotak Seimbang" : "Balanced Box", icon: "📦" },
+                                { key: "1-1-2", desc: lang === "id" ? "Y-Menyerang" : "Attacking Y", icon: "🔱" },
+                                { key: "3-1", desc: lang === "id" ? "Pyramid Bertahan" : "Defensive Pyramid", icon: "📐" }
+                              ] : sportMode === "minisoccer" ? [
+                                { key: "2-3-1", desc: lang === "id" ? "Sayap Agresif" : "Aggressive Wings", icon: "⚡" },
+                                { key: "3-2-1", desc: lang === "id" ? "Piramida Kokoh" : "Solid Pyramid", icon: "⛑️" },
+                                { key: "3-1-2", desc: lang === "id" ? "Ganda Striker" : "Double Attackers", icon: "🏹" },
+                                { key: "2-2-2", desc: lang === "id" ? "Simetris Box" : "Symmetric Box", icon: "⏹️" }
+                              ] : [
+                                { key: "4-3-3", desc: lang === "id" ? "Attack Klasik" : "Classic Attacking", icon: "⚔️" },
+                                { key: "4-4-2", desc: lang === "id" ? "Classic Seimbang" : "Classic Balanced", icon: "🛡️" },
+                                { key: "3-5-2", desc: lang === "id" ? "Kuasai Sayap" : "Midfield Domination", icon: "⛓️" },
+                                { key: "4-2-3-1", desc: lang === "id" ? "Taktis Modern" : "Modern Tactical", icon: "🎯" },
+                                { key: "3-4-3", desc: lang === "id" ? "Sangat Menyerang" : "Aggressive Attack", icon: "🔥" },
+                                { key: "4-5-1", desc: lang === "id" ? "Blok Bertahan" : "Defensive Block", icon: "🧱" },
+                                { key: "5-3-2", desc: lang === "id" ? "Ujung Bertahan" : "Ultra Defensive", icon: "🏔️" }
+                              ];
+                            return formationsList.map((item) => {
+                              const isSel = formation === item.key;
+                              return (
+                                <button
+                                  key={item.key}
+                                  onClick={() => {
+                                    applyPresetFormation(item.key as any);
+                                    setShowFormationMenu(false);
+                                  }}
+                                  className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer text-xs ${
+                                    isSel ? "bg-blue-600/20 text-blue-400 font-black" : "text-gray-300"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs">{item.icon}</span>
+                                    <div className="flex flex-col">
+                                      <span className="font-extrabold tracking-wide uppercase text-[10.5px]">{item.key}</span>
+                                      <span className="text-[8px] text-[#5e6680] font-medium leading-none">{item.desc}</span>
+                                    </div>
+                                  </div>
+                                  {isSel && (
+                                    <span className="text-[7.5px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20 font-black animate-pulse uppercase">
+                                      {lang === "id" ? "Aktif" : "Active"}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <Pitch
                 players={players}
@@ -1724,12 +1741,17 @@ export default function App() {
                 showHeatmap={showHeatmap}
                 lang={lang}
                 sportMode={sportMode}
+                isDrawLocked={isDrawLocked}
+                activeSketchLayer={activeSketchLayer}
+                visibleSketchLayers={visibleSketchLayers}
               />
 
               {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
-              <div className="absolute bottom-[29%] sm:bottom-[18.5%] right-2.5 sm:right-4 z-45">
-                <SquadImport onImport={handleImportSquad} lang={lang} />
-              </div>
+              {activeTool !== "draw" && (
+                <div className="absolute bottom-[29%] sm:bottom-[18.5%] right-2.5 sm:right-4 z-45">
+                  <SquadImport onImport={handleImportSquad} lang={lang} />
+                </div>
+              )}
             </div>
 
             {/* Tactical Tools Sidebar (Always vertical at the side of the field) */}
@@ -1798,7 +1820,7 @@ export default function App() {
                     {/* Sub-header inside overlay with minimize toggle control */}
                     <div className="flex justify-between items-center pb-1.5 border-b border-white/[0.06]">
                       <span className="text-[9.5px] text-gray-300 font-extrabold uppercase tracking-widest flex items-center gap-1.5 matches-draft">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                        <span className={`w-1.5 h-1.5 rounded-full ${isDrawLocked ? "bg-red-500 animate-pulse" : "bg-blue-500 animate-pulse"}`} />
                         {lang === "id" ? "CORETAN TAKTIS" : "TACTICAL INK"}
                       </span>
                       <button 
@@ -1812,14 +1834,114 @@ export default function App() {
                       </button>
                     </div>
 
+                    {/* LOCK STROKES TOGGLE SECTION */}
+                    <div className="flex flex-col gap-1 pb-1 border-b border-white/[0.05]">
+                      <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide flex justify-between items-center">
+                        <span>{lang === "id" ? "STATUS CORETAN" : "STROKE LOCK"}</span>
+                        <span className={`text-[8.5px] font-bold ${isDrawLocked ? "text-red-400" : "text-green-400"}`}>
+                          {isDrawLocked 
+                            ? (lang === "id" ? "Terkunci" : "Locked") 
+                            : (lang === "id" ? "Aktif" : "Active")}
+                        </span>
+                      </span>
+                      <button
+                        onClick={() => setIsDrawLocked(!isDrawLocked)}
+                        className={`w-full py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all text-[9.5px] font-bold uppercase cursor-pointer active:scale-95 border ${
+                          isDrawLocked
+                            ? "bg-red-500/15 border-red-500/55 text-red-300 hover:bg-red-500/25 shadow-md shadow-red-950/20"
+                            : "bg-emerald-500/10 border-emerald-500/35 text-emerald-400 hover:bg-emerald-500/20"
+                        }`}
+                        title={isDrawLocked ? (lang === "id" ? "Buka proteksi coretan" : "Unlock sketch controls") : (lang === "id" ? "Kunci agar tidak terhapus / tercoret tidak sengaja" : "Prevent accidental sketch edits")}
+                      >
+                        {isDrawLocked ? (
+                          <>
+                            <Lock className="w-3 h-3 text-red-400" />
+                            <span>{lang === "id" ? "Buka Coretan" : "Unlock Ink"}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-3 h-3 text-emerald-400" />
+                            <span>{lang === "id" ? "Kunci Coretan" : "Lock Ink"}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* SKETCH LAYERING SYSTEM */}
+                    <div className="flex flex-col gap-1 pb-1.5 border-b border-white/[0.05]">
+                      <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
+                        {lang === "id" ? "LAPISAN CORETAN (LAYERS)" : "SKETCH LAYERS"}
+                      </span>
+                      
+                      <div className="flex flex-col gap-1">
+                        {[
+                          { id: 1, nameId: "L1: Serangan", nameEn: "L1: Offense", color: "border-blue-500/40 bg-blue-500/5 text-blue-300" },
+                          { id: 2, nameId: "L2: Bertahan", nameEn: "L2: Defense", color: "border-red-500/40 bg-red-500/5 text-red-300" },
+                          { id: 3, nameId: "L3: Transisi", nameEn: "L3: Transition", color: "border-amber-500/40 bg-amber-500/5 text-amber-300" }
+                        ].map((layer) => {
+                          const isLayerActive = activeSketchLayer === layer.id;
+                          const isLayerVisible = visibleSketchLayers.includes(layer.id);
+                          const layerName = lang === "id" ? layer.nameId : layer.nameEn;
+
+                          return (
+                            <div 
+                              key={layer.id}
+                              className={`flex items-center justify-between gap-1 p-1 rounded-lg border text-[10px] transition-all ${
+                                isLayerActive 
+                                  ? `${layer.color} border-white/20 font-bold shadow-md` 
+                                  : "bg-white/[0.02] border-white/5 text-gray-400 hover:bg-white/[0.04]"
+                              }`}
+                            >
+                              {/* Left selection block */}
+                              <button
+                                onClick={() => {
+                                  setActiveSketchLayer(layer.id);
+                                  // Auto-ensure visible when selected
+                                  if (!visibleSketchLayers.includes(layer.id)) {
+                                    setVisibleSketchLayers((v) => [...v, layer.id]);
+                                  }
+                                }}
+                                className="flex-1 text-left flex items-center gap-1.5 px-1 py-0.5 cursor-pointer text-[10px]"
+                                title={lang === "id" ? `Atur ${layerName} sebagai aktif` : `Set ${layerName} active`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${isLayerActive ? "bg-cyan-400 shadow-[0_0_6px_#22d3ee]" : "bg-gray-600"}`} />
+                                <span className="truncate">{layerName}</span>
+                              </button>
+
+                              {/* Right Visibility control */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setVisibleSketchLayers((prev) =>
+                                    prev.includes(layer.id)
+                                      ? prev.filter((l) => l !== layer.id)
+                                      : [...prev, layer.id]
+                                  );
+                                }}
+                                className={`p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer ${isLayerVisible ? "text-cyan-400" : "text-gray-600"}`}
+                                title={isLayerVisible ? (lang === "id" ? "Sembunyikan layer" : "Hide layer") : (lang === "id" ? "Tampilkan layer" : "Show layer")}
+                              >
+                                {isLayerVisible ? (
+                                  <Eye className="w-3 h-3" />
+                                ) : (
+                                  <EyeOff className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     {/* 1. GAYA CORETAN (Logo buttons choices) */}
-                    <div className="flex flex-col gap-1">
+                    <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
                       <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
                         {lang === "id" ? "PILIHAN GAYA" : "LINE STYLE"}
                       </span>
                       <div className="flex gap-1.5">
                         <button
                           onClick={() => setBrushStyle("solid")}
+                          disabled={isDrawLocked}
                           className={`flex-1 py-1 px-1.5 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
                             brushStyle === "solid"
                               ? "bg-blue-600/25 border-blue-500/70 text-blue-300 shadow-inner"
@@ -1833,6 +1955,7 @@ export default function App() {
                         
                         <button
                           onClick={() => setBrushStyle("arrow")}
+                          disabled={isDrawLocked}
                           className={`flex-1 py-1 px-1.5 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
                             brushStyle === "arrow"
                               ? "bg-blue-600/25 border-blue-500/70 text-blue-300 shadow-inner"
@@ -1847,7 +1970,7 @@ export default function App() {
                     </div>
 
                     {/* 2. WARNA CORETAN (Popup palette / trigger) */}
-                    <div className="flex flex-col gap-1">
+                    <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
                       <div className="flex justify-between items-center">
                         <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
                           {lang === "id" ? "WARNA CORET" : "DRAW COLOR"}
@@ -1859,7 +1982,8 @@ export default function App() {
                         {/* Main Trigger as custom selectable active palette */}
                         <div className="flex items-center gap-1.5">
                           <button
-                            onClick={() => setShowColorPickerPopup(!showColorPickerPopup)}
+                            onClick={() => !isDrawLocked && setShowColorPickerPopup(!showColorPickerPopup)}
+                            disabled={isDrawLocked}
                             className="w-full h-8 px-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between active:scale-95 cursor-pointer text-[10px] transition-all"
                           >
                             <div className="flex items-center gap-1.5">
@@ -1871,7 +1995,7 @@ export default function App() {
                         </div>
 
                         {/* Animated Dropdown Pop-up Palette */}
-                        {showColorPickerPopup && (
+                        {showColorPickerPopup && !isDrawLocked && (
                           <div className="absolute right-0 bottom-full mb-1.5 w-max max-w-[180px] z-55 p-2 bg-[#08090d]/95 border border-white/15 rounded-xl shadow-2xl flex flex-col gap-2 backdrop-blur-md animate-fadeIn">
                             {/* Standard High Contrast Palette Presets Grid */}
                             <div className="grid grid-cols-5 gap-1.5 justify-items-center">
@@ -1926,7 +2050,7 @@ export default function App() {
                     </div>
 
                     {/* 3. KETEBALAN CORETAN */}
-                    <div className="flex flex-col gap-1">
+                    <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
                       <div className="flex justify-between items-center text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
                         <span>{lang === "id" ? "UKURAN CORET" : "BRUSH SIZE"}</span>
                         <span className="text-white font-mono text-[9px]">{brushSize}px</span>
@@ -1936,6 +2060,7 @@ export default function App() {
                         min={2}
                         max={10}
                         value={brushSize}
+                        disabled={isDrawLocked}
                         onChange={(e) => setBrushSize(parseInt(e.target.value))}
                         className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
                       />
@@ -1945,16 +2070,18 @@ export default function App() {
                     <div className="flex gap-1.5 border-t border-white/[0.06] pt-2">
                       <button
                         onClick={handleUndoDraw}
-                        disabled={drawHistory.length === 0}
-                        className="flex-1 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 disabled:opacity-40 text-[9px] font-extrabold uppercase flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                        disabled={drawHistory.length === 0 || isDrawLocked}
+                        className="flex-1 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 disabled:opacity-40 disabled:pointer-events-none text-[9px] font-extrabold uppercase flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                        title={isDrawLocked ? (lang === "id" ? "Coretan dikunci" : "Sketches locked") : ""}
                       >
                         <Undo className="w-2.5 h-2.5" />
                         <span>Undo</span>
                       </button>
                       <button
                         onClick={() => setDrawHistory([])}
-                        disabled={drawHistory.length === 0}
-                        className="flex-1 py-1 rounded-lg bg-red-950/25 hover:bg-red-950/45 border border-red-900/30 text-red-300 disabled:opacity-40 text-[9px] font-extrabold uppercase flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                        disabled={drawHistory.length === 0 || isDrawLocked}
+                        className="flex-1 py-1 rounded-lg bg-red-950/25 hover:bg-red-950/45 border border-red-900/30 text-red-300 disabled:opacity-40 disabled:pointer-events-none text-[9px] font-extrabold uppercase flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                        title={isDrawLocked ? (lang === "id" ? "Coretan dikunci" : "Sketches locked") : ""}
                       >
                         <Trash2 className="w-2.5 h-2.5" />
                         <span>Clear</span>

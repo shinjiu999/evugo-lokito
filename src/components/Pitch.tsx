@@ -40,6 +40,9 @@ interface PitchProps {
   showHeatmap?: boolean;
   lang?: "id" | "en";
   sportMode?: "soccer" | "minisoccer" | "futsal" | "custom";
+  isDrawLocked?: boolean;
+  activeSketchLayer?: number;
+  visibleSketchLayers?: number[];
 }
 
 export default function Pitch({
@@ -73,7 +76,10 @@ export default function Pitch({
   showTacticalGrid = false,
   showHeatmap = false,
   lang = "id",
-  sportMode = "soccer"
+  sportMode = "soccer",
+  isDrawLocked = false,
+  activeSketchLayer = 1,
+  visibleSketchLayers = [1, 2, 3]
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -301,7 +307,17 @@ export default function Pitch({
 
     // --- ANNOTATION LINES RENDERING ---
     drawHistory.forEach((stroke) => {
+      const strokeLayer = stroke.layer || 1;
+      if (!visibleSketchLayers.includes(strokeLayer)) return;
       if (stroke.points.length < 2) return;
+
+      ctx.save();
+      
+      // Dim inactive layers to help visually organize defense/offense layouts
+      if (strokeLayer !== activeSketchLayer) {
+        ctx.globalAlpha = 0.35;
+      }
+
       ctx.beginPath();
       ctx.strokeStyle = stroke.color;
       ctx.lineWidth = stroke.size;
@@ -324,6 +340,8 @@ export default function Pitch({
         // Draw standard proportional arrowhead
         drawArrowhead(ctx, stroke.points, stroke.color, stroke.size);
       }
+
+      ctx.restore();
     });
   };
 
@@ -399,15 +417,45 @@ export default function Pitch({
     ctx.restore();
   };
 
+  // Helper to snap a canvas pixel coordinate to the nearest starting player's center if close enough
+  const snapToNearestPlayer = (x: number, y: number, canvasWidth: number, canvasHeight: number) => {
+    const scaleFactor = Math.min(1.1, Math.max(0.65, pitchWidth / 540));
+    const snapThreshold = Math.max(25, Math.min(52, Math.round(45 * scaleFactor)));
+    
+    let closestPlayer: Player | null = null;
+    let minDistance = Infinity;
+    let snappedX = x;
+    let snappedY = y;
+
+    starters.forEach((player) => {
+      const px = (player.x / 100) * canvasWidth;
+      const py = (player.y / 100) * canvasHeight;
+      const dist = Math.hypot(px - x, py - y);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestPlayer = player;
+        snappedX = px;
+        snappedY = py;
+      }
+    });
+
+    if (minDistance < snapThreshold) {
+      return { x: snappedX, y: snappedY, player: closestPlayer };
+    }
+    return { x, y, player: null };
+  };
+
   // --- DRAW EVENTS ---
   const handleMouseDown = (e: ReactMouseEvent<HTMLCanvasElement>) => {
-    if (activeTool !== "draw") return;
+    if (activeTool !== "draw" || isDrawLocked) return;
     setIsDrawing(true);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
+
+    const { x, y } = snapToNearestPlayer(rawX, rawY, canvas.width, canvas.height);
 
     setLastPoint({ x, y });
     setDrawHistory((prev) => [
@@ -416,23 +464,32 @@ export default function Pitch({
         color: brushColor,
         size: brushSize,
         style: brushStyle,
-        points: [{ x, y }]
+        points: [{ x, y }],
+        layer: activeSketchLayer
       }
     ]);
   };
 
   const handleMouseMove = (e: ReactMouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || activeTool !== "draw" || !lastPoint) return;
+    if (!isDrawing || activeTool !== "draw" || !lastPoint || isDrawLocked) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
+
+    const { x, y } = snapToNearestPlayer(rawX, rawY, canvas.width, canvas.height);
 
     setDrawHistory((prev) => {
       const updated = [...prev];
       if (updated.length === 0) return prev;
       const current = { ...updated[updated.length - 1] };
+      
+      const lastPt = current.points[current.points.length - 1];
+      if (lastPt && lastPt.x === x && lastPt.y === y) {
+        return prev;
+      }
+
       current.points = [...current.points, { x, y }];
       updated[updated.length - 1] = current;
       return updated;
@@ -448,13 +505,15 @@ export default function Pitch({
 
   // --- TOUCH SUPPORT DRAWING ---
   const handleTouchStart = (e: ReactTouchEvent<HTMLCanvasElement>) => {
-    if (activeTool !== "draw" || e.touches.length !== 1) return;
+    if (activeTool !== "draw" || e.touches.length !== 1 || isDrawLocked) return;
     setIsDrawing(true);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.touches[0].clientX - rect.left;
-    const y = e.touches[0].clientY - rect.top;
+    const rawX = e.touches[0].clientX - rect.left;
+    const rawY = e.touches[0].clientY - rect.top;
+
+    const { x, y } = snapToNearestPlayer(rawX, rawY, canvas.width, canvas.height);
 
     setLastPoint({ x, y });
     setDrawHistory((prev) => [
@@ -463,23 +522,32 @@ export default function Pitch({
         color: brushColor,
         size: brushSize,
         style: brushStyle,
-        points: [{ x, y }]
+        points: [{ x, y }],
+        layer: activeSketchLayer
       }
     ]);
   };
 
   const handleTouchMove = (e: ReactTouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || activeTool !== "draw" || !lastPoint || e.touches.length !== 1) return;
+    if (!isDrawing || activeTool !== "draw" || !lastPoint || e.touches.length !== 1 || isDrawLocked) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.touches[0].clientX - rect.left;
-    const y = e.touches[0].clientY - rect.top;
+    const rawX = e.touches[0].clientX - rect.left;
+    const rawY = e.touches[0].clientY - rect.top;
+
+    const { x, y } = snapToNearestPlayer(rawX, rawY, canvas.width, canvas.height);
 
     setDrawHistory((prev) => {
       const updated = [...prev];
       if (updated.length === 0) return prev;
       const current = { ...updated[updated.length - 1] };
+
+      const lastPt = current.points[current.points.length - 1];
+      if (lastPt && lastPt.x === x && lastPt.y === y) {
+        return prev;
+      }
+
       current.points = [...current.points, { x, y }];
       updated[updated.length - 1] = current;
       return updated;
@@ -491,7 +559,7 @@ export default function Pitch({
   // Re-draw on stroke update
   useEffect(() => {
     drawAllStrokes();
-  }, [drawHistory, showHeatmap, players]);
+  }, [drawHistory, showHeatmap, players, activeSketchLayer, visibleSketchLayers]);
 
   // --- DRAGGING CODES ---
   const handleDragStart = (id: string, type: "player" | "item") => {
@@ -996,7 +1064,11 @@ export default function Pitch({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleMouseUp}
           className={`absolute inset-0 w-full h-[72%] sm:h-[84%] z-20 ${
-            activeTool === "draw" ? "cursor-pencil pointer-events-auto" : "pointer-events-none"
+            activeTool === "draw"
+              ? isDrawLocked
+                ? "cursor-not-allowed pointer-events-auto"
+                : "cursor-pencil pointer-events-auto"
+              : "pointer-events-none"
           }`}
         />
 
@@ -1168,8 +1240,8 @@ export default function Pitch({
                   onMouseDown={() => handleDragStart(player.id, "player")}
                   onTouchStart={() => handleDragStart(player.id, "player")}
                   onDoubleClick={() => onDblClickPlayer(player.id)}
-                  className={`absolute pointer-events-auto flex flex-col items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center group ${
-                    activeTool === "select" ? "cursor-grab active:cursor-grabbing" : "cursor-default"
+                  className={`absolute flex flex-col items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center group ${
+                    activeTool === "select" ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none cursor-default"
                   }`}
                   style={{
                     position: "absolute",
@@ -1290,8 +1362,8 @@ export default function Pitch({
                    onMouseDown={() => handleDragStart(item.id, "item")}
                    onTouchStart={() => handleDragStart(item.id, "item")}
                    onDoubleClick={() => onRemoveItem(item.id)}
-                   className={`absolute pointer-events-auto flex items-center justify-center -translate-x-[50%] -translate-y-[50%] ${
-                     activeTool === "select" ? "cursor-grab active:cursor-grabbing" : "cursor-default"
+                   className={`absolute flex items-center justify-center -translate-x-[50%] -translate-y-[50%] ${
+                     activeTool === "select" ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none cursor-default"
                    }`}
                    style={{
                      position: "absolute",

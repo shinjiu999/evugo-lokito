@@ -36,6 +36,7 @@ export interface DrawingStroke {
   size: number;
   style: "solid" | "arrow";
   points: { x: number; y: number }[];
+  layer?: number; // 1, 2, or 3 for multi-layer drawings
 }
 
 export interface TacticalPlay {
