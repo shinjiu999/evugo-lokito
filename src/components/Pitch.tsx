@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, MouseEvent as ReactMouseEvent, TouchEvent 
 import { motion, AnimatePresence } from "motion/react";
 import { Player, TacticalItem, DrawingStroke, AnimationFrame } from "../types";
 import { Trash2, AlertCircle, Sparkles, Plus, X } from "lucide-react";
+import { soundManager } from "../utils/sound";
 
 interface PitchProps {
   players: Player[];
@@ -449,6 +450,7 @@ export default function Pitch({
   const handleMouseDown = (e: ReactMouseEvent<HTMLCanvasElement>) => {
     if (activeTool !== "draw" || isDrawLocked) return;
     setIsDrawing(true);
+    soundManager.playScribble();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -472,6 +474,9 @@ export default function Pitch({
 
   const handleMouseMove = (e: ReactMouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || activeTool !== "draw" || !lastPoint || isDrawLocked) return;
+    if (Math.random() < 0.22) {
+      soundManager.playScribble();
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -507,6 +512,7 @@ export default function Pitch({
   const handleTouchStart = (e: ReactTouchEvent<HTMLCanvasElement>) => {
     if (activeTool !== "draw" || e.touches.length !== 1 || isDrawLocked) return;
     setIsDrawing(true);
+    soundManager.playScribble();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -530,6 +536,9 @@ export default function Pitch({
 
   const handleTouchMove = (e: ReactTouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing || activeTool !== "draw" || !lastPoint || e.touches.length !== 1 || isDrawLocked) return;
+    if (Math.random() < 0.22) {
+      soundManager.playScribble();
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -572,6 +581,7 @@ export default function Pitch({
         setDragStartCoords({ x: p.x, y: p.y });
       }
     }
+    soundManager.playClick();
   };
 
   const handleContainerMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
@@ -655,6 +665,7 @@ export default function Pitch({
 
   const handleDragEnd = () => {
     if (draggedId) {
+      soundManager.playKick();
       if (draggedType === "player") {
         if (activeSwapTargetId && dragStartCoords && onSwapPlayers) {
           const swapTarget = players.find((p) => p.id === activeSwapTargetId);
@@ -699,6 +710,7 @@ export default function Pitch({
     target.style.opacity = "0.6";
 
     setActiveSidelineDragId(sidelineId);
+    soundManager.playClick();
 
     const handlerMove = (moveEvent: MouseEvent | TouchEvent) => {
       const container = pitchRef.current;
@@ -757,10 +769,14 @@ export default function Pitch({
 
         if (nearestStarterId) {
           onSidelineSwap(sidelineId, nearestStarterId);
+          soundManager.playChime();
         } else {
           // Promote sideline to starting
           onPromotePlayer(sidelineId, finalX, finalY);
+          soundManager.playChime();
         }
+      } else {
+        soundManager.playKick();
       }
     };
 

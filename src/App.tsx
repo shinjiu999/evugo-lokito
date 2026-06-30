@@ -13,6 +13,7 @@ import SquadImport from "./components/SquadImport";
 import BroadcastTV from "./components/BroadcastTV";
 import { AppTutorialSocialKit } from "./components/AppTutorialSocialKit";
 import { PlaybookSaveLoadModal } from "./components/PlaybookSaveLoadModal";
+import { soundManager } from "./utils/sound";
 import { toPng } from "html-to-image";
 import {
   Sparkles,
@@ -43,7 +44,9 @@ import {
   Lock,
   Unlock,
   Eye,
-  EyeOff
+  EyeOff,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 
 const TRANSLATIONS = {
@@ -409,6 +412,7 @@ export default function App() {
 
   const handleSetLang = (newLang: "id" | "en") => {
     setLang(newLang);
+    soundManager.playClick();
     try {
       localStorage.setItem("tactigen_lang", newLang);
     } catch (e) {
@@ -501,6 +505,7 @@ export default function App() {
   // Save and Load Pitch & Formation slots
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
   const [saveLoadMode, setSaveLoadMode] = useState<"save" | "load">("save");
+  const [isMuted, setIsMuted] = useState(soundManager.getMuted());
 
   const handleLoadPlaybook = (data: {
     players: Player[];
@@ -1115,7 +1120,7 @@ export default function App() {
             </svg>
           </div>
           <div>
-            <span className="text-sm md:text-base font-extrabold tracking-tight bg-gradient-to-r from-white via-white to-blue-400 bg-clip-text text-transparent">{t.appTitle}</span>
+            <h1 className="text-sm md:text-base font-extrabold tracking-tight bg-gradient-to-r from-white via-white to-blue-400 bg-clip-text text-transparent">{t.appTitle}</h1>
             <p className="text-[9px] text-gray-400 font-medium tracking-wide hidden sm:block">{t.appSubtitle}</p>
           </div>
         </div>
@@ -1132,28 +1137,78 @@ export default function App() {
           <div className="h-4 w-px bg-white/10 hidden lg:block"></div>
 
           {/* Language Selector Toggle */}
-          <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0" id="global-lang-selector">
+          <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0" id="global-lang-selector" role="group" aria-label={lang === "id" ? "Pilih Bahasa" : "Choose Language"}>
             <button
               onClick={() => handleSetLang("id")}
-              className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                 lang === "id"
                   ? "bg-blue-650 text-white shadow-sm"
                   : "text-gray-400 hover:text-white"
               }`}
               title="Bahasa Indonesia"
+              aria-label="Ubah ke Bahasa Indonesia"
+              aria-pressed={lang === "id"}
             >
               ID
             </button>
             <button
               onClick={() => handleSetLang("en")}
-              className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                 lang === "en"
                   ? "bg-blue-650 text-white shadow-sm"
                   : "text-gray-400 hover:text-white"
               }`}
               title="English Translation"
+              aria-label="Switch to English"
+              aria-pressed={lang === "en"}
             >
               EN
+            </button>
+          </div>
+
+          <div className="h-4 w-px bg-white/10 hidden md:block"></div>
+
+          {/* Sound Settings Control (Mute/Unmute & Manual triggers) */}
+          <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0 items-center gap-1" id="global-sound-controller">
+            <button
+              onClick={() => {
+                const muted = soundManager.toggleMuted();
+                setIsMuted(muted);
+              }}
+              className={`p-1 rounded transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+                !isMuted 
+                  ? "text-cyan-400 bg-cyan-500/10 hover:text-cyan-300" 
+                  : "text-gray-400 hover:text-white"
+              }`}
+              title={isMuted ? (lang === "id" ? "Bunyikan Suara" : "Unmute Sounds") : (lang === "id" ? "Bisukan Suara" : "Mute Sounds")}
+              aria-label={isMuted ? "Unmute Sounds" : "Mute Sounds"}
+              aria-pressed={!isMuted}
+            >
+              {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            </button>
+            
+            {/* Whistle sound manual button */}
+            <button
+              onClick={() => {
+                soundManager.playWhistle();
+              }}
+              className="p-1 rounded hover:bg-white/10 text-gray-300 hover:text-white transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none text-xs"
+              title={lang === "id" ? "Tiup Peluit" : "Blow Ref Whistle"}
+              aria-label="Blow Whistle"
+            >
+              📢
+            </button>
+
+            {/* Stadium roar crowd cheer sound manual button */}
+            <button
+              onClick={() => {
+                soundManager.playCrowdCheer();
+              }}
+              className="p-1 rounded hover:bg-white/10 text-gray-300 hover:text-white transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none text-xs"
+              title={lang === "id" ? "Sorak Penonton" : "Play Crowd Cheer"}
+              aria-label="Stadium Roar"
+            >
+              🏟️
             </button>
           </div>
 
@@ -1162,14 +1217,16 @@ export default function App() {
           {/* Guide guide */}
           <button
             onClick={() => setShowGuide(!showGuide)}
-            className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-xs flex items-center gap-1.5 font-medium cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-xs flex items-center gap-1.5 font-medium cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            aria-label={lang === "id" ? "Buka Panduan" : "Open Guide"}
+            aria-expanded={showGuide}
           >
             <HelpCircle className="w-3.5 h-3.5" />
             <span className="hidden md:inline">{t.help}</span>
           </button>
 
           {/* Upload BG */}
-          <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-gray-300 px-2.5 py-1.5 rounded-lg border border-white/10 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium">
+          <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-gray-300 px-2.5 py-1.5 rounded-lg border border-white/10 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium focus-within:ring-2 focus-within:ring-blue-500">
             <Palette className="w-3.5 h-3.5 text-blue-400" />
             <span className="hidden md:inline">{t.customPitch}</span>
             <input
@@ -1177,13 +1234,15 @@ export default function App() {
               accept="image/*"
               onChange={handleUploadBackground}
               className="hidden"
+              aria-label={lang === "id" ? "Unggah Gambar Lapangan Kustom" : "Upload Custom Pitch Background"}
             />
           </label>
 
           {/* TV Presentation mode toggle */}
           <button
             onClick={() => setTvModeOpen(true)}
-            className="bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-2.5 py-1.5 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-2.5 py-1.5 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            aria-label={lang === "id" ? "Buka Presentasi TV" : "Open TV Presentation"}
           >
             <Tv className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
             <span className="hidden md:inline">{t.tvPreview}</span>
@@ -1192,7 +1251,8 @@ export default function App() {
           {/* Capture pitch */}
           <button
             onClick={handleDownloadImage}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-lg shadow-blue-500/10 hover:scale-[1.02] transition-transform flex items-center gap-1.5 active:scale-95 cursor-pointer"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-lg shadow-blue-500/10 hover:scale-[1.02] transition-transform flex items-center gap-1.5 active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            aria-label={lang === "id" ? "Unduh Gambar PNG" : "Download PNG Image"}
           >
             <Download className="w-3.5 h-3.5 text-white" />
             <span className="hidden sm:inline">{t.downloadPng}</span>
@@ -1223,7 +1283,8 @@ export default function App() {
                     value={teamName}
                     onChange={(e) => setTeamName(e.target.value)}
                     placeholder="GARUDA FC"
-                    className="w-full bg-black/45 border border-white/10 rounded-2xl px-3.5 py-2.5 text-xs text-white uppercase focus:outline-none focus:border-blue-500/70 focus:ring-1 focus:ring-blue-500/35 transition-all font-bold tracking-wide"
+                    aria-label={t.clubIdentity}
+                    className="w-full bg-black/45 border border-white/10 rounded-2xl px-3.5 py-2.5 text-xs text-white uppercase focus:outline-none focus:border-blue-500/70 focus:ring-1 focus:ring-blue-500/35 transition-all font-bold tracking-wide focus-visible:ring-2 focus-visible:ring-blue-500"
                   />
                   {/* Floating helpful description/label inside input bar on hover */}
                   <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] font-black tracking-widest text-[#5e6680] uppercase transition-opacity opacity-40 group-hover/name-input:opacity-85">
@@ -1236,17 +1297,18 @@ export default function App() {
                   <div className="flex items-center gap-2">
                     {teamLogo ? (
                       <div className="relative w-10 h-10 bg-black/50 border border-white/15 rounded-xl overflow-hidden flex items-center justify-center group/logo-view">
-                        <img src={teamLogo} className="w-full h-full object-contain p-1" alt="Logo Preview" />
+                        <img src={teamLogo} className="w-full h-full object-contain p-1" alt={lang === "id" ? "Pratinjau Logo Tim" : "Team Logo Preview"} />
                         <button
                           type="button"
                           onClick={() => setTeamLogo(null)}
-                          className="absolute inset-0 bg-red-950/90 opacity-0 group-hover/logo-view:opacity-100 flex items-center justify-center transition-all text-red-500 font-extrabold text-[10px] cursor-pointer"
+                          className="absolute inset-0 bg-red-950/90 opacity-0 group-hover/logo-view:opacity-100 flex items-center justify-center transition-all text-red-500 font-extrabold text-[10px] cursor-pointer focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                          aria-label={lang === "id" ? "Hapus Logo Tim" : "Remove Team Logo"}
                         >
                           ✕
                         </button>
                       </div>
                     ) : (
-                      <label className="w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-black/45 hover:bg-[#0b0c10]/85 border-white/10 hover:border-blue-500/30 text-gray-400 hover:text-white shadow-xl backdrop-blur-md active:scale-95">
+                      <label className="w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-black/45 hover:bg-[#0b0c10]/85 border-white/10 hover:border-blue-500/30 text-gray-400 hover:text-white shadow-xl backdrop-blur-md active:scale-95 focus-within:ring-2 focus-within:ring-blue-500">
                         <Upload className="w-4 h-4 text-blue-400 animate-bounce" style={{ animationDuration: '3s' }} />
                         <input
                           type="file"
@@ -1264,6 +1326,7 @@ export default function App() {
                             }
                           }}
                           className="hidden"
+                          aria-label={t.chooseLogo}
                         />
                       </label>
                     )}
@@ -1298,7 +1361,7 @@ export default function App() {
                       <img 
                         src={teamLogo} 
                         className="w-4.5 h-4.5 sm:w-5.5 sm:h-5.5 object-contain bg-black/40 p-0.5 rounded-md border border-white/10" 
-                        alt="Logo" 
+                        alt={lang === "id" ? "Logo Tim" : "Team Logo"} 
                         referrerPolicy="no-referrer"
                       />
                     ) : (
@@ -1331,7 +1394,10 @@ export default function App() {
                 <div className="absolute top-2.5 sm:top-4 left-2.5 sm:left-4 z-40 flex flex-col items-start group/themeselect">
                   <button
                     onClick={() => setShowThemeDropdown(!showThemeDropdown)}
-                    className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/75 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex items-center justify-center shadow-xl border border-white/[0.08] hover:border-emerald-500/20 backdrop-blur-md cursor-pointer select-none active:scale-95"
+                    className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/75 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex items-center justify-center shadow-xl border border-white/[0.08] hover:border-emerald-500/20 backdrop-blur-md cursor-pointer select-none active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                    aria-label={lang === "id" ? "Pilih Tema Lapangan" : "Choose Pitch Theme"}
+                    aria-haspopup="true"
+                    aria-expanded={showThemeDropdown}
                   >
                     <span className="text-sm sm:text-base shrink-0">
                       {pitchTheme === "emerald-grass" && "🌿"}
@@ -1352,7 +1418,7 @@ export default function App() {
                   )}
 
                   {showThemeDropdown && (
-                    <div className="absolute left-0 top-full mt-1.5 w-42 sm:w-48 bg-[#0b0c10]/95 border border-white/[0.12] rounded-xl sm:rounded-2xl shadow-2xl z-55 overflow-hidden flex flex-col gap-0.5 p-1 animate-fadeIn backdrop-blur-md max-h-48 overflow-y-auto">
+                    <div className="absolute left-0 top-full mt-1.5 w-42 sm:w-48 bg-[#0b0c10]/95 border border-white/[0.12] rounded-xl sm:rounded-2xl shadow-2xl z-55 overflow-hidden flex flex-col gap-0.5 p-1 animate-fadeIn backdrop-blur-md max-h-48 overflow-y-auto" role="menu">
                       {[
                         { key: "emerald-grass", label: lang === "id" ? "Padang Klasik" : "Classic Grass", icon: "🌿" },
                         { key: "neon-hologram", label: lang === "id" ? "Hologram Neon" : "Neon Hologram", icon: "⚡" },
@@ -1367,11 +1433,14 @@ export default function App() {
                               setPitchTheme(th.key as any);
                               setShowThemeDropdown(false);
                             }}
-                            className={`w-full text-left px-2 py-1.5 sm:py-2 rounded-lg text-[9.5px] sm:text-[11px] font-bold flex items-center gap-2 cursor-pointer transition-colors ${
+                            className={`w-full text-left px-2 py-1.5 sm:py-2 rounded-lg text-[9.5px] sm:text-[11px] font-bold flex items-center gap-2 cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                               isActive
-                                ? "bg-blue-600/25 border border-blue-500/30 text-blue-300"
+                                ? "bg-blue-650/25 border border-blue-550/30 text-blue-300"
                                 : "bg-transparent border border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
                             }`}
+                            role="menuitem"
+                            aria-label={th.label}
+                            aria-current={isActive ? "true" : "false"}
                           >
                             <span className="text-sm shrink-0">{th.icon}</span>
                             <span className="truncate">{th.label}</span>
@@ -1418,13 +1487,13 @@ export default function App() {
                           setActiveFrameIndex(0);
                           setShowResetConfirm(false);
                         }}
-                        className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-xl bg-red-600 hover:bg-red-500 text-white text-[7.5px] sm:text-[9px] font-black uppercase transition-colors cursor-pointer"
+                        className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-xl bg-red-600 hover:bg-red-500 text-white text-[7.5px] sm:text-[9px] font-black uppercase transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                       >
                         {t.yes}
                       </button>
                       <button
                         onClick={() => setShowResetConfirm(false)}
-                        className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-[7.5px] sm:text-[9px] font-black uppercase transition-colors cursor-pointer"
+                        className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-[7.5px] sm:text-[9px] font-black uppercase transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                       >
                         {t.cancel}
                       </button>
@@ -1433,7 +1502,8 @@ export default function App() {
                     <div className="relative group/reset">
                       <button
                         onClick={() => setShowResetConfirm(true)}
-                        className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-red-900/30 text-gray-400 hover:text-red-400 shadow-xl backdrop-blur-md active:scale-95"
+                        className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-red-900/30 text-gray-400 hover:text-red-400 shadow-xl backdrop-blur-md active:scale-95 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                        aria-label={lang === "id" ? "Atur Ulang Papan" : "Reset Board"}
                       >
                         <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-300 group-hover/reset:rotate-45" />
                       </button>
@@ -1452,7 +1522,10 @@ export default function App() {
                 <div className="absolute top-1/2 -translate-y-1/2 left-2.5 sm:left-4 z-45 flex flex-col items-start group/sportselect">
                   <button
                     onClick={() => setShowSportOverlay(!showSportOverlay)}
-                    className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex flex-col gap-0.5 items-center justify-center shadow-xl border border-white/[0.08] hover:border-indigo-500/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.25)] backdrop-blur-md cursor-pointer select-none active:scale-95"
+                    className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex flex-col gap-0.5 items-center justify-center shadow-xl border border-white/[0.08] hover:border-indigo-500/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.25)] backdrop-blur-md cursor-pointer select-none active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                    aria-label={lang === "id" ? "Ubah Mode Pertandingan" : "Change Match Sport Mode"}
+                    aria-haspopup="true"
+                    aria-expanded={showSportOverlay}
                   >
                     <span className="text-sm sm:text-base shrink-0 select-none animate-[pulse_2s_infinite]">
                       {sportMode === "soccer" && "⚽"}
@@ -1498,7 +1571,8 @@ export default function App() {
                         </div>
                         <button
                           onClick={() => setShowSportOverlay(false)}
-                          className="w-5 h-5 rounded-lg flex items-center justify-center hover:bg-white/10 cursor-pointer text-gray-400 hover:text-white transition-colors"
+                          className="w-5 h-5 rounded-lg flex items-center justify-center hover:bg-white/10 cursor-pointer text-gray-400 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                          aria-label={lang === "id" ? "Tutup Aturan Tanding" : "Close Sport Arena Rules"}
                         >
                           ✕
                         </button>
@@ -1545,9 +1619,11 @@ export default function App() {
                                     setShowSportOverlay(false);
                                   }
                                 }}
-                                className={`w-full text-left p-2 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2.5 transition-all duration-200 outline-none select-none ${
+                                className={`w-full text-left p-2 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2.5 transition-all duration-200 outline-none select-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
                                   isActive ? modeItem.activeColor : "bg-black/35 border-white/5 hover:border-white/15 text-gray-300"
                                 }`}
+                                aria-label={modeItem.label}
+                                aria-pressed={isActive}
                               >
                                 <span className="text-base bg-white/5 w-6.5 h-6.5 rounded-lg flex items-center justify-center shrink-0 border border-white/5">
                                   {modeItem.icon}
@@ -1583,7 +1659,8 @@ export default function App() {
                                           handleSetSportMode("custom", customCount - 1);
                                         }
                                       }}
-                                      className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
+                                      className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+                                      aria-label={lang === "id" ? "Kurangi jumlah pemain" : "Decrease player count"}
                                     >
                                       -
                                     </button>
@@ -1597,7 +1674,8 @@ export default function App() {
                                         const newVal = parseInt(e.target.value);
                                         handleSetSportMode("custom", newVal);
                                       }}
-                                      className="flex-1 accent-indigo-500 h-1 rounded bg-white/10"
+                                      className="flex-1 accent-indigo-500 h-1 rounded bg-white/10 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+                                      aria-label={lang === "id" ? "Jumlah Pemain Kustom" : "Custom Player Count"}
                                     />
 
                                     <button
@@ -1608,7 +1686,8 @@ export default function App() {
                                           handleSetSportMode("custom", customCount + 1);
                                         }
                                       }}
-                                      className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
+                                      className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+                                      aria-label={lang === "id" ? "Tambah jumlah pemain" : "Increase player count"}
                                     >
                                       +
                                     </button>
@@ -1624,13 +1703,16 @@ export default function App() {
                 </div>
               )}
 
-              {/* Floating thin overlay for Default Formation Selector at the bottom-left inside the pitch */}
+                {/* Floating thin overlay for Default Formation Selector at the bottom-left inside the pitch */}
               {activeTool !== "draw" && (
                 <div className="absolute bottom-[29%] sm:bottom-[18.5%] left-2.5 sm:left-4 z-45">
                   <div className="relative group/formation">
                     <button
                       onClick={() => setShowFormationMenu(!showFormationMenu)}
-                      className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-blue-500/30 text-gray-300 hover:text-white shadow-xl backdrop-blur-md active:scale-95 text-[9.5px] sm:text-[11px] font-black tracking-wide"
+                      className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-blue-500/30 text-gray-300 hover:text-white shadow-xl backdrop-blur-md active:scale-95 text-[9.5px] sm:text-[11px] font-black tracking-wide focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                      aria-label={t.defaultFormation}
+                      aria-haspopup="true"
+                      aria-expanded={showFormationMenu}
                     >
                       <LayoutGrid className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-blue-400" />
                       <span>{formation}</span>
@@ -1646,7 +1728,7 @@ export default function App() {
 
                     {/* Dropdown list table descending downwards */}
                     {showFormationMenu && (
-                      <div className="absolute top-full mt-1.5 left-0 w-52 bg-[#0e1017]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col divide-y divide-white/[0.06] animate-fadeIn">
+                      <div className="absolute top-full mt-1.5 left-0 w-52 bg-[#0e1017]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col divide-y divide-white/[0.06] animate-fadeIn" role="menu">
                         <div className="px-3 py-2 bg-white/[0.02] flex justify-between items-center select-none">
                           <span className="text-[8px] font-black tracking-wider text-[#5e6680] uppercase">{lang === "id" ? "PILIHAN FORMASI" : "FORMATIONS LIST"}</span>
                           <span className="text-[8px] text-blue-400 font-bold uppercase">{lang === "id" ? "Tabel" : "Table"}</span>
@@ -1682,9 +1764,12 @@ export default function App() {
                                     applyPresetFormation(item.key as any);
                                     setShowFormationMenu(false);
                                   }}
-                                  className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer text-xs ${
+                                  className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer text-xs focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                                     isSel ? "bg-blue-600/20 text-blue-400 font-black" : "text-gray-300"
                                   }`}
+                                  role="menuitem"
+                                  aria-label={item.key}
+                                  aria-current={isSel ? "true" : "false"}
                                 >
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs">{item.icon}</span>
@@ -1762,11 +1847,13 @@ export default function App() {
                 <button
                   onClick={() => setActiveTool("select")}
                   title={lang === "id" ? "Mode Geser & Susun (Drag-Drop)" : "Drag & Drop Mode"}
-                  className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                  className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                     activeTool === "select"
                       ? "bg-blue-600 text-white border-blue-400/30 shadow-[0_0_12px_rgba(37,99,235,0.35)]"
                       : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
                   }`}
+                  aria-label={lang === "id" ? "Mode Geser & Susun" : "Drag & Drop Mode"}
+                  aria-pressed={activeTool === "select"}
                 >
                   <Move className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
                 </button>
@@ -1790,11 +1877,15 @@ export default function App() {
                       }
                     }}
                     title={lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}
-                    className={`relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                    className={`relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                       activeTool === "draw"
                         ? "bg-blue-600 text-white border-blue-400/30 shadow-[0_0_12px_rgba(37,99,235,0.35)]"
                         : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
                     }`}
+                    aria-label={lang === "id" ? "Mode Coret Taktikal" : "Tactical Sketch Mode"}
+                    aria-pressed={activeTool === "draw"}
+                    aria-haspopup="true"
+                    aria-expanded={activeTool === "draw" && showDrawConfig}
                   >
                     <PenTool className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
                     {/* Active Color dot indicator in the corner of draw button */}
@@ -1828,7 +1919,8 @@ export default function App() {
                           e.stopPropagation();
                           setShowDrawConfig(false);
                         }}
-                        className="text-[9px] font-bold text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 w-4.5 h-4.5 rounded flex items-center justify-center transition-colors cursor-pointer"
+                        className="text-[9px] font-bold text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 w-4.5 h-4.5 rounded flex items-center justify-center transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                        aria-label={lang === "id" ? "Tutup konfigurasi coretan" : "Close sketch configuration"}
                       >
                         ✕
                       </button>
@@ -1846,12 +1938,14 @@ export default function App() {
                       </span>
                       <button
                         onClick={() => setIsDrawLocked(!isDrawLocked)}
-                        className={`w-full py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all text-[9.5px] font-bold uppercase cursor-pointer active:scale-95 border ${
+                        className={`w-full py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all text-[9.5px] font-bold uppercase cursor-pointer active:scale-95 border focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                           isDrawLocked
                             ? "bg-red-500/15 border-red-500/55 text-red-300 hover:bg-red-500/25 shadow-md shadow-red-950/20"
                             : "bg-emerald-500/10 border-emerald-500/35 text-emerald-400 hover:bg-emerald-500/20"
                         }`}
                         title={isDrawLocked ? (lang === "id" ? "Buka proteksi coretan" : "Unlock sketch controls") : (lang === "id" ? "Kunci agar tidak terhapus / tercoret tidak sengaja" : "Prevent accidental sketch edits")}
+                        aria-label={lang === "id" ? "Kunci Coretan" : "Lock Ink"}
+                        aria-pressed={isDrawLocked}
                       >
                         {isDrawLocked ? (
                           <>
@@ -1901,8 +1995,10 @@ export default function App() {
                                     setVisibleSketchLayers((v) => [...v, layer.id]);
                                   }
                                 }}
-                                className="flex-1 text-left flex items-center gap-1.5 px-1 py-0.5 cursor-pointer text-[10px]"
+                                className="flex-1 text-left flex items-center gap-1.5 px-1 py-0.5 cursor-pointer text-[10px] focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                                 title={lang === "id" ? `Atur ${layerName} sebagai aktif` : `Set ${layerName} active`}
+                                aria-label={layerName}
+                                aria-pressed={isLayerActive}
                               >
                                 <span className={`w-1.5 h-1.5 rounded-full ${isLayerActive ? "bg-cyan-400 shadow-[0_0_6px_#22d3ee]" : "bg-gray-600"}`} />
                                 <span className="truncate">{layerName}</span>
@@ -1918,8 +2014,10 @@ export default function App() {
                                       : [...prev, layer.id]
                                   );
                                 }}
-                                className={`p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer ${isLayerVisible ? "text-cyan-400" : "text-gray-600"}`}
+                                className={`p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${isLayerVisible ? "text-cyan-400" : "text-gray-600"}`}
                                 title={isLayerVisible ? (lang === "id" ? "Sembunyikan layer" : "Hide layer") : (lang === "id" ? "Tampilkan layer" : "Show layer")}
+                                aria-label={isLayerVisible ? (lang === "id" ? `Sembunyikan ${layerName}` : `Hide ${layerName}`) : (lang === "id" ? `Tampilkan ${layerName}` : `Show ${layerName}`)}
+                                aria-pressed={isLayerVisible}
                               >
                                 {isLayerVisible ? (
                                   <Eye className="w-3 h-3" />
@@ -1984,7 +2082,10 @@ export default function App() {
                           <button
                             onClick={() => !isDrawLocked && setShowColorPickerPopup(!showColorPickerPopup)}
                             disabled={isDrawLocked}
-                            className="w-full h-8 px-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between active:scale-95 cursor-pointer text-[10px] transition-all"
+                            className="w-full h-8 px-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between active:scale-95 cursor-pointer text-[10px] transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                            aria-label={lang === "id" ? "Ubah Warna Coretan" : "Change Draw Color"}
+                            aria-haspopup="true"
+                            aria-expanded={showColorPickerPopup}
                           >
                             <div className="flex items-center gap-1.5">
                               <span className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-inner flex shrink-0" style={{ backgroundColor: brushColor }} />
@@ -2372,6 +2473,7 @@ export default function App() {
             items={items}
             currentFormation={formation}
             onLoadGeneratedPlay={handleLoadGeneratedPlay}
+            onApplyFormation={applyPresetFormation}
             lang={lang}
           />
         </div>

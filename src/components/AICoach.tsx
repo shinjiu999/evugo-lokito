@@ -9,10 +9,11 @@ interface AICoachProps {
   items: TacticalItem[];
   currentFormation: string;
   onLoadGeneratedPlay: (play: TacticalPlay) => void;
+  onApplyFormation?: (formation: string) => void;
   lang?: "id" | "en";
 }
 
-export default function AICoach({ players, items, currentFormation, onLoadGeneratedPlay, lang = "id" }: AICoachProps) {
+export default function AICoach({ players, items, currentFormation, onLoadGeneratedPlay, onApplyFormation, lang = "id" }: AICoachProps) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +25,62 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
     if (saved === "gemini") return "gemini-3.5-flash";
     return saved as any;
   });
+
+  // YouTube Tactical Video Analysis States
+  const [isYoutubeModalOpen, setIsYoutubeModalOpen] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [youtubeFocusPrompt, setYoutubeFocusPrompt] = useState("");
+  const [youtubeLoading, setYoutubeLoading] = useState(false);
+  const [youtubeError, setYoutubeError] = useState<string | null>(null);
+  const [youtubeReport, setYoutubeReport] = useState<any | null>(null);
+  const [importStatus, setImportStatus] = useState<"idle" | "success">("idle");
+
+  const handleAnalyzeYoutube = async () => {
+    if (!youtubeUrl.trim()) return;
+    setYoutubeLoading(true);
+    setYoutubeError(null);
+    setYoutubeReport(null);
+    setImportStatus("idle");
+    try {
+      const response = await fetch("/api/tactics/youtube-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          videoUrl: youtubeUrl,
+          prompt: youtubeFocusPrompt,
+          players,
+          items,
+          formation: currentFormation,
+          customApiKey,
+          lang
+        })
+      });
+
+      let rawText = "";
+      try {
+        rawText = (await response.text() || "").trim();
+      } catch (ignored) {}
+
+      if (!response.ok) {
+        let errMsg = "Gagal memproses analisis video YouTube.";
+        try {
+          const errParsed = JSON.parse(rawText);
+          if (errParsed.error) errMsg = errParsed.error;
+        } catch (ignored) {}
+        throw new Error(errMsg);
+      }
+
+      const decoded = JSON.parse(rawText);
+      if (decoded.error) {
+        throw new Error(decoded.error);
+      }
+      setYoutubeReport(decoded);
+    } catch (err: any) {
+      setYoutubeError(err?.message || "Koneksi ke YouTube Scanner terputus.");
+    } finally {
+      setYoutubeLoading(false);
+    }
+  };
 
   const TACTICAL_PRESETS = [
     {
@@ -314,12 +371,19 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
         </div>
       </div>
 
-      <div className="pt-0.5">
+      <div className="pt-0.5 grid grid-cols-2 gap-2">
         <button
           onClick={handleAnalyzeSynergy}
-          className="w-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 text-indigo-400 font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98]"
+          className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 text-indigo-400 font-bold text-[11px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98]"
         >
           <Activity className="w-4 h-4 animate-pulse text-indigo-400" /> {l.scoutBtn}
+        </button>
+        <button
+          onClick={() => setIsYoutubeModalOpen(true)}
+          className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 font-bold text-[11px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98]"
+        >
+          <span className="text-red-400">📺</span>
+          <span>{lang === "id" ? "Analisis Video" : "Video Analysis"}</span>
         </button>
       </div>
 
@@ -858,6 +922,261 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
                   className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl hover:border-white/20 transition-all font-bold text-xs cursor-pointer"
                 >
                   Tutup Laporan
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* YouTube Tactical Scanner Modal Overlay */}
+      <AnimatePresence>
+        {isYoutubeModalOpen && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[5200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#0f0f13] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-white/5 bg-gradient-to-r from-red-950/20 to-orange-950/20 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 flex items-center justify-center">
+                    <span className="text-base leading-none">📺</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white tracking-wide uppercase font-sans">
+                      {lang === "id" ? "Pemindai Video Taktis YouTube" : "YouTube Tactical Video Scanner"}
+                    </h3>
+                    <p className="text-[10px] text-gray-400 font-medium font-mono">
+                      {lang === "id" ? "Analisis skema taktik video pertandingan otomatis" : "Extract playable coach plays from video matches"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsYoutubeModalOpen(false)}
+                  className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-all cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Content body */}
+              <div className="p-5 flex-1 overflow-y-auto space-y-4">
+                {/* Form fields */}
+                <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1">
+                      <span>🔗 URL Video YouTube</span>
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      placeholder={lang === "id" ? "e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ" : "e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
+                      className="w-full bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                      disabled={youtubeLoading}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                      {lang === "id" ? "Fokus Analisis & Petunjuk Tambahan (Opsional)" : "Analysis Focus & Guidelines (Optional)"}
+                    </label>
+                    <input
+                      type="text"
+                      value={youtubeFocusPrompt}
+                      onChange={(e) => setYoutubeFocusPrompt(e.target.value)}
+                      placeholder={lang === "id" ? "e.g., Fokus pada skema menekan gelandang atau serangan balik" : "e.g., Focus on midfield pressure triggers or transition speed"}
+                      className="w-full bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                      disabled={youtubeLoading}
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      onClick={handleAnalyzeYoutube}
+                      disabled={youtubeLoading || !youtubeUrl.trim()}
+                      className="bg-red-600 hover:bg-red-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                    >
+                      {youtubeLoading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>{lang === "id" ? "Memindai..." : "Scanning..."}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          <span>{lang === "id" ? "Mulai Analisis Video" : "Start Video Scanning"}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Loading Radar Scanner */}
+                {youtubeLoading && (
+                  <div className="bg-black/30 p-8 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center gap-3 animate-pulse">
+                    <div className="relative w-16 h-16 flex items-center justify-center">
+                      <div className="absolute inset-0 rounded-full border border-red-500/30 animate-ping" />
+                      <div className="absolute inset-2 rounded-full border border-red-500/20 animate-pulse" />
+                      <div className="w-8 h-8 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-red-400 block">
+                        {lang === "id" ? "Google Omni sedang memindai video taktis..." : "Google Omni is scanning tactical footage..."}
+                      </span>
+                      <span className="text-[10px] text-gray-500 mt-1 block">
+                        {lang === "id" 
+                          ? "Mengekstrak pergerakan pemain, meninjau formasi transisi, dan menyusun keyframe animasi papan taktis." 
+                          : "Extracting positional data, analyzing team triggers, and compiling kinetic playbook keyframes."}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Error Box */}
+                {youtubeError && (
+                  <div className="bg-red-950/30 border border-red-500/20 text-red-400 p-4 rounded-xl text-xs flex items-start gap-2 animate-fadeIn">
+                    <span className="text-red-400">⚠️</span>
+                    <div>
+                      <p className="font-bold">{lang === "id" ? "Gagal Menganalisis Video" : "Video Scanning Failed"}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{youtubeError}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Scanner Report Result */}
+                {youtubeReport && !youtubeLoading && (
+                  <div className="space-y-4 animate-fadeIn">
+                    <div className="bg-gradient-to-r from-red-500/5 to-orange-500/5 border border-red-500/10 rounded-xl p-4">
+                      <h4 className="text-xs font-black text-red-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        {youtubeReport.title}
+                      </h4>
+                      <div className="text-[10.5px] text-gray-300 leading-relaxed text-justify mt-2 font-sans markdown-body">
+                        <Markdown>{youtubeReport.videoSummary}</Markdown>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded-xl">
+                        <span className="text-[10px] uppercase font-bold text-emerald-400 flex items-center gap-1">
+                          ⚽ {lang === "id" ? "Taktik Penyerangan" : "Attacking Strategy"}
+                        </span>
+                        <p className="text-gray-300 text-[11px] leading-relaxed mt-1.5">
+                          {youtubeReport.attackingPhase}
+                        </p>
+                      </div>
+                      <div className="bg-white/[0.02] border border-white/5 p-3 rounded-xl">
+                        <span className="text-[10px] uppercase font-bold text-red-400 flex items-center gap-1">
+                          🛡️ {lang === "id" ? "Taktik Pertahanan" : "Defensive Strategy"}
+                        </span>
+                        <p className="text-gray-300 text-[11px] leading-relaxed mt-1.5">
+                          {youtubeReport.defendingPhase}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/[0.02] border border-white/5 p-3 rounded-xl text-xs">
+                      <span className="text-[10px] uppercase font-bold text-yellow-500 flex items-center gap-1">
+                        🔑 {lang === "id" ? "Peran Kunci Pemain" : "Key Player Roles"}
+                      </span>
+                      <div className="text-gray-300 text-[11px] leading-relaxed mt-1.5 whitespace-pre-line">
+                        {youtubeReport.keyPlayerRoles}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="bg-emerald-950/15 border border-emerald-500/10 p-3 rounded-xl">
+                        <span className="text-[10px] uppercase font-bold text-emerald-400 flex items-center gap-1">
+                          ✓ {lang === "id" ? "Kelebihan Taktik" : "Tactical Strengths"}
+                        </span>
+                        <ul className="list-disc list-inside space-y-1 mt-1.5 text-gray-300 text-[11px]">
+                          {youtubeReport.strengths?.map((str: string, idx: number) => (
+                            <li key={idx} className="leading-relaxed">{str}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="bg-red-950/15 border border-red-500/10 p-3 rounded-xl">
+                        <span className="text-[10px] uppercase font-bold text-red-400 flex items-center gap-1">
+                          ⚠️ {lang === "id" ? "Resiko / Kelemahan" : "Tactical Weaknesses"}
+                        </span>
+                        <ul className="list-disc list-inside space-y-1 mt-1.5 text-gray-300 text-[11px]">
+                          {youtubeReport.weaknesses?.map((wk: string, idx: number) => (
+                            <li key={idx} className="leading-relaxed">{wk}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Interactive Playbook Import Section */}
+                    <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
+                      <div className="space-y-1 text-center sm:text-left">
+                        <span className="text-[9px] bg-red-500/25 text-red-300 px-2 py-0.5 rounded border border-red-500/30 font-bold uppercase tracking-wider font-mono">
+                          ⚡ Playbook Ready
+                        </span>
+                        <h5 className="text-xs font-black text-white uppercase tracking-wide mt-1">
+                          {youtubeReport.playbook?.title || (lang === "id" ? "Animasi Taktis Tersedia" : "Tactical Playbook Animation")}
+                        </h5>
+                        <p className="text-[10px] text-gray-400">
+                          {lang === "id" 
+                            ? `Direkomendasikan formasi: ${youtubeReport.recommendedFormation}`
+                            : `Recommended team formation: ${youtubeReport.recommendedFormation}`}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">
+                        {onApplyFormation && youtubeReport.recommendedFormation && (
+                          <button
+                            onClick={() => {
+                              onApplyFormation(youtubeReport.recommendedFormation);
+                            }}
+                            className="bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white font-bold text-[11px] py-2 px-3 rounded-lg transition-all text-center cursor-pointer active:scale-95"
+                          >
+                            {lang === "id" ? "Gunakan Formasi" : "Apply Formation"}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (youtubeReport.playbook) {
+                              onLoadGeneratedPlay(youtubeReport.playbook);
+                              setImportStatus("success");
+                              setTimeout(() => {
+                                setIsYoutubeModalOpen(false);
+                                setImportStatus("idle");
+                              }, 1000);
+                            }
+                          }}
+                          className="bg-red-600 hover:bg-red-500 text-white font-bold text-[11px] py-2 px-4 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer active:scale-95 shadow-md"
+                        >
+                          {importStatus === "success" ? (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              <span>{lang === "id" ? "Berhasil Diimpor!" : "Imported!"}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3.5 h-3.5" />
+                              <span>{lang === "id" ? "Impor ke Papan Taktik" : "Import Playbook Animation"}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-3 bg-black/40 border-t border-white/5 flex justify-end">
+                <button
+                  onClick={() => setIsYoutubeModalOpen(false)}
+                  className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl hover:border-white/20 transition-all font-bold text-xs cursor-pointer"
+                >
+                  {lang === "id" ? "Tutup Scanner" : "Close Scanner"}
                 </button>
               </div>
             </motion.div>

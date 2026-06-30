@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimationFrame } from "../types";
 import { Play, Pause, BookmarkPlus, RotateCcw, AlertCircle, Eye, EyeOff, Gauge, Zap, Settings as SettingsIcon } from "lucide-react";
+import { soundManager } from "../utils/sound";
 
 interface AnimationTimelineProps {
   frames: AnimationFrame[];
@@ -51,6 +52,7 @@ export default function AnimationTimeline({
         if (nextIdx === 0) {
           setIsPlaying(false);
           onPlayStateChange(false);
+          soundManager.playCrowdCheer();
         }
         setActiveFrameIndex(nextIdx);
       }, playDelayMs);
@@ -65,12 +67,19 @@ export default function AnimationTimeline({
 
   const handleTogglePlay = () => {
     if (frames.length <= 1) return;
-    setIsPlaying(!isPlaying);
+    const nextPlay = !isPlaying;
+    setIsPlaying(nextPlay);
+    if (nextPlay) {
+      soundManager.playWhistle();
+    } else {
+      soundManager.playClick();
+    }
   };
 
   const handleSelectFrame = (idx: number) => {
     setIsPlaying(false);
     setActiveFrameIndex(idx);
+    soundManager.playClick();
   };
 
   const t = {
@@ -110,7 +119,10 @@ export default function AnimationTimeline({
         <div className="flex gap-2">
           {/* Toggle details configuration */}
           <button
-            onClick={() => setIsConfigOpen(!isConfigOpen)}
+            onClick={() => {
+              setIsConfigOpen(!isConfigOpen);
+              soundManager.playClick();
+            }}
             title={lang === "id" ? "Konfigurasi Simulasi" : "Simulation Settings"}
             className={`p-1.5 rounded-lg border transition-all active:scale-95 text-xs flex items-center justify-center cursor-pointer ${
               isConfigOpen
@@ -126,6 +138,7 @@ export default function AnimationTimeline({
             onClick={() => {
               setIsPlaying(false);
               onResetFrames();
+              soundManager.playSweep();
             }}
             title={t.resetTitle}
             className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-450 hover:text-white transition-all active:scale-[0.92] text-xs flex items-center justify-center cursor-pointer"
@@ -135,7 +148,10 @@ export default function AnimationTimeline({
 
           {/* Add frame manually */}
           <button
-            onClick={onSaveCurrentFrameAsNew}
+            onClick={() => {
+              onSaveCurrentFrameAsNew();
+              soundManager.playChime();
+            }}
             title={t.addKeyframeTitle}
             className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-blue-400 hover:text-blue-300 font-semibold text-[10px] uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
           >
