@@ -52,6 +52,9 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
           items,
           formation: currentFormation,
           customApiKey,
+          mcpEnabled,
+          mcpUrl,
+          mcpTool,
           lang
         })
       });
@@ -965,7 +968,7 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
               {/* Content body */}
               <div className="p-5 flex-1 overflow-y-auto space-y-4">
                 {/* Form fields */}
-                <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-3">
+                <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-4">
                   <div className="space-y-1.5">
                     <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1">
                       <span>🔗 URL Video YouTube</span>
@@ -995,11 +998,124 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
                     />
                   </div>
 
+                  {/* Mandated User AI Credentials Area */}
+                  <div className="border-t border-white/5 pt-3 mt-1 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold text-red-400 tracking-wider flex items-center gap-1">
+                        <span>🔐 {lang === "id" ? "Pengaturan Kredensial Pengguna" : "User Credentials Setup"}</span>
+                        <span className="text-red-500">*</span>
+                      </span>
+                      {(!customApiKey.trim() && !mcpEnabled) ? (
+                        <span className="text-[9px] bg-red-500/10 border border-red-500/20 text-red-400 px-2 py-0.5 rounded font-semibold font-mono">
+                          {lang === "id" ? "Kredensial Belum Siap" : "Credentials Missing"}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-semibold font-mono">
+                          {lang === "id" ? "Kredensial Siap" : "Credentials Ready"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Google AI Studio API Key input card */}
+                      <div className={`p-3 rounded-xl border transition-all ${!mcpEnabled ? 'bg-red-500/5 border-red-500/20' : 'bg-white/[0.01] border-white/5 opacity-60'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold text-white uppercase tracking-wider block">
+                            1. Google AI Studio API Key
+                          </span>
+                          {!mcpEnabled && (
+                            <span className="text-[8px] bg-red-500/20 text-red-300 px-1.5 py-0.2 rounded font-mono font-bold uppercase">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="password"
+                          value={customApiKey}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCustomApiKey(val);
+                            localStorage.setItem("tactigen_custom_key", val);
+                          }}
+                          placeholder={lang === "id" ? "Masukkan API Key Google AI Studio Anda" : "Enter your Google AI Studio API Key"}
+                          className="w-full bg-black/60 border border-white/10 text-xs rounded-lg px-2.5 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 font-mono"
+                          disabled={youtubeLoading}
+                        />
+                        <span className="text-[8px] text-gray-500 mt-1 block">
+                          {lang === "id" 
+                            ? "Kunci ini disimpan aman di lokal penjelajah (localStorage) Anda." 
+                            : "Your key is saved safely in your local browser storage (localStorage)."}
+                        </span>
+                      </div>
+
+                      {/* MCP switch/config card */}
+                      <div className={`p-3 rounded-xl border transition-all ${mcpEnabled ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-white/[0.01] border-white/5 opacity-60'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold text-white uppercase tracking-wider block">
+                            2. Model Context Protocol (MCP)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = !mcpEnabled;
+                              setMcpEnabled(next);
+                              localStorage.setItem("tactigen_mcp_enabled", String(next));
+                            }}
+                            className={`px-2 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider transition-all ${
+                              mcpEnabled 
+                                ? "bg-indigo-600 text-white" 
+                                : "bg-white/10 text-gray-400 hover:text-white"
+                            }`}
+                            disabled={youtubeLoading}
+                          >
+                            {mcpEnabled ? "Active" : "Enable"}
+                          </button>
+                        </div>
+                        
+                        {mcpEnabled ? (
+                          <div className="space-y-1.5">
+                            <input
+                              type="text"
+                              value={mcpUrl}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setMcpUrl(val);
+                                localStorage.setItem("tactigen_mcp_url", val);
+                              }}
+                              placeholder="e.g., http://localhost:3015/mcp"
+                              className="w-full bg-black/60 border border-white/10 text-[10px] rounded-lg px-2.5 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 font-mono"
+                              disabled={youtubeLoading}
+                            />
+                            <span className="text-[8px] text-gray-400 block">
+                              {lang === "id" ? "Taktik diekstrak langsung via server MCP lokal." : "Tactical blueprints fetched directly via local MCP host."}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="py-2 flex items-center justify-center text-[10px] text-gray-500 italic">
+                            {lang === "id" ? "Aktifkan untuk memakai server MCP sendiri" : "Enable to source from personal MCP server"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Alert banner if neither credential is ready */}
+                    {!customApiKey.trim() && !mcpEnabled && (
+                      <div className="bg-red-500/10 border border-red-500/25 p-3 rounded-lg text-red-400 text-[10px] leading-relaxed flex items-start gap-1.5 animate-pulse">
+                        <span className="text-red-400 mt-0.5">⚠️</span>
+                        <span>
+                          {lang === "id" 
+                            ? "Harap masukkan Google AI Studio API Key kustom Anda sendiri atau aktifkan Model Context Protocol (MCP) terlebih dahulu untuk dapat menggunakan fitur ini." 
+                            : "Please enter your own Google AI Studio API Key or activate the Model Context Protocol (MCP) first to use this feature."}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex justify-end pt-1">
                     <button
                       onClick={handleAnalyzeYoutube}
-                      disabled={youtubeLoading || !youtubeUrl.trim()}
-                      className="bg-red-600 hover:bg-red-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                      disabled={youtubeLoading || !youtubeUrl.trim() || (!customApiKey.trim() && !mcpEnabled)}
+                      className="bg-red-600 hover:bg-red-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                     >
                       {youtubeLoading ? (
                         <>

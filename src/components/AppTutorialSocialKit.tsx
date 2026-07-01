@@ -15,7 +15,12 @@ import {
   ExternalLink,
   ChevronRight,
   Shield,
-  Palette
+  Palette,
+  FileText,
+  BookOpen,
+  Cpu,
+  Database,
+  Activity
 } from "lucide-react";
 
 interface Player {
@@ -108,7 +113,7 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
   gkColor
 }) => {
   const [activeSlide, setActiveSlide] = useState(0);
-  const [activeTab, setActiveTab] = useState<"tutorial" | "instagram">("tutorial");
+  const [activeTab, setActiveTab] = useState<"tutorial" | "datasheet" | "instagram">("tutorial");
   
   // States for Instagram Graphic Customization
   const [coachName, setCoachName] = useState(lang === "id" ? "Coach Budi" : "Manager Alex");
@@ -481,7 +486,7 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
 
         {/* Tab Navigation Segmented Bar */}
         <div className="px-4 sm:px-6 bg-[#0f1118]/80 border-b border-white/5 py-1.5 sm:py-2.5 flex items-center justify-between gap-4">
-          <div className="flex bg-black/40 border border-white/10 rounded-xl p-1 gap-1 w-full max-w-md">
+          <div className="flex bg-black/40 border border-white/10 rounded-xl p-1 gap-1 w-full max-w-xl">
             <button
               onClick={() => setActiveTab("tutorial")}
               className={`flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
@@ -491,7 +496,18 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
               }`}
             >
               <Info className="w-3.5 h-3.5" />
-              <span>{isId ? "💡 Tutorial Interaktif" : "💡 Interactive Tutorials"}</span>
+              <span>{isId ? "💡 Tutorial" : "💡 User Guide"}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("datasheet")}
+              className={`flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                activeTab === "datasheet"
+                  ? "bg-emerald-600 text-white shadow"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>{isId ? "📊 Lembar Data (Specs)" : "📊 Datasheet"}</span>
             </button>
             <button
               onClick={() => setActiveTab("instagram")}
@@ -502,7 +518,7 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
               }`}
             >
               <Camera className="w-3.5 h-3.5 text-pink-400" />
-              <span>{isId ? "📲 Creator Poster Instagram (Feed ID)" : "📲 Instagram Grid Generator"}</span>
+              <span>{isId ? "📲 Poster Instagram" : "📲 Poster Maker"}</span>
             </button>
           </div>
 
@@ -625,6 +641,110 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
                         <span>{isId ? "Selanjutnya" : "Next"}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : activeTab === "datasheet" ? (
+              <motion.div
+                key="datasheet-view"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.18 }}
+                className="space-y-6"
+              >
+                {/* Specs overview cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-[#121422]/60 border border-emerald-500/10 rounded-2xl p-4 flex items-center gap-4">
+                    <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                      <Cpu className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">CORE ENGINE VERSION</span>
+                      <span className="text-sm font-black text-white font-mono">TACTIGEN PRO V2.0</span>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-[#121422]/60 border border-emerald-500/10 rounded-2xl p-4 flex items-center gap-4">
+                    <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">{isId ? "KAPASITAS SKUAD" : "SQUAD CAPACITY"}</span>
+                      <span className="text-sm font-black text-white font-mono">{players.length} ATLET TERDAFTAR</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#121422]/60 border border-emerald-500/10 rounded-2xl p-4 flex items-center gap-4">
+                    <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                      <Database className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">STORAGE GATEWAY</span>
+                      <span className="text-sm font-black text-emerald-400 font-mono">OFFLINE-FIRST LOCAL</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Technical Specifications Table and Storage Schema */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Specs column */}
+                  <div className="bg-white/[0.01] border border-white/5 p-5 rounded-2xl space-y-4">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-white/5 text-emerald-400">
+                      <Activity className="w-4 h-4" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                        {isId ? "📋 Spesifikasi Sistem" : "📋 System Specifications"}
+                      </h4>
+                    </div>
+
+                    <div className="space-y-3.5 text-xs">
+                      <div className="flex justify-between py-1.5 border-b border-white/5">
+                        <span className="text-gray-400 font-medium">{isId ? "Metode Penyimpanan" : "Persistence Layer"}</span>
+                        <span className="font-mono text-white text-right font-bold">localStorage (Browser Encrypted)</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 border-b border-white/5">
+                        <span className="text-gray-400 font-medium">{isId ? "Model Bahasa AI" : "AI Intelligence"}</span>
+                        <span className="font-mono text-white text-right font-bold">Google Gemini 3.5 / MCP</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 border-b border-white/5">
+                        <span className="text-gray-400 font-medium">{isId ? "Format Ekspor Media" : "Export Graphic Format"}</span>
+                        <span className="font-mono text-white text-right font-bold">PNG 1080x1080px (IG Standard)</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 border-b border-white/5">
+                        <span className="text-gray-400 font-medium">{isId ? "Akurasi Lapangan" : "Coordinate System Accuracy"}</span>
+                        <span className="font-mono text-white text-right font-bold">2.5D Real-time Coordinate Map</span>
+                      </div>
+                      <div className="flex justify-between py-1.5">
+                        <span className="text-gray-400 font-medium">{isId ? "Lisensi Pelatih" : "Coaching License Base"}</span>
+                        <span className="font-mono text-emerald-400 text-right font-bold">UEFA PRO PLATINUM STANDARD</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Local Storage schema column */}
+                  <div className="bg-white/[0.01] border border-white/5 p-5 rounded-2xl space-y-4">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-white/5 text-blue-400">
+                      <Shield className="w-4 h-4" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                        {isId ? "🔑 Keamanan & Struktur Memori" : "🔑 Stored Schema & Privacy"}
+                      </h4>
+                    </div>
+
+                    <p className="text-[10.5px] text-gray-400 leading-relaxed text-justify">
+                      {isId 
+                        ? "Seluruh taktik, coretan, susunan skuad, warna tim, dan kunci API rahasia Anda disimpan secara lokal di browser Anda. Tidak ada data yang dikirimkan ke server eksternal demi menjamin kerahasiaan playbook tim Anda."
+                        : "All tactical assets, playbooks, team kit colors, drawings, and custom API Keys are retained on-device. No telemetry is logged or sent to servers."}
+                    </p>
+
+                    <div className="bg-black/40 border border-white/5 rounded-xl p-3.5 space-y-2.5">
+                      <span className="text-[10px] font-mono text-emerald-400 block font-bold">✓ LOCALSTORAGE VARIABLES</span>
+                      <ul className="list-disc list-inside text-[10px] text-gray-400 space-y-1.5 font-mono">
+                        <li><span className="text-gray-200">tactigen_custom_key</span>: {isId ? "Kunci API Google Gemini Anda" : "Your Gemini API Key"}</li>
+                        <li><span className="text-gray-200">tactigen_mcp_enabled</span>: {isId ? "Status integrasi MCP lokal" : "Status of local MCP connection"}</li>
+                        <li><span className="text-gray-200">tactigen_mcp_url</span>: {isId ? "Alamat endpoint host MCP" : "Host endpoint for MCP"}</li>
+                        <li><span className="text-gray-200">tactigen_saved_playbooks</span>: {isId ? "Koleksi formasi & pemain" : "Playbook slots collection"}</li>
+                      </ul>
                     </div>
                   </div>
                 </div>

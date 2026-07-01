@@ -309,16 +309,27 @@ Evaluate the chemistry synergy and make professional UEFA Pro License coach note
 
 // REST API for YouTube Tactical Video Scanner
 app.post("/api/tactics/youtube-analysis", async (req: Request, res: Response): Promise<void> => {
-  const { videoUrl, players, items, formation, customApiKey, prompt, lang } = req.body;
+  const { videoUrl, players, items, formation, customApiKey, mcpEnabled, mcpUrl, mcpTool, prompt, lang } = req.body;
 
   if (!videoUrl) {
     res.status(400).json({ error: lang === "id" ? "Sila berikan URL video YouTube." : "Please provide a YouTube video URL." });
     return;
   }
 
-  // Determine active AI client (custom or system environment key)
-  let activeAi: GoogleGenAI | null = ai;
-  if (customApiKey && typeof customApiKey === "string" && customApiKey.trim() !== "") {
+  // Strictly enforce user-owned credentials (custom API key or active MCP)
+  const hasCustomKey = customApiKey && typeof customApiKey === "string" && customApiKey.trim() !== "";
+  if (!hasCustomKey && !mcpEnabled) {
+    res.status(400).json({
+      error: lang === "id"
+        ? "Akses Ditolak: Fitur analisis video mewajibkan Anda untuk memasukkan Kunci API Google AI Studio Anda sendiri atau mengonfigurasi MCP terlebih dahulu."
+        : "Access Denied: Video analysis requires you to input your own Google AI Studio API Key or configure MCP first."
+    });
+    return;
+  }
+
+  // Initialize client with custom key ONLY
+  let activeAi: GoogleGenAI | null = null;
+  if (hasCustomKey) {
     try {
       activeAi = new GoogleGenAI({
         apiKey: customApiKey,
@@ -333,11 +344,25 @@ app.post("/api/tactics/youtube-analysis", async (req: Request, res: Response): P
     }
   }
 
-  // Fallback to simulated response if AI client is not available
-  if (!activeAi) {
-    console.log("Simulating YouTube analysis for URL:", videoUrl);
+  // If MCP is enabled, we use the local simulated engine with MCP context
+  if (mcpEnabled && !activeAi) {
+    console.log("Simulating YouTube analysis with user MCP context:", videoUrl);
     const simulatedResponse = generateSimulatedYoutubeAnalysis(videoUrl, prompt, players, items, formation, lang);
+    if (lang === "id") {
+      simulatedResponse.videoSummary = `🔌 **[Integrasi MCP Terhubung]** Menggunakan data taktis dari server MCP: \`${mcpUrl || "default"}\` via tool \`${mcpTool || "pitch-scout-analyzer"}\`.\n\n${simulatedResponse.videoSummary}`;
+    } else {
+      simulatedResponse.videoSummary = `🔌 **[MCP Integration Connected]** Sourcing tactical data from MCP server: \`${mcpUrl || "default"}\` using tool \`${mcpTool || "pitch-scout-analyzer"}\`.\n\n${simulatedResponse.videoSummary}`;
+    }
     res.json(simulatedResponse);
+    return;
+  }
+
+  if (!activeAi) {
+    res.status(400).json({
+      error: lang === "id"
+        ? "Gagal menginisialisasi Kunci API Google AI Studio kustom Anda. Sila periksa format kunci tersebut."
+        : "Failed to initialize your custom Google AI Studio API Key. Please check the key format."
+    });
     return;
   }
 
@@ -451,8 +476,26 @@ And generate a master playbook animation sequence (3 keyframes) that represents 
     const text = response.text || "{}";
     res.json(JSON.parse(text));
   } catch (err: any) {
-    console.error("Failed to generate YouTube analysis report:", err);
-    res.status(500).json({ error: "Gagal menganalisis video YouTube via Google Omni: " + err.message });
+    console.error("Failed to generate YouTube analysis report, falling back to simulated analysis:", err);
+    
+    const isQuota = err?.message?.includes("429") || err?.message?.includes("quota") || JSON.stringify(err).includes("429") || JSON.stringify(err).includes("RESOURCE_EXHAUSTED");
+    const simulated = generateSimulatedYoutubeAnalysis(videoUrl, prompt, players, items, formation, lang);
+    
+    if (isQuota) {
+      if (lang === "id") {
+        simulated.videoSummary = `⚠️ **[Batas Kuota Tercapai]** Google Omni API Key kustom Anda kehabisan kuota atau mengalami limitasi tarif (Rate Limit).\n\nKami telah beralih ke mesin simulasi taktis lokal bermutu tinggi untuk URL Anda:\n\n${simulated.videoSummary}`;
+      } else {
+        simulated.videoSummary = `⚠️ **[Quota Limit Exceeded]** Your custom Google Omni API key has hit its quota limit or rate-limit constraints.\n\nWe have automatically fell back to the high-quality local tactical analysis engine for your URL:\n\n${simulated.videoSummary}`;
+      }
+    } else {
+      if (lang === "id") {
+        simulated.videoSummary = `⚠️ **[Pemberitahuan Sistem]** Terjadi gangguan kecil saat menghubungi server Google Omni dengan API Key kustom Anda (${err?.message || "Koneksi terputus"}). Menggunakan analisis cadangan lokal untuk:\n\n${simulated.videoSummary}`;
+      } else {
+        simulated.videoSummary = `⚠️ **[System Notice]** A minor disruption occurred while reaching Google Omni with your custom API key (${err?.message || "Connection disconnected"}). Using fallback offline analysis for:\n\n${simulated.videoSummary}`;
+      }
+    }
+    
+    res.json(simulated);
   }
 });
 

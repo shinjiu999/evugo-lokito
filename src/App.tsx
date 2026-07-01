@@ -13,6 +13,7 @@ import SquadImport from "./components/SquadImport";
 import BroadcastTV from "./components/BroadcastTV";
 import { AppTutorialSocialKit } from "./components/AppTutorialSocialKit";
 import { PlaybookSaveLoadModal } from "./components/PlaybookSaveLoadModal";
+import { SettingsModal } from "./components/SettingsModal";
 import { soundManager } from "./utils/sound";
 import { toPng } from "html-to-image";
 import {
@@ -501,6 +502,10 @@ export default function App() {
 
   // Help guides collapse
   const [showGuide, setShowGuide] = useState(false);
+
+  // Global API Keys & MCP Settings Portal Modal
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsKey, setSettingsKey] = useState(0);
 
   // Save and Load Pitch & Formation slots
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
@@ -1246,6 +1251,20 @@ export default function App() {
           >
             <Tv className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
             <span className="hidden md:inline">{t.tvPreview}</span>
+          </button>
+
+          {/* Global API Key & MCP Settings Portal */}
+          <button
+            onClick={() => {
+              setIsSettingsModalOpen(true);
+              soundManager.playClick();
+            }}
+            className="bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-2.5 py-1.5 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            aria-label={lang === "id" ? "Pengaturan Kredensial AI" : "AI Credentials Settings"}
+            title={lang === "id" ? "Pengaturan Kredensial AI" : "AI Credentials Settings"}
+          >
+            <Settings className="w-3.5 h-3.5 text-blue-400 animate-spin" style={{ animationDuration: "12s" }} />
+            <span className="hidden md:inline">{lang === "id" ? "Pengaturan" : "Settings"}</span>
           </button>
 
           {/* Capture pitch */}
@@ -2469,6 +2488,7 @@ export default function App() {
 
           {/* AI Coach integration */}
           <AICoach
+            key={settingsKey}
             players={players}
             items={items}
             currentFormation={formation}
@@ -2559,6 +2579,14 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+
+      {/* GLOBAL CREDENTIALS SETTINGS MODAL */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        onSave={() => setSettingsKey((prev) => prev + 1)}
+        lang={lang}
+      />
 
     </div>
   );
