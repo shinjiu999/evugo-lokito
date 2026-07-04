@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player, TacticalItem, DrawingStroke, AnimationFrame } from "../types";
-import { Trash2, AlertCircle, Sparkles, Plus, X } from "lucide-react";
+import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { soundManager } from "../utils/sound";
 
 interface PitchProps {
@@ -51,6 +51,68 @@ interface PitchProps {
   setBrushStyle?: (style: "solid" | "arrow") => void;
 }
 
+// Catmull-Rom spline interpolation helpers for elegant, smooth drawing curves
+function getCatmullRomPoint(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  p3: { x: number; y: number },
+  t: number
+) {
+  const t2 = t * t;
+  const t3 = t2 * t;
+
+  const x = 0.5 * (
+    (2 * p1.x) +
+    (-p0.x + p2.x) * t +
+    (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+    (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
+  );
+
+  const y = 0.5 * (
+    (2 * p1.y) +
+    (-p0.y + p2.y) * t +
+    (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+    (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
+  );
+
+  return { x, y };
+}
+
+function getCatmullRomSpline(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (points.length < 3) return points;
+
+  // Extrapolate control points at boundaries
+  const pStart = {
+    x: 2 * points[0].x - points[1].x,
+    y: 2 * points[0].y - points[1].y
+  };
+  const pEnd = {
+    x: 2 * points[points.length - 1].x - points[points.length - 2].x,
+    y: 2 * points[points.length - 1].y - points[points.length - 2].y
+  };
+
+  const controlPoints = [pStart, ...points, pEnd];
+  const result: { x: number; y: number }[] = [];
+  const segments = points.length - 1;
+  const numSamples = 10; // Number of samples per segment for high-fidelity smoothness
+
+  for (let i = 0; i < segments; i++) {
+    const p0 = controlPoints[i];
+    const p1 = controlPoints[i + 1];
+    const p2 = controlPoints[i + 2];
+    const p3 = controlPoints[i + 3];
+
+    for (let j = 0; j < numSamples; j++) {
+      const t = j / numSamples;
+      result.push(getCatmullRomPoint(p0, p1, p2, p3, t));
+    }
+  }
+  
+  result.push(points[points.length - 1]);
+  return result;
+}
+
 export default function Pitch({
   players,
   items,
@@ -98,6 +160,229 @@ export default function Pitch({
   const [lastPoint, setLastPoint] = useState<{ x: number; y: number } | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<"player" | "item" | null>(null);
+  
+  // --- PINCH TO ZOOM & PAN STATES AND REFS ---
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartZoomRef = useRef<number>(1);
+  const touchStartPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const touchStartMidpointRef = useRef<{ x: number; y: number } | null>(null);
+  const isPanningRef = useRef<boolean>(false);
+  const lastMousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const constrainPan = (pX: number, pY: number, currentZoom: number) => {
+    const container = pitchRef.current;
+    if (!container || currentZoom <= 1) return { x: 0, y: 0 };
+    const rect = container.getBoundingClientRect();
+    const maxX = 0;
+    const minX = -(currentZoom - 1) * rect.width;
+    const maxY = 0;
+    const minY = -(currentZoom - 1) * rect.height;
+    return {
+      x: Math.max(minX, Math.min(maxX, pX)),
+      y: Math.max(minY, Math.min(maxY, pY))
+    };
+  };
+
+  const getZoomedCoordinates = (clientX: number, clientY: number) => {
+    const container = pitchRef.current;
+    if (!container) return { x: 0, y: 0, percentX: 0, percentY: 0 };
+    const rect = container.getBoundingClientRect();
+    const relativeX = clientX - rect.left;
+    const relativeY = clientY - rect.top;
+    
+    const internalX = (relativeX - pan.x) / zoom;
+    const internalY = (relativeY - pan.y) / zoom;
+    
+    const percentX = (internalX / rect.width) * 100;
+    const percentY = (internalY / rect.height) * 100;
+    
+    return {
+      x: internalX,
+      y: internalY,
+      percentX,
+      percentY
+    };
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const container = pitchRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const zoomFactor = 1.1;
+    const nextZoom = e.deltaY < 0 
+      ? Math.min(4, zoom * zoomFactor) 
+      : Math.max(1, zoom / zoomFactor);
+
+    if (nextZoom === zoom) return;
+
+    let nextPan = { x: 0, y: 0 };
+    if (nextZoom > 1) {
+      const rawPanX = mouseX - (mouseX - pan.x) * (nextZoom / zoom);
+      const rawPanY = mouseY - (mouseY - pan.y) * (nextZoom / zoom);
+      nextPan = constrainPan(rawPanX, rawPanY, nextZoom);
+    }
+
+    setZoom(nextZoom);
+    setPan(nextPan);
+  };
+
+  const handleBackgroundMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest(".bg-slate-950") || activeTool === "draw") return;
+
+    isPanningRef.current = true;
+    lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleBackgroundMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPanningRef.current) return;
+    const dx = e.clientX - lastMousePosRef.current.x;
+    const dy = e.clientY - lastMousePosRef.current.y;
+    
+    if (zoom > 1) {
+      const nextPan = constrainPan(pan.x + dx, pan.y + dy, zoom);
+      setPan(nextPan);
+    }
+    
+    lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleBackgroundMouseUp = () => {
+    isPanningRef.current = false;
+  };
+
+  const handleTouchStartAll = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      setIsDrawing(false);
+      setLastPoint(null);
+      setDraggedId(null);
+      setDraggedType(null);
+
+      const container = pitchRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        touchStartDistRef.current = dist;
+        touchStartZoomRef.current = zoom;
+        touchStartPanRef.current = pan;
+        touchStartMidpointRef.current = {
+          x: (t1.clientX + t2.clientX) / 2 - rect.left,
+          y: (t1.clientY + t2.clientY) / 2 - rect.top
+        };
+      }
+    } else if (e.touches.length === 1 && activeTool !== "draw") {
+      const target = e.target as HTMLElement;
+      if (target.closest("button") || target.closest(".bg-slate-950")) return;
+      
+      isPanningRef.current = true;
+      lastMousePosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+  };
+
+  const handleTouchMoveAll = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2 && touchStartDistRef.current && touchStartMidpointRef.current) {
+      const container = pitchRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      
+      const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const scale = currentDist / touchStartDistRef.current;
+      const nextZoom = Math.max(1, Math.min(4, touchStartZoomRef.current * scale));
+
+      const currentMidX = (t1.clientX + t2.clientX) / 2 - rect.left;
+      const currentMidY = (t1.clientY + t2.clientY) / 2 - rect.top;
+
+      const startMid = touchStartMidpointRef.current;
+      const dx = currentMidX - startMid.x;
+      const dy = currentMidY - startMid.y;
+
+      const startPan = touchStartPanRef.current;
+      const rawPanX = currentMidX - (currentMidX - startPan.x - dx) * (nextZoom / touchStartZoomRef.current);
+      const rawPanY = currentMidY - (currentMidY - startPan.y - dy) * (nextZoom / touchStartZoomRef.current);
+
+      const nextPan = constrainPan(rawPanX, rawPanY, nextZoom);
+
+      setZoom(nextZoom);
+      setPan(nextPan);
+    } else if (e.touches.length === 1 && isPanningRef.current && activeTool !== "draw") {
+      const dx = e.touches[0].clientX - lastMousePosRef.current.x;
+      const dy = e.touches[0].clientY - lastMousePosRef.current.y;
+      
+      if (zoom > 1) {
+        const nextPan = constrainPan(pan.x + dx, pan.y + dy, zoom);
+        setPan(nextPan);
+      }
+      
+      lastMousePosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+  };
+
+  const handleTouchEndAll = () => {
+    touchStartDistRef.current = null;
+    touchStartMidpointRef.current = null;
+    isPanningRef.current = false;
+  };
+
+  const handleZoomIn = () => {
+    const container = pitchRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const nextZoom = Math.min(4, zoom + 0.25);
+    if (nextZoom === zoom) return;
+
+    let nextPan = { x: 0, y: 0 };
+    if (nextZoom > 1) {
+      const rawPanX = centerX - (centerX - pan.x) * (nextZoom / zoom);
+      const rawPanY = centerY - (centerY - pan.y) * (nextZoom / zoom);
+      nextPan = constrainPan(rawPanX, rawPanY, nextZoom);
+    }
+    setZoom(nextZoom);
+    setPan(nextPan);
+    soundManager.playClick();
+  };
+
+  const handleZoomOut = () => {
+    const container = pitchRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const nextZoom = Math.max(1, zoom - 0.25);
+    if (nextZoom === zoom) return;
+
+    let nextPan = { x: 0, y: 0 };
+    if (nextZoom > 1) {
+      const rawPanX = centerX - (centerX - pan.x) * (nextZoom / zoom);
+      const rawPanY = centerY - (centerY - pan.y) * (nextZoom / zoom);
+      nextPan = constrainPan(rawPanX, rawPanY, nextZoom);
+    } else {
+      nextPan = { x: 0, y: 0 };
+    }
+    setZoom(nextZoom);
+    setPan(nextPan);
+    soundManager.playClick();
+  };
+
+  const handleZoomReset = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    soundManager.playClick();
+  };
   
   // Track starting position & swap target for on-field player swapping
   const [dragStartCoords, setDragStartCoords] = useState<{ x: number; y: number } | null>(null);
@@ -429,15 +714,17 @@ export default function Pitch({
         ctx.setLineDash([]);
       }
 
-      ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      const smoothedPoints = getCatmullRomSpline(stroke.points);
+
+      ctx.moveTo(smoothedPoints[0].x, smoothedPoints[0].y);
+      for (let i = 1; i < smoothedPoints.length; i++) {
+        ctx.lineTo(smoothedPoints[i].x, smoothedPoints[i].y);
       }
       ctx.stroke();
 
       if (stroke.style === "arrow") {
         // Draw standard proportional arrowhead
-        drawArrowhead(ctx, stroke.points, stroke.color, stroke.size);
+        drawArrowhead(ctx, smoothedPoints, stroke.color, stroke.size);
       }
 
       ctx.restore();
@@ -683,9 +970,10 @@ export default function Pitch({
     soundManager.playScribble();
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const rawX = e.clientX - rect.left;
-    const rawY = e.clientY - rect.top;
+    
+    const coords = getZoomedCoordinates(e.clientX, e.clientY);
+    const rawX = coords.x;
+    const rawY = coords.y;
 
     const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
 
@@ -709,9 +997,10 @@ export default function Pitch({
     }
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const rawX = e.clientX - rect.left;
-    const rawY = e.clientY - rect.top;
+
+    const coords = getZoomedCoordinates(e.clientX, e.clientY);
+    const rawX = coords.x;
+    const rawY = coords.y;
 
     const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
 
@@ -745,9 +1034,10 @@ export default function Pitch({
     soundManager.playScribble();
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const rawX = e.touches[0].clientX - rect.left;
-    const rawY = e.touches[0].clientY - rect.top;
+
+    const coords = getZoomedCoordinates(e.touches[0].clientX, e.touches[0].clientY);
+    const rawX = coords.x;
+    const rawY = coords.y;
 
     const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
 
@@ -771,9 +1061,10 @@ export default function Pitch({
     }
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const rawX = e.touches[0].clientX - rect.left;
-    const rawY = e.touches[0].clientY - rect.top;
+
+    const coords = getZoomedCoordinates(e.touches[0].clientX, e.touches[0].clientY);
+    const rawX = coords.x;
+    const rawY = coords.y;
 
     const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
 
@@ -816,9 +1107,9 @@ export default function Pitch({
 
         // Calculate drag grab offset in percentage coordinates to ensure 100% accurate, smooth, non-snapping drag-and-drop
         if (container) {
-          const rect = container.getBoundingClientRect();
-          const currentCursorX = ((touch.clientX - rect.left) / rect.width) * 100;
-          const currentCursorY = ((touch.clientY - rect.top) / rect.height) * 100;
+          const coords = getZoomedCoordinates(touch.clientX, touch.clientY);
+          const currentCursorX = coords.percentX;
+          const currentCursorY = coords.percentY;
           setDragOffset({
             x: p.x - currentCursorX,
             y: p.y - currentCursorY
@@ -855,9 +1146,9 @@ export default function Pitch({
     } else {
       // Items drag offset
       if (container) {
-        const rect = container.getBoundingClientRect();
-        const currentCursorX = ((touch.clientX - rect.left) / rect.width) * 100;
-        const currentCursorY = ((touch.clientY - rect.top) / rect.height) * 100;
+        const coords = getZoomedCoordinates(touch.clientX, touch.clientY);
+        const currentCursorX = coords.percentX;
+        const currentCursorY = coords.percentY;
         const activeItem = items?.find(itm => itm.id === id);
         if (activeItem) {
           setDragOffset({
@@ -889,8 +1180,9 @@ export default function Pitch({
     }
 
     // Convert to percentage coordinate limits
-    const rawX = ((clientX - rect.left) / rect.width) * 100;
-    const rawY = ((clientY - rect.top) / rect.height) * 100;
+    const coords = getZoomedCoordinates(clientX, clientY);
+    const rawX = coords.percentX;
+    const rawY = coords.percentY;
 
     if (draggedType === "player") {
       // Apply the precise grab offset
@@ -942,8 +1234,9 @@ export default function Pitch({
       }
     }
 
-    const rawX = ((clientX - rect.left) / rect.width) * 100;
-    const rawY = ((clientY - rect.top) / rect.height) * 100;
+    const coords = getZoomedCoordinates(clientX, clientY);
+    const rawX = coords.percentX;
+    const rawY = coords.percentY;
 
     if (draggedType === "player") {
       // Apply the precise grab offset
@@ -1128,8 +1421,9 @@ export default function Pitch({
       const clientX = 'changedTouches' in endEvent ? endEvent.changedTouches[0].clientX : (endEvent as MouseEvent).clientX;
       const clientY = 'changedTouches' in endEvent ? endEvent.changedTouches[0].clientY : (endEvent as MouseEvent).clientY;
 
-      const finalX = parseFloat((((clientX - rect.left) / rect.width) * 100).toFixed(1));
-      const finalY = parseFloat((((clientY - rect.top) / rect.height) * 100).toFixed(1));
+      const coords = getZoomedCoordinates(clientX, clientY);
+      const finalX = parseFloat(coords.percentX.toFixed(1));
+      const finalY = parseFloat(coords.percentY.toFixed(1));
 
       setActiveSidelineDragId(null);
       setSidelineDragCoords(null);
