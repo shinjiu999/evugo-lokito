@@ -3,6 +3,7 @@ import { Player, TacticalItem, TacticalPlay } from "../types";
 import { Sparkles, BrainCircuit, Play, ArrowRight, CornerDownRight, RotateCcw, Settings, Database, Sliders, Cpu, Check, X, Info, Activity, ShieldAlert, Network, RefreshCw } from "lucide-react";
 import Markdown from "react-markdown";
 import { motion, AnimatePresence } from "motion/react";
+import Interactive3DCard from "./Interactive3DCard";
 
 interface AICoachProps {
   players: Player[];
@@ -299,7 +300,8 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
   };
 
   return (
-    <div className="bg-[#15151a] border border-white/5 rounded-2xl p-4 flex flex-col gap-4 shadow-xl relative">
+    <Interactive3DCard glowColor="rgba(139, 92, 246, 0.45)">
+      <div className="p-4 flex flex-col gap-4 relative">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg text-white">
@@ -1317,6 +1319,7 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
           </div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </Interactive3DCard>
   );
 }

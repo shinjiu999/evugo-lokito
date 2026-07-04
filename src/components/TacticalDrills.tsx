@@ -2,6 +2,7 @@ import { useState } from "react";
 import { TACTICAL_DRILLS_DATA, TacticalDrill } from "../data/tacticalDrills";
 import { Play, Sparkles, BookOpen, Check, Target, Compass, Zap, X, Plus, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import Interactive3DCard from "./Interactive3DCard";
 
 interface TacticalDrillsProps {
   onLoadDrill: (drill: TacticalDrill) => void;
@@ -143,7 +144,8 @@ export default function TacticalDrills({
   };
 
   return (
-    <div className="bg-[#0b0c10]/85 backdrop-blur-xl border border-white/[0.07] rounded-3xl p-5 flex flex-col gap-4 shadow-[0_12px_40px_rgba(0,0,0,0.3)] hover:border-white/15 transition-all duration-300">
+    <Interactive3DCard glowColor="rgba(99, 102, 241, 0.4)">
+      <div className="p-5 flex flex-col gap-4">
       {/* Header Info */}
       <div className="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
         <div className="flex flex-col gap-0.5">
@@ -545,6 +547,7 @@ export default function TacticalDrills({
           </div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </Interactive3DCard>
   );
 }

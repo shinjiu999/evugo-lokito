@@ -16,6 +16,7 @@ import { PlaybookSaveLoadModal } from "./components/PlaybookSaveLoadModal";
 import { SettingsModal } from "./components/SettingsModal";
 import { soundManager } from "./utils/sound";
 import { toPng } from "html-to-image";
+import Interactive3DCard from "./components/Interactive3DCard";
 import {
   Sparkles,
   Download,
@@ -1456,8 +1457,8 @@ export default function App() {
         <div className="lg:col-span-3 flex flex-col gap-5 lg:overflow-y-auto lg:max-h-[85vh] pr-1 h-auto">
           
           {/* Identity settings */}
-          <div className="bg-[#0b0c10]/85 backdrop-blur-xl border border-white/[0.07] rounded-3xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.3)] hover:border-white/15 transition-all duration-300">
-            <div className="flex flex-col gap-3">
+          <Interactive3DCard glowColor="rgba(59, 130, 246, 0.45)">
+            <div className="p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-[10px] font-black text-[#5e6680] uppercase tracking-widest flex items-center gap-1.5 select-none">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> {t.clubIdentity}
@@ -1532,7 +1533,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-          </div>
+          </Interactive3DCard>
 
         </div>
 

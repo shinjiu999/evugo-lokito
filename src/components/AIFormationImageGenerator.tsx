@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Image, Sparkles, AlertCircle, Download, RefreshCw, Key, HelpCircle, Eye, MonitorPlay } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player } from "../types";
+import Interactive3DCard from "./Interactive3DCard";
 
 interface AIFormationImageGeneratorProps {
   formation: string;
@@ -801,7 +802,8 @@ export default function AIFormationImageGenerator({
   };
 
   return (
-    <div className="bg-[#15151a] border border-white/5 rounded-2xl p-4 shadow-xl space-y-4">
+    <Interactive3DCard glowColor="rgba(16, 185, 129, 0.45)">
+      <div className="p-4 space-y-4">
       {/* Clean minimal Header, no description or explanations */}
       <div className="flex items-center gap-2 border-b border-white/5 pb-2.5">
         <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg text-white">
@@ -831,6 +833,7 @@ export default function AIFormationImageGenerator({
           </button>
         </div>
       )}
-    </div>
+      </div>
+    </Interactive3DCard>
   );
 }

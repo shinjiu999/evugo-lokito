@@ -98,11 +98,68 @@ export default function Pitch({
   const [sidelineDragCoords, setSidelineDragCoords] = useState<{ x: number; y: number } | null>(null);
   const [pitchWidth, setPitchWidth] = useState(580);
 
+  // Grab offset and long-press timer for smooth/accurate dragging and mobile selection
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const longPressTimerRef = useRef<any>(null);
+
   // Pop-up form states for adding a bench player directly via bench plus (+) button
   const [isAddSubOpen, setIsAddSubOpen] = useState(false);
   const [subName, setSubName] = useState("");
   const [subNum, setSubNum] = useState("");
   const [subRole, setSubRole] = useState<"GK" | "DEF" | "MID" | "FWD">("MID");
+
+  // Click-to-Substitute state variables
+  const [selectedSubPlayerId, setSelectedSubPlayerId] = useState<string | null>(null);
+  const [clickStartInfo, setClickStartInfo] = useState<{ id: string; time: number; x: number; y: number } | null>(null);
+
+  const handlePlayerClick = (playerId: string) => {
+    const clickedPlayer = players.find((p) => p.id === playerId);
+    if (!clickedPlayer) return;
+
+    if (!selectedSubPlayerId) {
+      setSelectedSubPlayerId(playerId);
+      soundManager.playClick();
+    } else {
+      if (selectedSubPlayerId === playerId) {
+        setSelectedSubPlayerId(null);
+        soundManager.playClick();
+      } else {
+        const firstPlayer = players.find((p) => p.id === selectedSubPlayerId);
+        if (!firstPlayer) {
+          setSelectedSubPlayerId(playerId);
+          soundManager.playClick();
+          return;
+        }
+
+        // Perform swap
+        if (firstPlayer.isStarting && clickedPlayer.isStarting) {
+          // Both are starters: perform position swap
+          if (onSwapPlayers) {
+            onSwapPlayers(
+              firstPlayer.id,
+              clickedPlayer.id,
+              { x: firstPlayer.x, y: firstPlayer.y },
+              { x: clickedPlayer.x, y: clickedPlayer.y }
+            );
+          }
+          soundManager.playChime();
+          setSelectedSubPlayerId(null);
+        } else if (firstPlayer.isStarting !== clickedPlayer.isStarting) {
+          // One starter, one bench: perform substitution swap
+          const starter = firstPlayer.isStarting ? firstPlayer : clickedPlayer;
+          const sub = firstPlayer.isStarting ? clickedPlayer : firstPlayer;
+
+          onSidelineSwap(sub.id, starter.id);
+          soundManager.playChime();
+          setSelectedSubPlayerId(null);
+        } else {
+          // Both are bench players: shift selection to the newly clicked player
+          setSelectedSubPlayerId(playerId);
+          soundManager.playClick();
+        }
+      }
+    }
+  };
 
   const resetSubForm = () => {
     setSubName("");
@@ -571,14 +628,70 @@ export default function Pitch({
   }, [drawHistory, showHeatmap, players, activeSketchLayer, visibleSketchLayers]);
 
   // --- DRAGGING CODES ---
-  const handleDragStart = (id: string, type: "player" | "item") => {
+  const handleDragStart = (e: ReactMouseEvent | ReactTouchEvent, id: string, type: "player" | "item") => {
     if (activeTool !== "select") return;
     setDraggedId(id);
     setDraggedType(type);
+
+    const container = pitchRef.current;
+    const touch = 'touches' in e ? e.touches[0] : e;
+
     if (type === "player") {
       const p = players.find((player) => player.id === id);
       if (p) {
         setDragStartCoords({ x: p.x, y: p.y });
+
+        // Calculate drag grab offset in percentage coordinates to ensure 100% accurate, smooth, non-snapping drag-and-drop
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const currentCursorX = ((touch.clientX - rect.left) / rect.width) * 100;
+          const currentCursorY = ((touch.clientY - rect.top) / rect.height) * 100;
+          setDragOffset({
+            x: p.x - currentCursorX,
+            y: p.y - currentCursorY
+          });
+        }
+      }
+      setClickStartInfo({
+        id,
+        time: Date.now(),
+        x: touch.clientX,
+        y: touch.clientY
+      });
+
+      // --- TOUCH LONG PRESS (HOLD) DETECTION FOR MOBILE ---
+      if ('touches' in e) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+        }
+        longPressTimerRef.current = setTimeout(() => {
+          // Select player for swap/sub & play feedback
+          handlePlayerClick(id);
+          // Cancel active dragging immediately to stay focused in swap mode
+          setDraggedId(null);
+          setDraggedType(null);
+          setDragStartCoords(null);
+          setActiveSwapTargetId(null);
+          if (navigator.vibrate) {
+            try {
+              navigator.vibrate(50);
+            } catch (err) {}
+          }
+        }, 350); // 350ms hold time is highly responsive on mobile
+      }
+    } else {
+      // Items drag offset
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const currentCursorX = ((touch.clientX - rect.left) / rect.width) * 100;
+        const currentCursorY = ((touch.clientY - rect.top) / rect.height) * 100;
+        const activeItem = items?.find(itm => itm.id === id);
+        if (activeItem) {
+          setDragOffset({
+            x: activeItem.x - currentCursorX,
+            y: activeItem.y - currentCursorY
+          });
+        }
       }
     }
     soundManager.playClick();
@@ -593,13 +706,26 @@ export default function Pitch({
     const clientX = e.clientX;
     const clientY = e.clientY;
 
+    // Clear hold timer if moved significantly
+    if (clickStartInfo && draggedId === clickStartInfo.id && longPressTimerRef.current) {
+      const dist = Math.hypot(clientX - clickStartInfo.x, clientY - clickStartInfo.y);
+      if (dist > 8) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+
     // Convert to percentage coordinate limits
     const rawX = ((clientX - rect.left) / rect.width) * 100;
     const rawY = ((clientY - rect.top) / rect.height) * 100;
 
     if (draggedType === "player") {
-      const x = Math.max(2, Math.min(98, parseFloat(rawX.toFixed(1))));
-      const y = Math.max(2, Math.min(98, parseFloat(rawY.toFixed(1))));
+      // Apply the precise grab offset
+      const adjustedX = rawX + dragOffset.x;
+      const adjustedY = rawY + dragOffset.y;
+
+      const x = Math.max(2, Math.min(98, parseFloat(adjustedX.toFixed(1))));
+      const y = Math.max(2, Math.min(98, parseFloat(adjustedY.toFixed(1))));
 
       // Find nearest starting player (different from current dragged player)
       let targetId: string | null = null;
@@ -617,9 +743,10 @@ export default function Pitch({
 
       onUpdatePlayerPosition(draggedId, x, y);
     } else {
-      // Items are allowed to go further outside for interactive trash-out functionality
-      const x = Math.max(-10, Math.min(110, parseFloat(rawX.toFixed(1))));
-      const y = Math.max(-10, Math.min(110, parseFloat(rawY.toFixed(1))));
+      const adjustedX = rawX + dragOffset.x;
+      const adjustedY = rawY + dragOffset.y;
+      const x = Math.max(-10, Math.min(110, parseFloat(adjustedX.toFixed(1))));
+      const y = Math.max(-10, Math.min(110, parseFloat(adjustedY.toFixed(1))));
       onUpdateItemPosition(draggedId, x, y);
     }
   };
@@ -633,12 +760,25 @@ export default function Pitch({
     const clientX = e.touches[0].clientX;
     const clientY = e.touches[0].clientY;
 
+    // Clear hold timer if moved significantly
+    if (clickStartInfo && draggedId === clickStartInfo.id && longPressTimerRef.current) {
+      const dist = Math.hypot(clientX - clickStartInfo.x, clientY - clickStartInfo.y);
+      if (dist > 8) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+
     const rawX = ((clientX - rect.left) / rect.width) * 100;
     const rawY = ((clientY - rect.top) / rect.height) * 100;
 
     if (draggedType === "player") {
-      const x = Math.max(2, Math.min(98, parseFloat(rawX.toFixed(1))));
-      const y = Math.max(2, Math.min(98, parseFloat(rawY.toFixed(1))));
+      // Apply the precise grab offset
+      const adjustedX = rawX + dragOffset.x;
+      const adjustedY = rawY + dragOffset.y;
+
+      const x = Math.max(2, Math.min(98, parseFloat(adjustedX.toFixed(1))));
+      const y = Math.max(2, Math.min(98, parseFloat(adjustedY.toFixed(1))));
 
       // Find nearest starting player (different from current dragged player)
       let targetId: string | null = null;
@@ -656,15 +796,46 @@ export default function Pitch({
 
       onUpdatePlayerPosition(draggedId, x, y);
     } else {
-      // Items are allowed to go further outside for interactive trash-out functionality
-      const x = Math.max(-10, Math.min(110, parseFloat(rawX.toFixed(1))));
-      const y = Math.max(-10, Math.min(110, parseFloat(rawY.toFixed(1))));
+      const adjustedX = rawX + dragOffset.x;
+      const adjustedY = rawY + dragOffset.y;
+      const x = Math.max(-10, Math.min(110, parseFloat(adjustedX.toFixed(1))));
+      const y = Math.max(-10, Math.min(110, parseFloat(adjustedY.toFixed(1))));
       onUpdateItemPosition(draggedId, x, y);
     }
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = (e?: ReactMouseEvent | ReactTouchEvent | MouseEvent | TouchEvent) => {
+    // Always clear the mobile long-press timer on drag end
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
     if (draggedId) {
+      if (clickStartInfo && draggedId === clickStartInfo.id && draggedType === "player") {
+        const duration = Date.now() - clickStartInfo.time;
+        let clientX = clickStartInfo.x;
+        let clientY = clickStartInfo.y;
+        if (e) {
+          const touch = 'changedTouches' in e ? e.changedTouches[0] : ('touches' in e && e.touches[0] ? e.touches[0] : e);
+          if (touch && 'clientX' in touch) {
+            clientX = touch.clientX;
+            clientY = touch.clientY;
+          }
+        }
+        const dist = Math.hypot(clientX - clickStartInfo.x, clientY - clickStartInfo.y);
+
+        if (duration < 250 && dist < 12) {
+          handlePlayerClick(clickStartInfo.id);
+          setDraggedId(null);
+          setDraggedType(null);
+          setDragStartCoords(null);
+          setActiveSwapTargetId(null);
+          setClickStartInfo(null);
+          return;
+        }
+      }
+
       soundManager.playKick();
       if (draggedType === "player") {
         if (activeSwapTargetId && dragStartCoords && onSwapPlayers) {
@@ -699,6 +870,7 @@ export default function Pitch({
     setDraggedType(null);
     setDragStartCoords(null);
     setActiveSwapTargetId(null);
+    setClickStartInfo(null);
   };
 
   // Drag sideline substitute to the pitch
@@ -712,12 +884,47 @@ export default function Pitch({
     setActiveSidelineDragId(sidelineId);
     soundManager.playClick();
 
+    const clickTime = Date.now();
+    const clickX = touch.clientX;
+    const clickY = touch.clientY;
+
+    let benchLongPressTimer: any = null;
+
+    if ('touches' in e) {
+      benchLongPressTimer = setTimeout(() => {
+        // Trigger select/swap mode
+        handlePlayerClick(sidelineId);
+
+        // Clean up immediately and cancel normal drag behavior since hold-selection is activated
+        target.style.opacity = "";
+        document.removeEventListener("mousemove", handlerMove);
+        document.removeEventListener("mouseup", handlerEnd);
+        document.removeEventListener("touchmove", handlerMove);
+        document.removeEventListener("touchend", handlerEnd);
+        setActiveSidelineDragId(null);
+        setSidelineDragCoords(null);
+
+        if (navigator.vibrate) {
+          try {
+            navigator.vibrate(50);
+          } catch (err) {}
+        }
+      }, 350); // 350ms hold
+    }
+
     const handlerMove = (moveEvent: MouseEvent | TouchEvent) => {
       const container = pitchRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const clientX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : (moveEvent as MouseEvent).clientX;
       const clientY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : (moveEvent as MouseEvent).clientY;
+
+      // Cancel hold timer if finger has moved significantly (more than 8 pixels)
+      const moveDist = Math.hypot(clientX - clickX, clientY - clickY);
+      if (moveDist > 8 && benchLongPressTimer) {
+        clearTimeout(benchLongPressTimer);
+        benchLongPressTimer = null;
+      }
 
       const x = parseFloat((((clientX - rect.left) / rect.width) * 100).toFixed(1));
       const y = parseFloat((((clientY - rect.top) / rect.height) * 100).toFixed(1));
@@ -726,6 +933,11 @@ export default function Pitch({
     };
 
     const handlerEnd = (endEvent: MouseEvent | TouchEvent) => {
+      if (benchLongPressTimer) {
+        clearTimeout(benchLongPressTimer);
+        benchLongPressTimer = null;
+      }
+
       target.style.opacity = "";
       document.removeEventListener("mousemove", handlerMove);
       document.removeEventListener("mouseup", handlerEnd);
@@ -748,6 +960,14 @@ export default function Pitch({
 
       setActiveSidelineDragId(null);
       setSidelineDragCoords(null);
+
+      // Check if it's a single click (tap) instead of a drag
+      const duration = Date.now() - clickTime;
+      const moveDist = Math.hypot(clientX - clickX, clientY - clickY);
+      if (duration < 250 && moveDist < 12) {
+        handlePlayerClick(sidelineId);
+        return; // skip actual drag-swap/promote logic!
+      }
 
       if (
         clientX >= rect.left &&
@@ -834,6 +1054,21 @@ export default function Pitch({
         onTouchMove={handleContainerTouchMove}
         onMouseUp={handleDragEnd}
         onTouchEnd={handleDragEnd}
+        onClick={(e) => {
+          // Deselect if we clicked on empty space (pitch wrapper or svg/canvas element)
+          const target = e.target as HTMLElement;
+          if (
+            target.id === "tacticalPitchWrapper" ||
+            target.tagName === "svg" ||
+            target.tagName === "line" ||
+            target.tagName === "rect" ||
+            target.tagName === "circle" ||
+            target.tagName === "path" ||
+            target.tagName === "canvas"
+          ) {
+            setSelectedSubPlayerId(null);
+          }
+        }}
         className={`relative w-full max-w-[580px] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`}
         style={{
           backgroundImage: customBackgroundUrl ? `url(${customBackgroundUrl})` : "none",
@@ -841,6 +1076,42 @@ export default function Pitch({
           backgroundPosition: "center"
         }}
       >
+        {/* Floating Instruction Banner for Click-to-Swap / Substitution */}
+        {selectedSubPlayerId && (() => {
+          const selPlayer = players.find((p) => p.id === selectedSubPlayerId);
+          if (!selPlayer) return null;
+          return (
+            <div className="absolute top-4 left-4 right-4 z-50 flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border bg-[#090d16]/95 border-amber-500/40 shadow-[0_8px_32px_rgba(245,158,11,0.25)] backdrop-blur-md">
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <div className="relative flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0 animate-pulse">
+                  <span className="text-[10px] font-black uppercase">🔄</span>
+                </div>
+                <div className="flex flex-col min-w-0 leading-tight">
+                  <span className="text-[10px] uppercase font-black tracking-wider text-amber-400/80">
+                    {lang === "id" ? "Proses Swap Aktif" : "Active Swap Process"}
+                  </span>
+                  <span className="text-white text-xs font-bold truncate">
+                    {lang === "id" 
+                      ? `Pilih pengganti untuk ${selPlayer.name}`
+                      : `Select swap partner for ${selPlayer.name}`}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedSubPlayerId(null);
+                  soundManager.playClick();
+                }}
+                className="p-1 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-all shrink-0 border border-transparent hover:border-white/10"
+                title={lang === "id" ? "Batalkan" : "Cancel"}
+              >
+                <X size={14} className="stroke-[2.5]" />
+              </button>
+            </div>
+          );
+        })()}
+
         {/* Animated, High-Stakes Theme Background Graphics */}
         {!customBackgroundUrl && (
           <>
@@ -1253,8 +1524,8 @@ export default function Pitch({
                     ...dynamicTransition,
                     layout: { duration: 0.2 }
                   }}
-                  onMouseDown={() => handleDragStart(player.id, "player")}
-                  onTouchStart={() => handleDragStart(player.id, "player")}
+                  onMouseDown={(e) => handleDragStart(e, player.id, "player")}
+                  onTouchStart={(e) => handleDragStart(e, player.id, "player")}
                   onDoubleClick={() => onDblClickPlayer(player.id)}
                   className={`absolute flex flex-col items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center group ${
                     activeTool === "select" ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none cursor-default"
@@ -1264,6 +1535,13 @@ export default function Pitch({
                     touchAction: "none"
                   }}
                 >
+                  {/* Glowing Selected badge above the player for click substitution */}
+                  {selectedSubPlayerId === player.id && (
+                    <div className="absolute -top-7 px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] font-black rounded-full uppercase flex items-center gap-1 shadow-[0_0_12px_rgba(245,158,11,0.8)] tracking-wider z-50 animate-pulse">
+                      <span>{lang === "id" ? "TERPILIH 🔄" : "SELECTED 🔄"}</span>
+                    </div>
+                  )}
+
                   {/* Glowing Exchange badge above the player */}
                   {isSwapTarget && (
                     <div className="absolute -top-7 px-2.5 py-0.5 bg-gradient-to-r from-emerald-500 to-green-500 text-black text-[9px] font-black rounded-full uppercase flex items-center gap-1 shadow-[0_0_12px_rgba(52,211,153,0.8)] tracking-wider z-50 animate-bounce">
@@ -1276,7 +1554,11 @@ export default function Pitch({
                     className={`relative rounded-full border-2 border-black/50 shadow-lg flex items-center justify-center transition-all ${
                       isSelected ? "scale-115 ring-2 ring-blue-500 border-blue-500" : ""
                     } ${
-                      isSwapTarget ? "scale-120 border-emerald-400 ring-4 ring-emerald-400/80 shadow-[0_0_25px_rgba(52,211,153,0.95)]" : "group-hover:scale-105"
+                      selectedSubPlayerId === player.id
+                        ? "scale-120 border-amber-400 ring-4 ring-amber-400/80 shadow-[0_0_25px_rgba(245,158,11,0.95)]"
+                        : isSwapTarget
+                        ? "scale-120 border-emerald-400 ring-4 ring-emerald-400/80 shadow-[0_0_25px_rgba(52,211,153,0.95)]"
+                        : "group-hover:scale-105"
                     }`}
                     style={{
                       width: `${jerseySize}px`,
@@ -1285,6 +1567,10 @@ export default function Pitch({
                       color: player.photo ? "#fff" : numberColor
                     }}
                   >
+                    {selectedSubPlayerId === player.id && (
+                      <div className="absolute inset-0 rounded-full ring-4 ring-amber-400 animate-ping opacity-60 pointer-events-none" />
+                    )}
+
                     {isSwapTarget && (
                       <div className="absolute inset-0 rounded-full ring-4 ring-emerald-400 animate-ping opacity-60 pointer-events-none" />
                     )}
@@ -1375,8 +1661,8 @@ export default function Pitch({
                      top: `${item.y}%`
                    }}
                    transition={dynamicTransition}
-                   onMouseDown={() => handleDragStart(item.id, "item")}
-                   onTouchStart={() => handleDragStart(item.id, "item")}
+                   onMouseDown={(e) => handleDragStart(e, item.id, "item")}
+                   onTouchStart={(e) => handleDragStart(e, item.id, "item")}
                    onDoubleClick={() => onRemoveItem(item.id)}
                    className={`absolute flex items-center justify-center -translate-x-[50%] -translate-y-[50%] ${
                      activeTool === "select" ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none cursor-default"
@@ -1642,7 +1928,7 @@ export default function Pitch({
               👥 {lang === "id" ? "Bangku Cadangan (Dugout)" : "Squad Bench (Dugout)"}
             </span>
             <span className="text-gray-500 italic text-[7.2px] sm:text-[8px] leading-none shrink-0">
-              {lang === "id" ? "Seret pemain ke atas untuk bermain" : "Drag players up onto field to play"}
+              {lang === "id" ? "Klik sekali atau seret pemain ke lapangan" : "Click once or drag players onto field"}
             </span>
           </div>
 
@@ -1684,7 +1970,11 @@ export default function Pitch({
                         gap: `${itemGap}px`,
                         borderRadius: `${scale > 0.82 ? 12 : 8}px`,
                       }}
-                      className="group relative flex items-center bg-white/5 hover:bg-white/10 border border-white/5 shrink-0 cursor-grab active:cursor-grabbing hover:border-blue-500/50 transition-all select-none"
+                      className={`group relative flex items-center shrink-0 cursor-grab active:cursor-grabbing transition-all select-none ${
+                        selectedSubPlayerId === sub.id
+                          ? "bg-amber-500/15 border-amber-400 ring-2 ring-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.35)] font-black"
+                          : "bg-white/5 hover:bg-white/10 border border-white/5 hover:border-blue-500/50"
+                      }`}
                     >
                       {/* Floating Mini Stats HUD for Bench on Hover */}
                       <div className="absolute bottom-[115%] left-[50%] -translate-x-[50%] z-50 bg-[#0f0f12]/95 border border-white/10 p-2 rounded-xl shadow-2xl opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex flex-col gap-1 select-none backdrop-blur-md">

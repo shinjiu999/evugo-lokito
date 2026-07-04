@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AnimationFrame } from "../types";
 import { Play, Pause, BookmarkPlus, RotateCcw, AlertCircle, Eye, EyeOff, Gauge, Zap, Settings as SettingsIcon } from "lucide-react";
 import { soundManager } from "../utils/sound";
+import Interactive3DCard from "./Interactive3DCard";
 
 interface AnimationTimelineProps {
   frames: AnimationFrame[];
@@ -106,7 +107,8 @@ export default function AnimationTimeline({
   };
 
   return (
-    <div className="bg-[#0b0c10]/85 backdrop-blur-xl border border-white/[0.07] rounded-3xl p-5 flex flex-col gap-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.3)] hover:border-white/15 transition-all duration-300">
+    <Interactive3DCard glowColor="rgba(99, 102, 241, 0.4)">
+      <div className="p-5 flex flex-col gap-3.5">
       <div className="flex justify-between items-center">
         <div>
           <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest flex items-center gap-2">
@@ -294,6 +296,7 @@ export default function AnimationTimeline({
           )}
         </button>
       </div>
-    </div>
+      </div>
+    </Interactive3DCard>
   );
 }
