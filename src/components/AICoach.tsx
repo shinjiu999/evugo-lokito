@@ -334,14 +334,14 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
 
       {/* Preset selections */}
       <div className="space-y-1.5">
-        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">{l.presetLabel}</label>
+        <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block select-none">{l.presetLabel}</span>
         <div className="grid grid-cols-2 gap-2">
           {TACTICAL_PRESETS.map((preset) => (
             <button
               key={preset.id}
               onClick={() => handleGenerate(preset.prompt)}
               disabled={loading}
-              className="text-left bg-white/5 hover:bg-white/10 border border-white/5 hover:border-blue-500/30 rounded-xl p-2 transition-all text-xs text-gray-200 flex flex-col justify-between h-14 disabled:opacity-50"
+              className="text-left bg-white/5 hover:bg-white/10 border border-white/5 hover:border-blue-500/30 rounded-xl p-2 transition-all text-xs text-gray-200 flex flex-col justify-between h-14 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
             >
               <span className="font-bold truncate w-full">{preset.label}</span>
               <span className="text-[8px] text-gray-500 line-clamp-1">{preset.prompt}</span>
@@ -350,26 +350,27 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
         </div>
       </div>
 
-      <hr className="border-white/5" />
+      <hr className="border-white/5" aria-hidden="true" />
 
       {/* Custom prompt entry */}
       <div className="space-y-2">
-        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block">{l.instructionLabel}</label>
+        <label htmlFor="ai-instruction-prompt-input" className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block">{l.instructionLabel}</label>
         <div className="flex gap-2">
           <input
+            id="ai-instruction-prompt-input"
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder={l.placeholder}
-            className="flex-1 bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="flex-1 bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500"
             disabled={loading}
           />
           <button
             onClick={() => handleGenerate("")}
             disabled={loading || !prompt.trim()}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs px-4 rounded-xl flex items-center gap-1.5 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs px-4 rounded-xl flex items-center gap-1.5 transition-all shadow-lg active:scale-95 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
           >
-            <Sparkles className="w-4 h-4" /> {l.animateBtn}
+            <Sparkles className="w-4 h-4" aria-hidden="true" /> {l.animateBtn}
           </button>
         </div>
       </div>
@@ -377,15 +378,15 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
       <div className="pt-0.5 grid grid-cols-2 gap-2">
         <button
           onClick={handleAnalyzeSynergy}
-          className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 text-indigo-400 font-bold text-[11px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98]"
+          className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 text-indigo-400 font-bold text-[11px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
         >
-          <Activity className="w-4 h-4 animate-pulse text-indigo-400" /> {l.scoutBtn}
+          <Activity className="w-4 h-4 animate-pulse text-indigo-400" aria-hidden="true" /> {l.scoutBtn}
         </button>
         <button
           onClick={() => setIsYoutubeModalOpen(true)}
-          className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 font-bold text-[11px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98]"
+          className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 font-bold text-[11px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
         >
-          <span className="text-red-400">📺</span>
+          <span className="text-red-400" aria-hidden="true">📺</span>
           <span>{lang === "id" ? "Analisis Video" : "Video Analysis"}</span>
         </button>
       </div>
@@ -501,30 +502,38 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
               </div>
 
               {/* Tab Navigation */}
-              <div className="flex border-b border-white/5 bg-black/20 text-xs">
+              <div className="flex border-b border-white/5 bg-black/20 text-xs" role="tablist">
                 <button
+                  id="tab-btn-ai"
                   onClick={() => setActiveTab("ai")}
-                  className={`flex-1 py-3 text-center font-bold tracking-wide uppercase transition-all ${
+                  role="tab"
+                  aria-selected={activeTab === "ai"}
+                  aria-controls="tab-panel-ai"
+                  className={`flex-1 py-3 text-center font-bold tracking-wide uppercase transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none cursor-pointer ${
                     activeTab === "ai"
                       ? "text-blue-400 border-b-2 border-blue-500 bg-white/5"
                       : "text-gray-400 hover:text-white hover:bg-white/5"
                   }`}
                 >
                   <div className="flex items-center justify-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5" />
+                    <Sliders className="w-3.5 h-3.5" aria-hidden="true" />
                     Setingan Model AI
                   </div>
                 </button>
                 <button
+                  id="tab-btn-mcp"
                   onClick={() => setActiveTab("mcp")}
-                  className={`flex-1 py-3 text-center font-bold tracking-wide uppercase transition-all ${
+                  role="tab"
+                  aria-selected={activeTab === "mcp"}
+                  aria-controls="tab-panel-mcp"
+                  className={`flex-1 py-3 text-center font-bold tracking-wide uppercase transition-all focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer ${
                     activeTab === "mcp"
                       ? "text-indigo-400 border-b-2 border-indigo-500 bg-white/5"
                       : "text-gray-400 hover:text-white hover:bg-white/5"
                   }`}
                 >
                   <div className="flex items-center justify-center gap-1.5">
-                    <Database className="w-3.5 h-3.5" />
+                    <Database className="w-3.5 h-3.5" aria-hidden="true" />
                     Model Context Protocol (MCP)
                   </div>
                 </button>
@@ -533,14 +542,15 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
               {/* Modal Body */}
               <div className="p-5 flex-1 space-y-4 max-h-[400px] overflow-y-auto">
                 {activeTab === "ai" && (
-                  <div className="space-y-4">
+                  <div id="tab-panel-ai" role="tabpanel" aria-labelledby="tab-btn-ai" className="space-y-4">
                     {/* Model AI Selector */}
                     <div className="space-y-1.5 bg-white/5 p-3 rounded-xl border border-white/5">
-                      <label className="text-[10px] block font-bold text-gray-300 uppercase tracking-wider">Model AI Taktikal Utama</label>
+                      <label htmlFor="ai-coach-model-select" className="text-[10px] block font-bold text-gray-300 uppercase tracking-wider cursor-pointer">Model AI Taktikal Utama</label>
                       <select
+                        id="ai-coach-model-select"
                         value={selectedModel}
                         onChange={(e) => setSelectedModel(e.target.value as any)}
-                        className="w-full bg-black/80 border border-white/10 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-bold"
+                        className="w-full bg-black/80 border border-white/10 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 font-bold"
                       >
                         <option value="gemini-3.5-flash">⚽ Google Gemini 3.5 Flash (Generalist & Fast)</option>
                         <option value="gemini-3.1-pro-preview">🧠 Google Gemini 3.1 Pro (Complex Reasoning)</option>
@@ -562,19 +572,20 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
                     {/* Temperature Slider */}
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-xs">
-                        <span className="font-bold text-gray-300">Model Temperature (Kreativitas)</span>
+                        <label htmlFor="ai-coach-temperature-range" className="font-bold text-gray-300 cursor-pointer">Model Temperature (Kreativitas)</label>
                         <span className="text-blue-400 font-mono font-bold">{temperature}</span>
                       </div>
                       <input
+                        id="ai-coach-temperature-range"
                         type="range"
                         min="0"
                         max="1"
                         step="0.1"
                         value={temperature}
                         onChange={(e) => setTemperature(Number(e.target.value))}
-                        className="w-full accent-blue-500 h-1 bg-white/10 rounded-lg cursor-pointer"
+                        className="w-full accent-blue-500 h-1 bg-white/10 rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                       />
-                      <div className="flex justify-between text-[9px] text-gray-500 font-medium">
+                      <div className="flex justify-between text-[9px] text-gray-500 font-medium select-none">
                         <span>Konsisten & Geometris (0)</span>
                         <span>Sangat Kreatif & Spekulatif (1)</span>
                       </div>
@@ -582,45 +593,50 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
 
                     {/* Custom API Key Input */}
                     <div className="space-y-1.5">
-                      <label className="text-[10px] block font-bold text-gray-400 uppercase tracking-wider">Kunci API Kustom (Opsional)</label>
+                      <label htmlFor="ai-coach-custom-api-key" className="text-[10px] block font-bold text-gray-400 uppercase tracking-wider cursor-pointer">Kunci API Kustom (Opsional)</label>
                       <input
+                        id="ai-coach-custom-api-key"
                         type="password"
                         value={customApiKey}
                         onChange={(e) => setCustomApiKey(e.target.value)}
                         placeholder="Masukkan API Key kustom Anda (Claude/DeepSeek/GPT)"
-                        className="w-full bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 font-mono"
+                        className="w-full bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 font-mono"
                       />
                       <p className="text-[8px] text-gray-500">API Key ini disimpan secara aman hanya di penjelajah lokal Anda (*localStorage*).</p>
                     </div>
 
                     {/* Custom System Prompt Instruction */}
                     <div className="space-y-1.5">
-                      <label className="text-[10px] block font-bold text-gray-400 uppercase tracking-wider">Instruksi Sistem Tambahan / Filosofi Pelatih</label>
+                      <label htmlFor="ai-coach-custom-system-prompt" className="text-[10px] block font-bold text-gray-400 uppercase tracking-wider cursor-pointer">Instruksi Sistem Tambahan / Filosofi Pelatih</label>
                       <textarea
+                        id="ai-coach-custom-system-prompt"
                         rows={3}
                         value={customSystemPrompt}
                         onChange={(e) => setCustomSystemPrompt(e.target.value)}
                         placeholder="e.g., 'Gunakan formasi defensif yang sangat agresif. Berikan taktik dengan istilah khas pelatih Serie A Italia kuno.'"
-                        className="w-full bg-black/40 border border-white/10 text-xs rounded-xl p-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 leading-relaxed"
+                        className="w-full bg-black/40 border border-white/10 text-xs rounded-xl p-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 leading-relaxed"
                       />
                     </div>
                   </div>
                 )}
 
                 {activeTab === "mcp" && (
-                  <div className="space-y-4">
+                  <div id="tab-panel-mcp" role="tabpanel" aria-labelledby="tab-btn-mcp" className="space-y-4">
                     {/* Enable MCP Switch */}
                     <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
                       <div className="flex items-center gap-2">
-                        <Network className="w-5 h-5 text-indigo-400" />
+                        <Network className="w-5 h-5 text-indigo-400" aria-hidden="true" />
                         <div>
                           <p className="text-xs font-bold text-white">Gunakan Protokol MCP</p>
                           <p className="text-[9px] text-gray-400">Aktifkan integrasi data eksternal via MCP</p>
                         </div>
                       </div>
                       <button
+                        role="switch"
+                        aria-checked={mcpEnabled}
+                        aria-label="Gunakan Protokol MCP"
                         onClick={() => setMcpEnabled(!mcpEnabled)}
-                        className={`w-11 h-6 rounded-full p-1 transition-all ${
+                        className={`w-11 h-6 rounded-full p-1 transition-all focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer ${
                           mcpEnabled ? "bg-indigo-600" : "bg-white/10"
                         }`}
                       >
@@ -636,23 +652,25 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
                     <div className={`space-y-4 transition-all duration-200 ${mcpEnabled ? "opacity-100 pointer-events-auto" : "opacity-40 pointer-events-none"}`}>
                       {/* MCP Endpoint URL */}
                       <div className="space-y-1.5">
-                        <label className="text-[10px] block font-bold text-gray-400 uppercase tracking-wider">Alamat MCP Host Server</label>
+                        <label htmlFor="ai-coach-mcp-url" className="text-[10px] block font-bold text-gray-400 uppercase tracking-wider cursor-pointer">Alamat MCP Host Server</label>
                         <input
+                          id="ai-coach-mcp-url"
                           type="text"
                           value={mcpUrl}
                           onChange={(e) => setMcpUrl(e.target.value)}
                           placeholder="e.g., http://localhost:3015/mcp"
-                          className="w-full bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 font-mono"
+                          className="w-full bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 font-mono"
                         />
                       </div>
 
                       {/* MCP selected tool */}
                       <div className="space-y-1.5">
-                        <label className="text-[10px] block font-bold text-gray-400 uppercase tracking-wider">Nama Tool Taktis MCP</label>
+                        <label htmlFor="ai-coach-mcp-tool-select" className="text-[10px] block font-bold text-gray-400 uppercase tracking-wider cursor-pointer">Nama Tool Taktis MCP</label>
                         <select
+                          id="ai-coach-mcp-tool-select"
                           value={mcpTool}
                           onChange={(e) => setMcpTool(e.target.value)}
-                          className="w-full bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                          className="w-full bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
                           <option value="pitch-scout-analyzer">⚽ pitch-scout-analyzer (Rasio & Peringkat Lawan)</option>
                           <option value="weather-influence-index">🌧️ weather-influence-index (Kondisi Lapangan Basah)</option>
@@ -666,22 +684,22 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
                           type="button"
                           onClick={handleTestMcp}
                           disabled={mcpTesting}
-                          className="w-full bg-indigo-600/10 hover:bg-indigo-600/20 active:scale-95 border border-indigo-500/20 rounded-xl py-2 text-[11px] text-indigo-400 font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          className="w-full bg-indigo-600/10 hover:bg-indigo-600/20 active:scale-95 border border-indigo-500/20 rounded-xl py-2 text-[11px] text-indigo-400 font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                         >
                           {mcpTesting ? (
                             <>
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Menghubungi Host MCP...
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> Menghubungi Host MCP...
                             </>
                           ) : (
                             <>
-                              <Activity className="w-3.5 h-3.5" /> Tes Koneksi Server MCP
+                              <Activity className="w-3.5 h-3.5" aria-hidden="true" /> Tes Koneksi Server MCP
                             </>
                           )}
                         </button>
 
                         {mcpTestStatus === "success" && (
-                          <div className="bg-emerald-950/20 border border-emerald-500/25 p-2 rounded-xl flex items-center gap-2 text-emerald-400 text-[10px]">
-                            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <div className="bg-emerald-950/20 border border-emerald-500/25 p-2 rounded-xl flex items-center gap-2 text-emerald-400 text-[10px]" role="alert">
+                            <Check className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
                             <div>
                               <p className="font-bold">Koneksi Berhasil!</p>
                               <p className="text-gray-400">Server MCP tersambung. Menemukan 1 model tool yang siap diaplikasikan.</p>

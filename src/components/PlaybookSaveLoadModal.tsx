@@ -282,7 +282,12 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[5600] flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black/90 backdrop-blur-md z-[5600] flex items-center justify-center p-3 sm:p-5 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="playbook-modal-title"
+    >
       <motion.div
         initial={{ y: 20, opacity: 0, scale: 0.98 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -297,10 +302,10 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
                 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
                 : "bg-blue-500/10 border-blue-500/20 text-blue-400"
             }`}>
-              {mode === "save" ? <Save className="w-4.5 h-4.5" /> : <FolderOpen className="w-4.5 h-4.5" />}
+              {mode === "save" ? <Save className="w-4.5 h-4.5" aria-hidden="true" /> : <FolderOpen className="w-4.5 h-4.5" aria-hidden="true" />}
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-black text-white tracking-wide uppercase font-sans">
+              <h3 id="playbook-modal-title" className="text-sm sm:text-base font-black text-white tracking-wide uppercase font-sans">
                 {mode === "save" 
                   ? (isId ? "💾 Simpan Skuad & Formasi" : "💾 Save Squad & Formation")
                   : (isId ? "📂 Muat Taktik Tersimpan" : "📂 Load Saved Formation")
@@ -316,7 +321,8 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl transition-all cursor-pointer"
+            className="p-1.5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+            aria-label={isId ? "Tutup panel" : "Close panel"}
           >
             <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
@@ -325,22 +331,23 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
         {/* Dynamic Save Section */}
         {mode === "save" && (
           <div className="p-4 sm:p-5 bg-emerald-950/5 border-b border-white/5 space-y-3">
-            <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">
+            <label htmlFor="playbook-save-name-input" className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block cursor-pointer">
               {isId ? "📝 BUAT SLOT PENYIMPANAN BARU" : "📝 CREATE NEW PLAYBOOK SLOT"}
-            </h4>
+            </label>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
+                id="playbook-save-name-input"
                 type="text"
                 value={newSaveName}
                 onChange={(e) => setNewSaveName(e.target.value)}
                 placeholder={isId ? "Contoh: Taktik Agresif Semifinal" : "e.g. Semifinal Ultra Offensive"}
-                className="flex-1 bg-black/60 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors font-bold"
+                className="flex-1 bg-black/60 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500 transition-colors font-bold"
               />
               <button
                 onClick={() => handleCreateSave()}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer whitespace-nowrap shadow-lg shadow-emerald-950/30"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer whitespace-nowrap shadow-lg shadow-emerald-950/30 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4" aria-hidden="true" />
                 <span>{isId ? "Simpan Sekarang" : "Save Now"}</span>
               </button>
             </div>
@@ -354,17 +361,19 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
           <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-3">
             <button
               onClick={() => setShowImportArea(!showImportArea)}
-              className="w-full flex items-center justify-between text-[11px] font-black tracking-wider text-gray-400 hover:text-white uppercase transition-colors"
+              className="w-full flex items-center justify-between text-[11px] font-black tracking-wider text-gray-400 hover:text-white uppercase transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none rounded-lg"
+              aria-expanded={showImportArea}
+              aria-controls="import-area-content"
             >
               <span className="flex items-center gap-2">
-                <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                <Upload className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />
                 {isId ? "📲 Punya Kode Share? Import Skuad" : "📲 Have a Share Code? Import Tactics"}
               </span>
               <span className="text-[10px] text-indigo-400">{showImportArea ? "✕ Close" : "+ Expand"}</span>
             </button>
 
             {showImportArea && (
-              <div className="mt-3 pt-3 border-t border-white/5 space-y-2">
+              <div id="import-area-content" className="mt-3 pt-3 border-t border-white/5 space-y-2">
                 <p className="text-[10px] text-gray-400 font-medium pb-1">
                   {isId 
                     ? "Masukkan kode serial (Base64) yang disalin dari tim kawan untuk merekonstruksi posisi taktik secara instan."
@@ -372,16 +381,18 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
                   }
                 </p>
                 <textarea
+                  id="playbook-import-code-textarea"
                   value={importCode}
                   onChange={(e) => setImportCode(e.target.value)}
                   placeholder={isId ? "Paste kode share di sini..." : "Paste share code string here..."}
                   rows={2}
-                  className="w-full bg-black/60 border border-white/10 rounded-xl p-2.5 text-[10px] text-white focus:outline-none focus:border-indigo-500 font-mono tracking-tighter"
+                  className="w-full bg-black/60 border border-white/10 rounded-xl p-2.5 text-[10px] text-white focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 font-mono tracking-tighter"
+                  aria-label={isId ? "Masukkan kode share taktik" : "Enter tactical share code"}
                 />
                 
                 {importError && (
-                  <div className="flex items-center gap-1.5 text-[9.5px] text-rose-400 bg-rose-950/20 px-2.5 py-1.5 rounded-lg border border-rose-500/15">
-                    <AlertCircle className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1.5 text-[9.5px] text-rose-400 bg-rose-950/20 px-2.5 py-1.5 rounded-lg border border-rose-500/15" role="alert">
+                    <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>{importError}</span>
                   </div>
                 )}
@@ -389,7 +400,7 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
                 <div className="flex justify-end gap-1.5">
                   <button
                     onClick={handleImportCodeAction}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-extrabold px-4 py-1.5 rounded-lg transition-all active:scale-95 cursor-pointer"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-extrabold px-4 py-1.5 rounded-lg transition-all active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                   >
                     {isId ? "Proses Import" : "Apply Code"}
                   </button>
@@ -406,16 +417,17 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
               </h4>
               <button
                 onClick={loadSavedPlaybooks}
-                className="p-1 hover:bg-white/5 text-gray-500 hover:text-white rounded transition-colors cursor-pointer"
+                className="p-1 hover:bg-white/5 text-gray-500 hover:text-white rounded transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                aria-label={isId ? "Segarkan daftar" : "Refresh list"}
                 title="Refresh slots"
               >
-                <RefreshCw className="w-3 h-3" />
+                <RefreshCw className="w-3 h-3" aria-hidden="true" />
               </button>
             </div>
 
             {playbooks.length === 0 ? (
               <div className="p-10 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center text-gray-500 select-none space-y-2">
-                <span className="text-3xl">📭</span>
+                <span className="text-3xl" role="img" aria-label="Inbox empty">📭</span>
                 <p className="text-xs font-bold">{isId ? "Tidak ada formasi tersimpan." : "No tactics discovered in storage."}</p>
                 <p className="text-[10px] text-gray-600 leading-relaxed max-w-xs">
                   {isId 
@@ -441,7 +453,7 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
                             {pb.formation}
                           </span>
                           <span className="text-[9px] text-[#5e6680] font-bold flex items-center gap-1">
-                            <Calendar className="w-2.5 h-2.5 text-zinc-650" />
+                            <Calendar className="w-2.5 h-2.5 text-zinc-650" aria-hidden="true" />
                             {pb.date.split(",")[0]}
                           </span>
                         </div>
@@ -454,9 +466,9 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
                       {/* Visual metadata color tags */}
                       <div className="flex items-center gap-3 bg-black/35 rounded-xl px-2.5 py-1.5 w-fit border border-white/5">
                         <div className="flex gap-1.5 items-center">
-                          <div className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ backgroundColor: pb.primaryColor }} title="Primary Jersey" />
-                          <div className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ backgroundColor: pb.gkColor }} title="GK Jersey" />
-                          <div className="w-3.5 h-3.5 rounded-full border border-white/10 flex items-center justify-center bg-black/60" title="Number color">
+                          <div className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ backgroundColor: pb.primaryColor }} title="Primary Jersey" role="img" aria-label="Primary kit color" />
+                          <div className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ backgroundColor: pb.gkColor }} title="GK Jersey" role="img" aria-label="GK kit color" />
+                          <div className="w-3.5 h-3.5 rounded-full border border-white/10 flex items-center justify-center bg-black/60" title="Number color" role="img" aria-label="Backnumber color">
                             <span className="text-[6.5px] font-black" style={{ color: pb.numberColor }}>10</span>
                           </div>
                         </div>
@@ -471,37 +483,40 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
                       <div className="flex gap-1.5 items-center pt-2.5 border-t border-white/[0.04]">
                         <button
                           onClick={() => handleLoad(pb)}
-                          className="flex-1 bg-indigo-650 hover:bg-indigo-600 text-white font-extrabold text-[10px] py-1.5 rounded-lg text-center transition-all cursor-pointer active:scale-95"
+                          className="flex-1 bg-indigo-650 hover:bg-indigo-600 text-white font-extrabold text-[10px] py-1.5 rounded-lg text-center transition-all cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                         >
                           {isId ? "Muat" : "Load"}
                         </button>
 
                         <button
                           onClick={() => handleOverwrite(pb.id, pb.name)}
-                          className="p-1.5 bg-white/5 hover:bg-white/10 hover:text-white hover:border-white/20 text-gray-400 border border-transparent rounded-lg transition-all cursor-pointer"
+                          className="p-1.5 bg-white/5 hover:bg-white/10 hover:text-white hover:border-white/20 text-gray-400 border border-transparent rounded-lg transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+                          aria-label={isId ? `Timpa slot ${pb.name} dengan taktik saat ini` : `Overwrite slot ${pb.name} with current state`}
                           title={isId ? "Timpa dengan taktik saat ini" : "Overwrite with current state"}
                         >
-                          <Save className="w-3.5 h-3.5 text-emerald-400" />
+                          <Save className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
                         </button>
 
                         <button
                           onClick={() => handleCopyCode(pb)}
-                          className={`p-1.5 border rounded-lg transition-all cursor-pointer flex items-center justify-center ${
+                          className={`p-1.5 border rounded-lg transition-all cursor-pointer flex items-center justify-center focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
                             copiedId === pb.id
                               ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-400"
                               : "bg-white/5 border-transparent text-gray-400 hover:bg-white/10 hover:text-white"
                           }`}
+                          aria-label={isId ? `Salin Kode Share Taktik ${pb.name}` : `Copy Shared Code for ${pb.name}`}
                           title={isId ? "Salin Kode Share Taktik" : "Copy Shared Code"}
                         >
-                          {copiedId === pb.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5 text-indigo-400" />}
+                          {copiedId === pb.id ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> : <Copy className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />}
                         </button>
 
                         <button
                           onClick={() => handleDelete(pb.id, pb.name)}
-                          className="p-1.5 bg-rose-950/20 hover:bg-rose-950/45 text-rose-400 hover:text-rose-300 border border-rose-900/10 hover:border-rose-900/30 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 bg-rose-950/20 hover:bg-rose-950/45 text-rose-400 hover:text-rose-300 border border-rose-900/10 hover:border-rose-900/30 rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+                          aria-label={isId ? `Hapus slot taktik ${pb.name}` : `Delete blueprint ${pb.name}`}
                           title={isId ? "Hapus playbook" : "Delete playbook"}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -517,7 +532,7 @@ export const PlaybookSaveLoadModal: React.FC<PlaybookSaveLoadModalProps> = ({
         <div className="p-4 bg-[#08090c] border-t border-white/5 flex justify-end gap-2.5">
           <button
             onClick={onClose}
-            className="px-4.5 py-2 bg-[#17181f] hover:bg-[#20212b] border border-white/5 hover:border-white/15 text-gray-300 hover:text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer active:scale-95"
+            className="px-4.5 py-2 bg-[#17181f] hover:bg-[#20212b] border border-white/5 hover:border-white/15 text-gray-300 hover:text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
           >
             {isId ? "Tutup" : "Close"}
           </button>

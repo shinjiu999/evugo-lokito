@@ -503,6 +503,9 @@ export default function App() {
   // Help guides collapse
   const [showGuide, setShowGuide] = useState(false);
 
+  // Mobile utility dropdown toggle
+  const [showMobileUtils, setShowMobileUtils] = useState(false);
+
   // Global API Keys & MCP Settings Portal Modal
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsKey, setSettingsKey] = useState(0);
@@ -1131,59 +1134,58 @@ export default function App() {
         </div>
 
         {/* Global Toolbar controls */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          
-          {/* Connected badge */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+        {/* Desktop-only full interactive dashboard toolbar */}
+        <div className="hidden md:flex items-center gap-2 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-1 shadow-inner">
+          {/* Connected Badge */}
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-green-500/10 border border-green-500/20">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-            <span className="text-[10px] font-medium text-green-400">{t.omniConnected}</span>
+            <span className="text-[10px] font-bold text-green-400 tracking-wide uppercase">{t.omniConnected}</span>
           </div>
 
-          <div className="h-4 w-px bg-white/10 hidden lg:block"></div>
+          <div className="hidden lg:block w-px h-4 bg-white/10" />
 
-          {/* Language Selector Toggle */}
-          <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0" id="global-lang-selector" role="group" aria-label={lang === "id" ? "Pilih Bahasa" : "Choose Language"}>
+          {/* Language Selector */}
+          <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 shrink-0" role="group" aria-label={lang === "id" ? "Pilih Bahasa" : "Choose Language"}>
             <button
               onClick={() => handleSetLang("id")}
-              className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+              className={`px-2 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                 lang === "id"
-                  ? "bg-blue-650 text-white shadow-sm"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-500/25 scale-105 font-black"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
               }`}
               title="Bahasa Indonesia"
-              aria-label="Ubah ke Bahasa Indonesia"
               aria-pressed={lang === "id"}
             >
               ID
             </button>
             <button
               onClick={() => handleSetLang("en")}
-              className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+              className={`px-2 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                 lang === "en"
-                  ? "bg-blue-650 text-white shadow-sm"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-500/25 scale-105 font-black"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
               }`}
               title="English Translation"
-              aria-label="Switch to English"
               aria-pressed={lang === "en"}
             >
               EN
             </button>
           </div>
 
-          <div className="h-4 w-px bg-white/10 hidden md:block"></div>
+          <div className="w-px h-4 bg-white/10" />
 
-          {/* Sound Settings Control (Mute/Unmute & Manual triggers) */}
-          <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0 items-center gap-1" id="global-sound-controller">
+          {/* Sound Control Hub */}
+          <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 shrink-0 items-center gap-1" id="global-sound-controller">
             <button
               onClick={() => {
                 const muted = soundManager.toggleMuted();
                 setIsMuted(muted);
+                soundManager.playClick();
               }}
-              className={`p-1 rounded transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+              className={`p-1.5 rounded-lg transition-all cursor-pointer hover:scale-105 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                 !isMuted 
-                  ? "text-cyan-400 bg-cyan-500/10 hover:text-cyan-300" 
-                  : "text-gray-400 hover:text-white"
+                  ? "text-cyan-400 bg-cyan-500/10 hover:text-cyan-300 hover:bg-cyan-500/20" 
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
               }`}
               title={isMuted ? (lang === "id" ? "Bunyikan Suara" : "Unmute Sounds") : (lang === "id" ? "Bisukan Suara" : "Mute Sounds")}
               aria-label={isMuted ? "Unmute Sounds" : "Mute Sounds"}
@@ -1192,92 +1194,260 @@ export default function App() {
               {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
             
-            {/* Whistle sound manual button */}
             <button
               onClick={() => {
                 soundManager.playWhistle();
               }}
-              className="p-1 rounded hover:bg-white/10 text-gray-300 hover:text-white transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none text-xs"
-              title={lang === "id" ? "Tiup Peluit" : "Blow Ref Whistle"}
+              className="p-1.5 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-all cursor-pointer hover:scale-110 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none text-xs"
+              title={lang === "id" ? "Tiup Peluit" : "Blow Whistle"}
               aria-label="Blow Whistle"
             >
               📢
             </button>
 
-            {/* Stadium roar crowd cheer sound manual button */}
             <button
               onClick={() => {
                 soundManager.playCrowdCheer();
               }}
-              className="p-1 rounded hover:bg-white/10 text-gray-300 hover:text-white transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none text-xs"
-              title={lang === "id" ? "Sorak Penonton" : "Play Crowd Cheer"}
-              aria-label="Stadium Roar"
+              className="p-1.5 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-all cursor-pointer hover:scale-110 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none text-xs"
+              title={lang === "id" ? "Sorak Penonton" : "Stadium Crowd Cheer"}
+              aria-label="Stadium Crowd Cheer"
             >
               🏟️
             </button>
           </div>
 
-          <div className="h-4 w-px bg-white/10 hidden md:block"></div>
+          <div className="w-px h-4 bg-white/10" />
 
-          {/* Guide guide */}
+          {/* Help / Guide */}
           <button
-            onClick={() => setShowGuide(!showGuide)}
-            className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-xs flex items-center gap-1.5 font-medium cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            onClick={() => {
+              setShowGuide(!showGuide);
+              soundManager.playClick();
+            }}
+            className={`px-3 py-1.5 rounded-xl border transition-all text-xs flex items-center gap-1.5 font-bold cursor-pointer hover:scale-105 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+              showGuide 
+                ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300 shadow-md shadow-emerald-500/10"
+                : "bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
+            }`}
             aria-label={lang === "id" ? "Buka Panduan" : "Open Guide"}
             aria-expanded={showGuide}
+            title={lang === "id" ? "Buka Panduan" : "Open Guide"}
           >
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">{t.help}</span>
+            <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{t.help}</span>
           </button>
 
-          {/* Upload BG */}
-          <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-gray-300 px-2.5 py-1.5 rounded-lg border border-white/10 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium focus-within:ring-2 focus-within:ring-blue-500">
-            <Palette className="w-3.5 h-3.5 text-blue-400" />
-            <span className="hidden md:inline">{t.customPitch}</span>
+          {/* Custom Backdrop Pitch */}
+          <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-gray-300 px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 transition-all flex items-center justify-center gap-1.5 text-xs font-bold hover:scale-105 focus-within:ring-2 focus-within:ring-blue-500" title={lang === "id" ? "Unggah Lapangan Kustom" : "Upload Custom Pitch"}>
+            <Palette className="w-3.5 h-3.5 text-blue-400" aria-hidden="true" />
+            <span>{t.customPitch}</span>
             <input
               type="file"
               accept="image/*"
               onChange={handleUploadBackground}
-              className="hidden"
+              className="sr-only"
               aria-label={lang === "id" ? "Unggah Gambar Lapangan Kustom" : "Upload Custom Pitch Background"}
             />
           </label>
 
-          {/* TV Presentation mode toggle */}
+          {/* TV Broadcast Presentation */}
           <button
-            onClick={() => setTvModeOpen(true)}
-            className="bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-2.5 py-1.5 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            onClick={() => {
+              setTvModeOpen(true);
+              soundManager.playClick();
+            }}
+            className="bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
             aria-label={lang === "id" ? "Buka Presentasi TV" : "Open TV Presentation"}
+            title={lang === "id" ? "Buka Presentasi TV" : "Open TV Presentation"}
           >
-            <Tv className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
-            <span className="hidden md:inline">{t.tvPreview}</span>
+            <Tv className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+            <span>{t.tvPreview}</span>
           </button>
 
-          {/* Global API Key & MCP Settings Portal */}
+          {/* Global AI Config Settings */}
           <button
             onClick={() => {
               setIsSettingsModalOpen(true);
               soundManager.playClick();
             }}
-            className="bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-2.5 py-1.5 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
             aria-label={lang === "id" ? "Pengaturan Kredensial AI" : "AI Credentials Settings"}
             title={lang === "id" ? "Pengaturan Kredensial AI" : "AI Credentials Settings"}
           >
-            <Settings className="w-3.5 h-3.5 text-blue-400 animate-spin" style={{ animationDuration: "12s" }} />
-            <span className="hidden md:inline">{lang === "id" ? "Pengaturan" : "Settings"}</span>
+            <Settings className="w-3.5 h-3.5 text-indigo-400 animate-spin" style={{ animationDuration: "12s" }} />
+            <span>{lang === "id" ? "Pengaturan" : "Settings"}</span>
           </button>
 
-          {/* Capture pitch */}
+          {/* Capture Action - Download PNG */}
           <button
-            onClick={handleDownloadImage}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-lg shadow-blue-500/10 hover:scale-[1.02] transition-transform flex items-center gap-1.5 active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            onClick={() => {
+              handleDownloadImage();
+              soundManager.playClick();
+            }}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-3.5 py-1.5 rounded-xl font-extrabold text-xs shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
             aria-label={lang === "id" ? "Unduh Gambar PNG" : "Download PNG Image"}
+            title={lang === "id" ? "Unduh Gambar PNG" : "Download PNG Image"}
           >
             <Download className="w-3.5 h-3.5 text-white" />
-            <span className="hidden sm:inline">{t.downloadPng}</span>
+            <span>{t.downloadPng}</span>
+          </button>
+        </div>
+
+        {/* Mobile-only compact interactive toolbar */}
+        <div className="flex md:hidden items-center gap-1.5 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-1 shadow-inner">
+          {/* TV mode */}
+          <button
+            onClick={() => {
+              setTvModeOpen(true);
+              soundManager.playClick();
+            }}
+            className="p-2 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            aria-label={lang === "id" ? "Presentasi TV" : "TV Presentation Mode"}
+            title={lang === "id" ? "Presentasi TV" : "TV Presentation Mode"}
+          >
+            <Tv className="w-4 h-4 text-red-400 animate-pulse" />
+          </button>
+
+          {/* Settings */}
+          <button
+            onClick={() => {
+              setIsSettingsModalOpen(true);
+              soundManager.playClick();
+            }}
+            className="p-2 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            aria-label={lang === "id" ? "Pengaturan Kredensial AI" : "AI Credentials Settings"}
+            title={lang === "id" ? "Pengaturan Kredensial AI" : "AI Credentials Settings"}
+          >
+            <Settings className="w-4 h-4 text-indigo-400 animate-spin" style={{ animationDuration: "12s" }} />
+          </button>
+
+          {/* Download PNG */}
+          <button
+            onClick={() => {
+              handleDownloadImage();
+              soundManager.playClick();
+            }}
+            className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:opacity-90 active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            aria-label={lang === "id" ? "Unduh Skema PNG" : "Download PNG Image"}
+            title={lang === "id" ? "Unduh Skema PNG" : "Download PNG Image"}
+          >
+            <Download className="w-4 h-4 text-white" />
+          </button>
+
+          <div className="w-px h-4 bg-white/10" />
+
+          {/* More Menu Toggle */}
+          <button
+            onClick={() => {
+              setShowMobileUtils(!showMobileUtils);
+              soundManager.playClick();
+            }}
+            className={`p-2 rounded-xl border transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none flex items-center justify-center relative ${
+              showMobileUtils
+                ? "bg-blue-600/20 border-blue-500/60 text-blue-300"
+                : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
+            }`}
+            aria-expanded={showMobileUtils}
+            aria-label={lang === "id" ? "Utilitas Tambahan" : "More Utilities Menu"}
+            title={lang === "id" ? "Utilitas Tambahan" : "More Utilities Menu"}
+          >
+            <Sliders className={`w-4 h-4 transition-transform duration-300 ${showMobileUtils ? "rotate-90 text-blue-400" : ""}`} />
+            {showMobileUtils && <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping" />}
           </button>
         </div>
       </header>
+
+      {/* Mobile/Tablet Expandable Sub-Toolbar Panel */}
+      <AnimatePresence>
+        {showMobileUtils && (
+          <motion.div
+            initial={{ height: 0, opacity: 0, y: -10 }}
+            animate={{ height: "auto", opacity: 1, y: 0 }}
+            exit={{ height: 0, opacity: 0, y: -10 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="md:hidden w-full bg-[#0c0c12]/95 backdrop-blur-xl border-b border-white/[0.08] px-4 py-3 z-30 shadow-xl overflow-hidden relative"
+          >
+            {/* Ambient subtle decorative light trail inside the drawer */}
+            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+            
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Left group: Translation & Sound indicators */}
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{lang === "id" ? "BHS & SUARA:" : "LANG & SOUNDS:"}</span>
+                
+                {/* Language selection in drawer */}
+                <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5">
+                  <button
+                    onClick={() => handleSetLang("id")}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold transition-all ${
+                      lang === "id" ? "bg-blue-600 text-white" : "text-gray-400"
+                    }`}
+                  >
+                    ID
+                  </button>
+                  <button
+                    onClick={() => handleSetLang("en")}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold transition-all ${
+                      lang === "en" ? "bg-blue-600 text-white" : "text-gray-400"
+                    }`}
+                  >
+                    EN
+                  </button>
+                </div>
+
+                {/* Sound triggers in drawer */}
+                <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 items-center gap-1">
+                  <button
+                    onClick={() => {
+                      const muted = soundManager.toggleMuted();
+                      setIsMuted(muted);
+                    }}
+                    className={`p-1 rounded transition-all ${
+                      !isMuted ? "text-cyan-400 bg-cyan-500/10" : "text-gray-500"
+                    }`}
+                  >
+                    {!isMuted ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+                  </button>
+                  <button onClick={() => soundManager.playWhistle()} className="text-[10px] p-0.5">📢</button>
+                  <button onClick={() => soundManager.playCrowdCheer()} className="text-[10px] p-0.5">🏟️</button>
+                </div>
+              </div>
+
+              {/* Right group: Guide & Custom Background */}
+              <div className="flex items-center gap-2">
+                {/* Help button */}
+                <button
+                  onClick={() => {
+                    setShowGuide(!showGuide);
+                    soundManager.playClick();
+                  }}
+                  className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold flex items-center gap-1 transition-all ${
+                    showGuide
+                      ? "bg-emerald-600/20 border-emerald-500/40 text-emerald-300"
+                      : "bg-white/5 border-white/10 text-gray-300"
+                  }`}
+                >
+                  <HelpCircle className="w-3 h-3 text-emerald-400" />
+                  <span>{t.help}</span>
+                </button>
+
+                {/* Custom backdrop backdrop */}
+                <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-gray-300 px-2.5 py-1 rounded-lg border border-white/10 transition-all flex items-center justify-center gap-1 text-[10px] font-bold">
+                  <Palette className="w-3 h-3 text-blue-400" />
+                  <span>{t.customPitch}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUploadBackground}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main viewport Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -1328,7 +1498,7 @@ export default function App() {
                       </div>
                     ) : (
                       <label className="w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-black/45 hover:bg-[#0b0c10]/85 border-white/10 hover:border-blue-500/30 text-gray-400 hover:text-white shadow-xl backdrop-blur-md active:scale-95 focus-within:ring-2 focus-within:ring-blue-500">
-                        <Upload className="w-4 h-4 text-blue-400 animate-bounce" style={{ animationDuration: '3s' }} />
+                        <Upload className="w-4 h-4 text-blue-400 animate-bounce" style={{ animationDuration: '3s' }} aria-hidden="true" />
                         <input
                           type="file"
                           accept="image/*"
@@ -1344,7 +1514,7 @@ export default function App() {
                               reader.readAsDataURL(file);
                             }
                           }}
-                          className="hidden"
+                          className="sr-only"
                           aria-label={t.chooseLogo}
                         />
                       </label>
@@ -2184,6 +2354,53 @@ export default function App() {
                         onChange={(e) => setBrushSize(parseInt(e.target.value))}
                         className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
                       />
+                    </div>
+
+                    {/* Visual Stroke Preview */}
+                    <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
+                      <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
+                        {lang === "id" ? "PRATINJAU CORETAN" : "STROKE PREVIEW"}
+                      </span>
+                      <div className="h-10 w-full bg-black/60 border border-white/10 rounded-lg flex items-center justify-center overflow-hidden relative">
+                        {/* Dot pitch background indicator */}
+                        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:6px_6px] opacity-65" />
+                        
+                        <svg className="w-full h-full px-4 relative z-10" viewBox="0 0 100 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          {brushStyle === "solid" ? (
+                            <line
+                              x1="10"
+                              y1="12"
+                              x2="90"
+                              y2="12"
+                              stroke={brushColor}
+                              strokeWidth={brushSize}
+                              strokeLinecap="round"
+                              className="transition-all duration-150"
+                              style={{ filter: `drop-shadow(0 0 4px ${brushColor}33)` }}
+                            />
+                          ) : (
+                            <g className="transition-all duration-150">
+                              {/* Arrow shaft */}
+                              <line
+                                x1="10"
+                                y1="12"
+                                x2={90 - Math.max(6, brushSize * 1.1)}
+                                y2="12"
+                                stroke={brushColor}
+                                strokeWidth={brushSize}
+                                strokeLinecap="round"
+                                style={{ filter: `drop-shadow(0 0 4px ${brushColor}33)` }}
+                              />
+                              {/* Arrow head */}
+                              <path
+                                d={`M 90 12 L ${90 - Math.max(8, brushSize * 1.5)} ${12 - Math.max(4, brushSize * 0.9)} L ${90 - Math.max(8, brushSize * 1.5)} ${12 + Math.max(4, brushSize * 0.9)} Z`}
+                                fill={brushColor}
+                                style={{ filter: `drop-shadow(0 0 4px ${brushColor}33)` }}
+                              />
+                            </g>
+                          )}
+                        </svg>
+                      </div>
                     </div>
 
                     {/* 4. ACTIONS (Undo & Clear) inside pop-up */}
