@@ -458,6 +458,7 @@ export default function App() {
   const [brushColor, setBrushColor] = useState("#ffffff");
   const [brushSize, setBrushSize] = useState(4);
   const [brushStyle, setBrushStyle] = useState<"solid" | "arrow">("solid");
+  const [isSnapToGrid, setIsSnapToGrid] = useState<boolean>(true);
   const [showDrawConfig, setShowDrawConfig] = useState(true);
   const [showColorPickerPopup, setShowColorPickerPopup] = useState(false);
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
@@ -1994,6 +1995,7 @@ export default function App() {
                 brushColor={brushColor}
                 brushSize={brushSize}
                 brushStyle={brushStyle}
+                isSnapToGrid={isSnapToGrid}
                 customBackgroundUrl={customBackgroundUrl}
                 drawHistory={drawHistory}
                 setDrawHistory={setDrawHistory}
@@ -2019,6 +2021,10 @@ export default function App() {
                 isDrawLocked={isDrawLocked}
                 activeSketchLayer={activeSketchLayer}
                 visibleSketchLayers={visibleSketchLayers}
+                onChangeTool={setActiveTool}
+                setBrushColor={setBrushColor}
+                setBrushSize={setBrushSize}
+                setBrushStyle={setBrushStyle}
               />
 
               {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
@@ -2340,7 +2346,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* 3. KETEBALAN CORETAN */}
+                     {/* 3. KETEBALAN CORETAN */}
                     <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
                       <div className="flex justify-between items-center text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
                         <span>{lang === "id" ? "UKURAN CORET" : "BRUSH SIZE"}</span>
@@ -2355,6 +2361,28 @@ export default function App() {
                         onChange={(e) => setBrushSize(parseInt(e.target.value))}
                         className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
                       />
+                    </div>
+
+                    {/* SNAP TO GRID/LINES TOGGLE */}
+                    <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
+                          {lang === "id" ? "SNAP KE GARIS/GRID" : "SNAP TO GRID/LINES"}
+                        </span>
+                        <button
+                          onClick={() => setIsSnapToGrid(!isSnapToGrid)}
+                          disabled={isDrawLocked}
+                          className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            isSnapToGrid ? "bg-emerald-500" : "bg-white/10"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                              isSnapToGrid ? "translate-x-3" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Visual Stroke Preview */}

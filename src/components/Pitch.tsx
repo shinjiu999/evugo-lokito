@@ -14,6 +14,7 @@ interface PitchProps {
   brushColor: string;
   brushSize: number;
   brushStyle: "solid" | "arrow";
+  isSnapToGrid?: boolean;
   customBackgroundUrl: string | null;
   drawHistory: DrawingStroke[];
   setDrawHistory: (history: DrawingStroke[] | ((prev: DrawingStroke[]) => DrawingStroke[])) => void;
@@ -44,6 +45,10 @@ interface PitchProps {
   isDrawLocked?: boolean;
   activeSketchLayer?: number;
   visibleSketchLayers?: number[];
+  onChangeTool?: (tool: "select" | "draw") => void;
+  setBrushColor?: (color: string) => void;
+  setBrushSize?: (size: number) => void;
+  setBrushStyle?: (style: "solid" | "arrow") => void;
 }
 
 export default function Pitch({
@@ -56,6 +61,7 @@ export default function Pitch({
   brushColor,
   brushSize,
   brushStyle,
+  isSnapToGrid = true,
   customBackgroundUrl,
   drawHistory,
   setDrawHistory,
@@ -80,7 +86,11 @@ export default function Pitch({
   sportMode = "soccer",
   isDrawLocked = false,
   activeSketchLayer = 1,
-  visibleSketchLayers = [1, 2, 3]
+  visibleSketchLayers = [1, 2, 3],
+  onChangeTool,
+  setBrushColor,
+  setBrushSize,
+  setBrushStyle
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -111,6 +121,37 @@ export default function Pitch({
   // Click-to-Substitute state variables
   const [selectedSubPlayerId, setSelectedSubPlayerId] = useState<string | null>(null);
   const [clickStartInfo, setClickStartInfo] = useState<{ id: string; time: number; x: number; y: number } | null>(null);
+
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Prevent scroll bounce on mobile drawing full screen
+  useEffect(() => {
+    if (activeTool === "draw" && isMobile) {
+      document.body.style.overflow = "hidden";
+      const preventDefault = (e: TouchEvent) => {
+        // Only prevent if touch is on the pitch, canvas, or controls overlay to allow clicking UI
+        const target = e.target as HTMLElement;
+        if (target && (target.closest("#tacticalPitchWrapper") || target.closest("#mobileDrawFullscreenContainer"))) {
+          if (e.touches.length === 1) {
+            e.preventDefault();
+          }
+        }
+      };
+      document.addEventListener("touchmove", preventDefault, { passive: false });
+      return () => {
+        document.body.style.overflow = "";
+        document.removeEventListener("touchmove", preventDefault);
+      };
+    }
+  }, [activeTool, isMobile]);
 
   const handlePlayerClick = (playerId: string) => {
     const clickedPlayer = players.find((p) => p.id === playerId);
@@ -503,6 +544,138 @@ export default function Pitch({
     return { x, y, player: null };
   };
 
+  const getSnapGridPointsAndLines = () => {
+    // Landmarked precise point points (x, y in percent)
+    const points: { x: number; y: number }[] = [
+      { x: 50, y: 50 }, // Center spot
+      { x: 3, y: 3 }, { x: 97, y: 3 }, // Top Corners
+      { x: 3, y: 97 }, { x: 97, y: 97 }, // Bottom Corners
+      { x: 50, y: 3 }, { x: 50, y: 97 }, // Goal centers
+    ];
+
+    // Landmarked lines: X-values and Y-values
+    const xLines = [3, 25, 50, 75, 97];
+    const yLines = [3, 21, 35.5, 50, 64.5, 79, 97];
+
+    if (sportMode === "futsal") {
+      points.push({ x: 50, y: 15 });
+      points.push({ x: 50, y: 85 });
+      points.push({ x: 50, y: 25 });
+      points.push({ x: 50, y: 75 });
+      points.push({ x: 32, y: 3 });
+      points.push({ x: 68, y: 3 });
+      points.push({ x: 32, y: 97 });
+      points.push({ x: 68, y: 97 });
+      xLines.push(32, 68);
+      yLines.push(15, 25, 75, 85);
+    } else if (sportMode === "minisoccer") {
+      points.push({ x: 50, y: 11.5 });
+      points.push({ x: 50, y: 88.5 });
+      points.push({ x: 28, y: 18 });
+      points.push({ x: 72, y: 18 });
+      points.push({ x: 28, y: 82 });
+      points.push({ x: 72, y: 82 });
+      xLines.push(28, 72);
+      yLines.push(11.5, 18, 82, 88.5);
+    } else {
+      // soccer/custom
+      points.push({ x: 50, y: 14 });
+      points.push({ x: 50, y: 86 });
+      points.push({ x: 25, y: 21 });
+      points.push({ x: 75, y: 21 });
+      points.push({ x: 38, y: 9 });
+      points.push({ x: 62, y: 9 });
+      points.push({ x: 25, y: 79 });
+      points.push({ x: 75, y: 79 });
+      points.push({ x: 38, y: 91 });
+      points.push({ x: 62, y: 91 });
+      xLines.push(38, 62);
+      yLines.push(9, 14, 86, 91);
+    }
+
+    return { points, xLines, yLines };
+  };
+
+  const snapToGridAndMarkings = (rawX: number, rawY: number, canvasWidth: number, canvasHeight: number) => {
+    if (!isSnapToGrid) {
+      return { x: rawX, y: rawY };
+    }
+
+    const { points, xLines, yLines } = getSnapGridPointsAndLines();
+
+    // Convert raw pixel coordinate to percent coordinates
+    const pxPercent = (rawX / canvasWidth) * 100;
+    const pyPercent = (rawY / canvasHeight) * 100;
+
+    // Snapping thresholds in percent coordinates
+    const pointThreshold = 3.2; // roughly ~15-20 pixels
+    const lineThreshold = 2.0;  // roughly ~10-12 pixels
+
+    // 1. Try snapping to landmark points first (strongest magnet effect)
+    let closestPoint: { x: number; y: number } | null = null;
+    let minPointDist = Infinity;
+
+    points.forEach((pt) => {
+      const dist = Math.hypot(pt.x - pxPercent, pt.y - pyPercent);
+      if (dist < minPointDist) {
+        minPointDist = dist;
+        closestPoint = pt;
+      }
+    });
+
+    if (closestPoint && minPointDist < pointThreshold) {
+      return {
+        x: (closestPoint.x / 100) * canvasWidth,
+        y: (closestPoint.y / 100) * canvasHeight
+      };
+    }
+
+    // 2. Try snapping to individual grid lines (x-lines and y-lines separately)
+    let snappedXPercent = pxPercent;
+    let snappedYPercent = pyPercent;
+
+    let minXDist = Infinity;
+    let closestXLine = pxPercent;
+    xLines.forEach((xl) => {
+      const dist = Math.abs(xl - pxPercent);
+      if (dist < minXDist) {
+        minXDist = dist;
+        closestXLine = xl;
+      }
+    });
+    if (minXDist < lineThreshold) {
+      snappedXPercent = closestXLine;
+    }
+
+    let minYDist = Infinity;
+    let closestYLine = pyPercent;
+    yLines.forEach((yl) => {
+      const dist = Math.abs(yl - pyPercent);
+      if (dist < minYDist) {
+        minYDist = dist;
+        closestYLine = yl;
+      }
+    });
+    if (minYDist < lineThreshold) {
+      snappedYPercent = closestYLine;
+    }
+
+    return {
+      x: (snappedXPercent / 100) * canvasWidth,
+      y: (snappedYPercent / 100) * canvasHeight
+    };
+  };
+
+  const getProcessedPoint = (rawX: number, rawY: number, canvasWidth: number, canvasHeight: number) => {
+    // 1. Try snapping to nearest player first (highly useful to start/end arrows at players)
+    const playerSnap = snapToNearestPlayer(rawX, rawY, canvasWidth, canvasHeight);
+    if (playerSnap.player) {
+      return { x: playerSnap.x, y: playerSnap.y };
+    }
+    // 2. Otherwise snap to grid lines or pitch markings
+    return snapToGridAndMarkings(rawX, rawY, canvasWidth, canvasHeight);
+  };
+
   // --- DRAW EVENTS ---
   const handleMouseDown = (e: ReactMouseEvent<HTMLCanvasElement>) => {
     if (activeTool !== "draw" || isDrawLocked) return;
@@ -514,7 +687,7 @@ export default function Pitch({
     const rawX = e.clientX - rect.left;
     const rawY = e.clientY - rect.top;
 
-    const { x, y } = snapToNearestPlayer(rawX, rawY, canvas.width, canvas.height);
+    const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
 
     setLastPoint({ x, y });
     setDrawHistory((prev) => [
@@ -540,7 +713,7 @@ export default function Pitch({
     const rawX = e.clientX - rect.left;
     const rawY = e.clientY - rect.top;
 
-    const { x, y } = snapToNearestPlayer(rawX, rawY, canvas.width, canvas.height);
+    const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
 
     setDrawHistory((prev) => {
       const updated = [...prev];
@@ -576,7 +749,7 @@ export default function Pitch({
     const rawX = e.touches[0].clientX - rect.left;
     const rawY = e.touches[0].clientY - rect.top;
 
-    const { x, y } = snapToNearestPlayer(rawX, rawY, canvas.width, canvas.height);
+    const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
 
     setLastPoint({ x, y });
     setDrawHistory((prev) => [
@@ -602,7 +775,7 @@ export default function Pitch({
     const rawX = e.touches[0].clientX - rect.left;
     const rawY = e.touches[0].clientY - rect.top;
 
-    const { x, y } = snapToNearestPlayer(rawX, rawY, canvas.width, canvas.height);
+    const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
 
     setDrawHistory((prev) => {
       const updated = [...prev];
@@ -1043,9 +1216,23 @@ export default function Pitch({
     pitchWrapperClass = "border-purple-600/80 ring-2 ring-purple-500/10 shadow-[0_0_20px_rgba(168,85,247,0.15)] bg-[#090518]";
   }
 
+  const isMobileDrawActive = isMobile && activeTool === "draw";
+
+  const wrapperClass = isMobileDrawActive
+    ? `fixed top-[70px] bottom-[155px] left-3 right-3 m-auto max-w-[580px] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
+    : `relative w-full max-w-[580px] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
+
   return (
     <div className="w-full flex flex-col items-center gap-4">
       
+      {/* Mobile drawing fullscreen backdrop & controls overlay */}
+      {isMobileDrawActive && (
+        <div 
+          id="mobileDrawFullscreenContainer" 
+          className="fixed inset-0 z-[140] bg-slate-950/80 backdrop-blur-sm overflow-hidden select-none animate-fade-in"
+        />
+      )}
+
       {/* Visual Canvas Wrapper representing standard soccer green pitch */}
       <div
         id="tacticalPitchWrapper"
@@ -1069,13 +1256,155 @@ export default function Pitch({
             setSelectedSubPlayerId(null);
           }
         }}
-        className={`relative w-full max-w-[580px] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`}
+        className={wrapperClass}
         style={{
           backgroundImage: customBackgroundUrl ? `url(${customBackgroundUrl})` : "none",
           backgroundSize: "cover",
           backgroundPosition: "center"
         }}
       >
+        {/* SLEEK FLOATING SIDEBAR FOR DRAWING CONTROLS (DOCKED ON THE SIDE OF THE FIELD) */}
+        {activeTool === "draw" && (
+          <div 
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-[160] flex flex-col items-center gap-1.5 bg-slate-950/95 border border-white/10 rounded-2xl p-1.5 w-11 sm:w-14 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-md animate-fade-in"
+          >
+            {/* CLOSE DRAW BUTTON */}
+            <button
+              onClick={() => {
+                if (onChangeTool) onChangeTool("select");
+                soundManager.playClick();
+              }}
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-red-500/20 hover:bg-red-500/30 active:scale-90 text-red-400 border border-red-500/30 flex flex-col items-center justify-center transition-all cursor-pointer"
+              title={lang === "id" ? "Tutup Coret" : "Close Draw"}
+            >
+              <span className="text-[11px] sm:text-xs font-black">✕</span>
+              <span className="text-[5.5px] sm:text-[6.5px] font-bold uppercase tracking-wider mt-0.5">
+                {lang === "id" ? "Tutup" : "Close"}
+              </span>
+            </button>
+
+            <div className="w-full h-px bg-white/5 my-0.5" />
+
+            {/* UNDO BUTTON */}
+            <button
+              onClick={() => {
+                setDrawHistory((prev) => prev.slice(0, -1));
+                soundManager.playClick();
+              }}
+              disabled={drawHistory.length === 0}
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex flex-col items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5"
+              title={lang === "id" ? "Batal" : "Undo"}
+            >
+              <span className="text-xs sm:text-sm">↩️</span>
+              <span className="text-[5.5px] sm:text-[6.5px] font-extrabold uppercase tracking-wider mt-0.5">
+                {lang === "id" ? "Batal" : "Undo"}
+              </span>
+            </button>
+
+            {/* CLEAR ALL BUTTON */}
+            <button
+              onClick={() => {
+                setDrawHistory([]);
+                soundManager.playClick();
+              }}
+              disabled={drawHistory.length === 0}
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-red-950/40 hover:bg-red-900/30 active:scale-90 flex flex-col items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-red-400 cursor-pointer border border-red-500/10"
+              title={lang === "id" ? "Hapus" : "Clear"}
+            >
+              <span className="text-xs sm:text-sm">🗑️</span>
+              <span className="text-[5.5px] sm:text-[6.5px] font-extrabold uppercase tracking-wider mt-0.5">
+                {lang === "id" ? "Hapus" : "Clear"}
+              </span>
+            </button>
+
+            <div className="w-full h-px bg-white/5 my-0.5" />
+
+            {/* BRUSH STYLE TOGGLE (Solid or Arrow) */}
+            <div className="flex flex-col gap-1 w-full items-center">
+              <button
+                onClick={() => {
+                  if (setBrushStyle) setBrushStyle("solid");
+                  soundManager.playClick();
+                }}
+                className={`w-8 h-7 sm:w-10 sm:h-8 rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
+                  brushStyle === "solid" ? "bg-emerald-600 text-white font-black" : "bg-white/5 text-gray-400"
+                }`}
+                title={lang === "id" ? "Garis Solid" : "Solid Line"}
+              >
+                <span className="text-[9px] sm:text-[10px]">➖</span>
+                <span className="text-[5px] sm:text-[6px] font-bold uppercase mt-0.5">{lang === "id" ? "Garis" : "Solid"}</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (setBrushStyle) setBrushStyle("arrow");
+                  soundManager.playClick();
+                }}
+                className={`w-8 h-7 sm:w-10 sm:h-8 rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
+                  brushStyle === "arrow" ? "bg-emerald-600 text-white font-black" : "bg-white/5 text-gray-400"
+                }`}
+                title={lang === "id" ? "Garis Panah" : "Arrow Line"}
+              >
+                <span className="text-[9px] sm:text-[10px]">➡️</span>
+                <span className="text-[5px] sm:text-[6px] font-bold uppercase mt-0.5">{lang === "id" ? "Panah" : "Arrow"}</span>
+              </button>
+            </div>
+
+            <div className="w-full h-px bg-white/5 my-0.5" />
+
+            {/* COLOR PALETTE */}
+            <div className="flex flex-col items-center gap-1 py-0.5">
+              {["#ffffff", "#f59e0b", "#22d3ee", "#ef4444", "#10b981"].map((colorHex) => {
+                const isSelected = brushColor.toLowerCase() === colorHex.toLowerCase();
+                return (
+                  <button
+                    key={colorHex}
+                    onClick={() => {
+                      if (setBrushColor) setBrushColor(colorHex);
+                      soundManager.playClick();
+                    }}
+                    className="relative w-5 h-5 sm:w-7 sm:h-7 rounded-full border border-white/20 flex items-center justify-center shadow-inner transition-transform active:scale-90 cursor-pointer"
+                    style={{ backgroundColor: colorHex }}
+                    title={colorHex}
+                  >
+                    {isSelected && (
+                      <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-slate-900 ring-1 ring-white" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="w-full h-px bg-white/5 my-0.5" />
+
+            {/* BRUSH SIZE MULTI-CYCLE */}
+            <button
+              onClick={() => {
+                if (setBrushSize) {
+                  const sizes = [2, 4, 7, 10];
+                  const currentIndex = sizes.indexOf(brushSize);
+                  const nextSize = sizes[(currentIndex + 1) % sizes.length];
+                  setBrushSize(nextSize);
+                }
+                soundManager.playClick();
+              }}
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex flex-col items-center justify-center transition-all text-white border border-white/5 cursor-pointer"
+              title={lang === "id" ? "Ukuran Coret" : "Brush Size"}
+            >
+              <div className="flex items-center justify-center h-2.5 sm:h-3">
+                <span 
+                  className="rounded-full bg-white transition-all" 
+                  style={{ width: `${Math.max(2, brushSize)}px`, height: `${Math.max(2, brushSize)}px` }}
+                />
+              </div>
+              <span className="text-[5.5px] sm:text-[6.5px] font-extrabold uppercase mt-1">
+                {brushSize}px
+              </span>
+            </button>
+          </div>
+        )}
+
         {/* Floating Instruction Banner for Click-to-Swap / Substitution */}
         {selectedSubPlayerId && (() => {
           const selPlayer = players.find((p) => p.id === selectedSubPlayerId);
