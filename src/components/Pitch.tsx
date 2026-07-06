@@ -13,7 +13,7 @@ interface PitchProps {
   activeTool: "select" | "draw";
   brushColor: string;
   brushSize: number;
-  brushStyle: "solid" | "arrow";
+  brushStyle: "solid" | "arrow" | "eraser";
   isSnapToGrid?: boolean;
   customBackgroundUrl: string | null;
   drawHistory: DrawingStroke[];
@@ -48,7 +48,7 @@ interface PitchProps {
   onChangeTool?: (tool: "select" | "draw") => void;
   setBrushColor?: (color: string) => void;
   setBrushSize?: (size: number) => void;
-  setBrushStyle?: (style: "solid" | "arrow") => void;
+  setBrushStyle?: (style: "solid" | "arrow" | "eraser") => void;
 }
 
 // Catmull-Rom spline interpolation helpers for elegant, smooth drawing curves
@@ -704,9 +704,14 @@ export default function Pitch({
 
       ctx.beginPath();
       ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.size;
+      ctx.lineWidth = stroke.style === "eraser" ? stroke.size * 2.5 : stroke.size;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+
+      if (stroke.style === "eraser") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.strokeStyle = "rgba(0,0,0,1)";
+      }
 
       if (stroke.style === "arrow") {
         ctx.setLineDash([8, 8]);
@@ -1615,7 +1620,7 @@ export default function Pitch({
 
             <div className="w-full h-px bg-white/5 my-0.5" />
 
-            {/* BRUSH STYLE TOGGLE (Solid or Arrow) */}
+            {/* BRUSH STYLE TOGGLE (Solid, Arrow, or Eraser) */}
             <div className="flex flex-col gap-1 w-full items-center">
               <button
                 onClick={() => {
@@ -1642,6 +1647,19 @@ export default function Pitch({
               >
                 <span className="text-[9px] sm:text-[10px]">➡️</span>
                 <span className="text-[5px] sm:text-[6px] font-bold uppercase mt-0.5">{lang === "id" ? "Panah" : "Arrow"}</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (setBrushStyle) setBrushStyle("eraser");
+                  soundManager.playClick();
+                }}
+                className={`w-8 h-7 sm:w-10 sm:h-8 rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
+                  brushStyle === "eraser" ? "bg-pink-600 text-white font-black" : "bg-white/5 text-gray-400"
+                }`}
+                title={lang === "id" ? "Penghapus" : "Eraser"}
+              >
+                <span className="text-[9px] sm:text-[10px]">🧽</span>
+                <span className="text-[5px] sm:text-[6px] font-bold uppercase mt-0.5">{lang === "id" ? "Hapus" : "Erase"}</span>
               </button>
             </div>
 
@@ -1973,7 +1991,7 @@ export default function Pitch({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleMouseUp}
-          className={`absolute inset-0 w-full h-[72%] sm:h-[84%] z-20 ${
+          className={`absolute inset-0 w-full h-full z-20 ${
             activeTool === "draw"
               ? isDrawLocked
                 ? "cursor-not-allowed pointer-events-auto"

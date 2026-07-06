@@ -34,7 +34,7 @@ export interface AnimationFrame {
 export interface DrawingStroke {
   color: string;
   size: number;
-  style: "solid" | "arrow";
+  style: "solid" | "arrow" | "eraser";
   points: { x: number; y: number }[];
   layer?: number; // 1, 2, or 3 for multi-layer drawings
 }

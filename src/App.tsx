@@ -38,6 +38,7 @@ import {
   Shirt,
   Slash,
   ArrowUpRight,
+  Eraser,
   ChevronDown,
   ChevronUp,
   Sliders,
@@ -457,7 +458,7 @@ export default function App() {
   const [activeTool, setActiveTool] = useState<"select" | "draw">("select");
   const [brushColor, setBrushColor] = useState("#ffffff");
   const [brushSize, setBrushSize] = useState(4);
-  const [brushStyle, setBrushStyle] = useState<"solid" | "arrow">("solid");
+  const [brushStyle, setBrushStyle] = useState<"solid" | "arrow" | "eraser">("solid");
   const [isSnapToGrid, setIsSnapToGrid] = useState<boolean>(true);
   const [showDrawConfig, setShowDrawConfig] = useState(true);
   const [showColorPickerPopup, setShowColorPickerPopup] = useState(false);
@@ -2236,29 +2237,43 @@ export default function App() {
                         <button
                           onClick={() => setBrushStyle("solid")}
                           disabled={isDrawLocked}
-                          className={`flex-1 py-1 px-1.5 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
+                          className={`flex-1 py-1 px-1 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
                             brushStyle === "solid"
                               ? "bg-blue-600/25 border-blue-500/70 text-blue-300 shadow-inner"
                               : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
                           }`}
                           title={lang === "id" ? "Garis Lurus" : "Straight Line"}
                         >
-                          <Slash className="w-3 h-3 text-blue-400" />
+                          <Slash className="w-3 h-3 text-blue-400 shrink-0" />
                           <span>{lang === "id" ? "Lurus" : "Line"}</span>
                         </button>
                         
                         <button
                           onClick={() => setBrushStyle("arrow")}
                           disabled={isDrawLocked}
-                          className={`flex-1 py-1 px-1.5 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
+                          className={`flex-1 py-1 px-1 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
                             brushStyle === "arrow"
                               ? "bg-blue-600/25 border-blue-500/70 text-blue-300 shadow-inner"
                               : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
                           }`}
                           title={lang === "id" ? "Garis Panah" : "Arrow Line"}
                         >
-                          <ArrowUpRight className="w-3.5 h-3.5 text-blue-400" />
+                          <ArrowUpRight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                           <span>{lang === "id" ? "Panah" : "Arrow"}</span>
+                        </button>
+
+                        <button
+                          onClick={() => setBrushStyle("eraser")}
+                          disabled={isDrawLocked}
+                          className={`flex-1 py-1 px-1 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
+                            brushStyle === "eraser"
+                              ? "bg-pink-600/25 border-pink-500/70 text-pink-300 shadow-inner"
+                              : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                          }`}
+                          title={lang === "id" ? "Penghapus" : "Eraser"}
+                        >
+                          <Eraser className="w-3 h-3 text-pink-400 shrink-0" />
+                          <span>{lang === "id" ? "Hapus" : "Erase"}</span>
                         </button>
                       </div>
                     </div>
@@ -2407,7 +2422,7 @@ export default function App() {
                               className="transition-all duration-150"
                               style={{ filter: `drop-shadow(0 0 4px ${brushColor}33)` }}
                             />
-                          ) : (
+                          ) : brushStyle === "arrow" ? (
                             <g className="transition-all duration-150">
                               {/* Arrow shaft */}
                               <line
@@ -2427,6 +2442,19 @@ export default function App() {
                                 style={{ filter: `drop-shadow(0 0 4px ${brushColor}33)` }}
                               />
                             </g>
+                          ) : (
+                            /* Eraser stroke preview */
+                            <line
+                              x1="10"
+                              y1="12"
+                              x2="90"
+                              y2="12"
+                              stroke="#ec4899"
+                              strokeWidth={brushSize * 2}
+                              strokeLinecap="round"
+                              strokeDasharray="4,4"
+                              className="transition-all duration-150 opacity-80"
+                            />
                           )}
                         </svg>
                       </div>
