@@ -13,6 +13,8 @@ interface AIFormationImageGeneratorProps {
   players: Player[];
   teamLogo?: string | null;
   lang?: string;
+  managerName?: string;
+  managerPhoto?: string | null;
 }
 
 export default function AIFormationImageGenerator({
@@ -23,7 +25,9 @@ export default function AIFormationImageGenerator({
   numberColor,
   players,
   teamLogo,
-  lang = "en"
+  lang = "en",
+  managerName = "Budi Santoso",
+  managerPhoto = null
 }: AIFormationImageGeneratorProps) {
   const [activeTab, setActiveTab] = useState<"instant" | "gemini">("instant");
   const [customApiKey, setCustomApiKey] = useState(() => localStorage.getItem("tactigen_custom_key") || "");
@@ -618,6 +622,100 @@ export default function AIFormationImageGenerator({
         });
       }
 
+      // 7.6 DRAW MANAGER/COACH BADGE ON THE RIGHT
+      const coachPanelX = 980;
+      const coachPanelY = 220;
+      const coachPanelW = 180;
+      const coachPanelH = 120; // elegant compact card
+
+      // Draw nice glassmorphism dark container
+      ctx.fillStyle = "rgba(7, 7, 10, 0.65)";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(coachPanelX, coachPanelY, coachPanelW, coachPanelH, 12);
+      } else {
+        ctx.rect(coachPanelX, coachPanelY, coachPanelW, coachPanelH);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      // Title Header of Panel
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#eab308"; // Golden accent
+      ctx.font = "900 11px sans-serif";
+      const coachHeaderText = lang === "id" ? "MANAJER TIM" : "TEAM MANAGER";
+      ctx.fillText(coachHeaderText, coachPanelX + 14, coachPanelY + 22);
+
+      // Underline header bar
+      ctx.strokeStyle = "rgba(234, 179, 8, 0.25)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(coachPanelX + 14, coachPanelY + 34);
+      ctx.lineTo(coachPanelX + coachPanelW - 14, coachPanelY + 34);
+      ctx.stroke();
+
+      // Draw Manager Photo or Placeholder Icon
+      const coachPhotoSize = 48;
+      const coachPhotoX = coachPanelX + 14;
+      const coachPhotoY = coachPanelY + 50;
+
+      ctx.save();
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(coachPhotoX, coachPhotoY, coachPhotoSize, coachPhotoSize, 8);
+      } else {
+        ctx.rect(coachPhotoX, coachPhotoY, coachPhotoSize, coachPhotoSize);
+      }
+      ctx.clip();
+
+      const coachPhotoImg = loadedImages["managerPhoto"];
+      if (coachPhotoImg) {
+        ctx.drawImage(coachPhotoImg, coachPhotoX, coachPhotoY, coachPhotoSize, coachPhotoSize);
+      } else {
+        // Draw elegant placeholder with default manager logo/icon
+        ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.fillRect(coachPhotoX, coachPhotoY, coachPhotoSize, coachPhotoSize);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "20px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("👔", coachPhotoX + coachPhotoSize / 2, coachPhotoY + coachPhotoSize / 2);
+      }
+      ctx.restore();
+
+      // Border for photo
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(coachPhotoX, coachPhotoY, coachPhotoSize, coachPhotoSize, 8);
+      } else {
+        ctx.rect(coachPhotoX, coachPhotoY, coachPhotoSize, coachPhotoSize);
+      }
+      ctx.stroke();
+
+      // Draw coach name and role text to the right of photo
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+
+      // Role Title
+      ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+      ctx.font = "bold 8px sans-serif";
+      ctx.fillText(lang === "id" ? "PELATIH KEPALA" : "HEAD COACH", coachPanelX + 70, coachPanelY + 68);
+
+      // Coach Name
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 11px sans-serif";
+      // Limit coach name length
+      let coachDisplayName = (managerName || (lang === "id" ? "Budi Santoso" : "Alex Ferguson")).toUpperCase();
+      if (coachDisplayName.length > 12) {
+        coachDisplayName = coachDisplayName.substring(0, 10) + "..";
+      }
+      ctx.fillText(coachDisplayName, coachPanelX + 70, coachPanelY + 86);
+
       // Watermark indicator on lower-right
       ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
       ctx.font = "bold 10px monospace";
@@ -647,6 +745,10 @@ export default function AIFormationImageGenerator({
 
     if (teamLogo) {
       toLoad.push({ id: "teamLogo", url: teamLogo });
+    }
+
+    if (managerPhoto) {
+      toLoad.push({ id: "managerPhoto", url: managerPhoto });
     }
 
     if (toLoad.length === 0) {
@@ -684,7 +786,7 @@ export default function AIFormationImageGenerator({
     return () => {
       active = false;
     };
-  }, [players, formation, teamName, primaryColor, gkColor, numberColor, teamLogo, lang]);
+  }, [players, formation, teamName, primaryColor, gkColor, numberColor, teamLogo, lang, managerName, managerPhoto]);
 
   // Helper utility to adjust HEX brightness for shadow curves
   const adjustColorBrightness = (hex: string, percent: number): string => {

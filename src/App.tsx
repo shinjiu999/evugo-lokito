@@ -104,7 +104,14 @@ const TRANSLATIONS = {
     footerTitle: "⚽ Tactigen Football Playmaker & Lineups Board",
     footerSubtitle: "Integrasi Kecerdasan AI Google Omni Aktif",
     standardPhase: "Fasa 1: Posisi Standard",
-    standardInstruction: "Lakukan organisasi pemain pada posisi standard dan siapkan pola build up."
+    standardInstruction: "Lakukan organisasi pemain pada posisi standard dan siapkan pola build up.",
+    managerProfile: "👔 Profil Manajer & Staf",
+    managerName: "Nama Manajer / Pelatih",
+    managerPhoto: "Foto Manajer",
+    uploadPhoto: "Unggah Foto...",
+    deletePhoto: "Hapus Foto",
+    managerTitle: "Pelatih Kepala",
+    managerRole: "Manajer Tim"
   },
   en: {
     appTitle: "Tactigen Pro",
@@ -157,7 +164,14 @@ const TRANSLATIONS = {
     footerTitle: "⚽ Tactigen Football Playmaker & Lineups Board",
     footerSubtitle: "Google Omni Intelligence AI Integration Active",
     standardPhase: "Phase 1: Standard Positions",
-    standardInstruction: "Set up players in default formation and plan primary tactical plays."
+    standardInstruction: "Set up players in default formation and plan primary tactical plays.",
+    managerProfile: "👔 Manager Profile",
+    managerName: "Manager / Coach Name",
+    managerPhoto: "Manager Photo",
+    uploadPhoto: "Upload Photo...",
+    deletePhoto: "Delete Photo",
+    managerTitle: "Head Coach",
+    managerRole: "Team Manager"
   }
 };
 
@@ -427,6 +441,43 @@ export default function App() {
 
   const [teamName, setTeamName] = useState("GARUDA FC");
   const [teamLogo, setTeamLogo] = useState<string | null>(null);
+
+  const [managerName, setManagerName] = useState(() => {
+    try {
+      return localStorage.getItem("tactigen_manager_name") || "Budi Santoso";
+    } catch {
+      return "Budi Santoso";
+    }
+  });
+  const [managerPhoto, setManagerPhoto] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("tactigen_manager_photo") || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const handleUpdateManagerName = (name: string) => {
+    setManagerName(name);
+    try {
+      localStorage.setItem("tactigen_manager_name", name);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const handleUpdateManagerPhoto = (photo: string | null) => {
+    setManagerPhoto(photo);
+    try {
+      if (photo) {
+        localStorage.setItem("tactigen_manager_photo", photo);
+      } else {
+        localStorage.removeItem("tactigen_manager_photo");
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  };
   const [sportMode, setSportMode] = useState<"soccer" | "minisoccer" | "futsal" | "custom">("soccer");
   const [customCount, setCustomCount] = useState<number>(8);
   const [showSportOverlay, setShowSportOverlay] = useState<boolean>(false);
@@ -1241,33 +1292,6 @@ export default function App() {
             <span>{t.help}</span>
           </button>
 
-          {/* Custom Backdrop Pitch */}
-          <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-gray-300 px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 transition-all flex items-center justify-center gap-1.5 text-xs font-bold hover:scale-105 focus-within:ring-2 focus-within:ring-blue-500" title={lang === "id" ? "Unggah Lapangan Kustom" : "Upload Custom Pitch"}>
-            <Palette className="w-3.5 h-3.5 text-blue-400" aria-hidden="true" />
-            <span>{t.customPitch}</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleUploadBackground}
-              className="sr-only"
-              aria-label={lang === "id" ? "Unggah Gambar Lapangan Kustom" : "Upload Custom Pitch Background"}
-            />
-          </label>
-
-          {/* TV Broadcast Presentation */}
-          <button
-            onClick={() => {
-              setTvModeOpen(true);
-              soundManager.playClick();
-            }}
-            className="bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-            aria-label={lang === "id" ? "Buka Presentasi TV" : "Open TV Presentation"}
-            title={lang === "id" ? "Buka Presentasi TV" : "Open TV Presentation"}
-          >
-            <Tv className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-            <span>{t.tvPreview}</span>
-          </button>
-
           {/* Global AI Config Settings */}
           <button
             onClick={() => {
@@ -1281,37 +1305,10 @@ export default function App() {
             <Settings className="w-3.5 h-3.5 text-indigo-400 animate-spin" style={{ animationDuration: "12s" }} />
             <span>{lang === "id" ? "Pengaturan" : "Settings"}</span>
           </button>
-
-          {/* Capture Action - Download PNG */}
-          <button
-            onClick={() => {
-              handleDownloadImage();
-              soundManager.playClick();
-            }}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-3.5 py-1.5 rounded-xl font-extrabold text-xs shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-            aria-label={lang === "id" ? "Unduh Gambar PNG" : "Download PNG Image"}
-            title={lang === "id" ? "Unduh Gambar PNG" : "Download PNG Image"}
-          >
-            <Download className="w-3.5 h-3.5 text-white" />
-            <span>{t.downloadPng}</span>
-          </button>
         </div>
 
         {/* Mobile-only compact interactive toolbar */}
         <div className="flex md:hidden items-center gap-1.5 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-1 shadow-inner">
-          {/* TV mode */}
-          <button
-            onClick={() => {
-              setTvModeOpen(true);
-              soundManager.playClick();
-            }}
-            className="p-2 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-            aria-label={lang === "id" ? "Presentasi TV" : "TV Presentation Mode"}
-            title={lang === "id" ? "Presentasi TV" : "TV Presentation Mode"}
-          >
-            <Tv className="w-4 h-4 text-red-400 animate-pulse" />
-          </button>
-
           {/* Settings */}
           <button
             onClick={() => {
@@ -1324,21 +1321,6 @@ export default function App() {
           >
             <Settings className="w-4 h-4 text-indigo-400 animate-spin" style={{ animationDuration: "12s" }} />
           </button>
-
-          {/* Download PNG */}
-          <button
-            onClick={() => {
-              handleDownloadImage();
-              soundManager.playClick();
-            }}
-            className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:opacity-90 active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-            aria-label={lang === "id" ? "Unduh Skema PNG" : "Download PNG Image"}
-            title={lang === "id" ? "Unduh Skema PNG" : "Download PNG Image"}
-          >
-            <Download className="w-4 h-4 text-white" />
-          </button>
-
-          <div className="w-px h-4 bg-white/10" />
 
           {/* More Menu Toggle */}
           <button
@@ -1531,6 +1513,74 @@ export default function App() {
                       {teamLogo ? t.deleteLogo : t.chooseLogo}
                     </span>
                     <span className="text-[7.5px] text-gray-400 font-medium whitespace-nowrap">{t.logoRecomend}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-white/[0.08] my-1" />
+
+              {/* Manager Profile Section */}
+              <div className="flex flex-col gap-2">
+                <span className="text-[9px] font-black text-[#5e6680] uppercase tracking-wider block">
+                  {t.managerProfile}
+                </span>
+
+                <div className="flex items-center gap-2">
+                  {/* Manager Name Input */}
+                  <div className="flex-1 relative group/manager-input">
+                    <input
+                      type="text"
+                      value={managerName}
+                      onChange={(e) => handleUpdateManagerName(e.target.value)}
+                      placeholder="COACH"
+                      aria-label={t.managerName}
+                      className="w-full bg-black/45 border border-white/10 rounded-2xl px-3.5 py-2 text-xs text-white uppercase focus:outline-none focus:border-blue-500/70 focus:ring-1 focus:ring-blue-500/35 transition-all font-bold tracking-wide focus-visible:ring-2 focus-visible:ring-blue-500 font-mono"
+                    />
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] font-black tracking-widest text-[#5e6680] uppercase transition-opacity opacity-40 group-hover/manager-input:opacity-85">
+                      {t.managerTitle}
+                    </div>
+                  </div>
+
+                  {/* Manager Photo Upload */}
+                  <div className="relative group/manager-photo-upload shrink-0">
+                    <div className="flex items-center gap-2">
+                      {managerPhoto ? (
+                        <div className="relative w-8 h-8 bg-black/50 border border-white/15 rounded-xl overflow-hidden flex items-center justify-center group/photo-view">
+                          <img src={managerPhoto} className="w-full h-full object-cover" alt="Manager Photo Preview" />
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateManagerPhoto(null)}
+                            className="absolute inset-0 bg-red-950/90 opacity-0 group-hover/photo-view:opacity-100 flex items-center justify-center transition-all text-red-500 font-extrabold text-xs cursor-pointer focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                            aria-label={t.deletePhoto}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-black/45 hover:bg-[#0b0c10]/85 border-white/10 hover:border-blue-500/30 text-gray-400 hover:text-white shadow-xl backdrop-blur-md active:scale-95 focus-within:ring-2 focus-within:ring-blue-500">
+                          <span className="text-sm">👔</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                  if (event.target?.result) {
+                                    handleUpdateManagerPhoto(event.target.result as string);
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="sr-only"
+                            aria-label={t.uploadPhoto}
+                          />
+                        </label>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2026,6 +2076,8 @@ export default function App() {
                 setBrushColor={setBrushColor}
                 setBrushSize={setBrushSize}
                 setBrushStyle={setBrushStyle}
+                managerName={managerName}
+                managerPhoto={managerPhoto}
               />
 
               {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
@@ -2758,6 +2810,8 @@ export default function App() {
             players={players}
             teamLogo={teamLogo}
             lang={lang}
+            managerName={managerName}
+            managerPhoto={managerPhoto}
           />
 
           {/* AI Coach integration */}
@@ -2828,6 +2882,8 @@ export default function App() {
             teamLogo={teamLogo}
             primaryColor={primaryColor}
             gkColor={gkColor}
+            initialManagerName={managerName}
+            initialManagerPhoto={managerPhoto}
           />
         )}
       </AnimatePresence>

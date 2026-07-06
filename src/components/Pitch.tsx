@@ -49,6 +49,8 @@ interface PitchProps {
   setBrushColor?: (color: string) => void;
   setBrushSize?: (size: number) => void;
   setBrushStyle?: (style: "solid" | "arrow" | "eraser") => void;
+  managerName?: string;
+  managerPhoto?: string | null;
 }
 
 // Catmull-Rom spline interpolation helpers for elegant, smooth drawing curves
@@ -152,7 +154,9 @@ export default function Pitch({
   onChangeTool,
   setBrushColor,
   setBrushSize,
-  setBrushStyle
+  setBrushStyle,
+  managerName = "Budi Santoso",
+  managerPhoto = null
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -2590,7 +2594,59 @@ export default function Pitch({
                 const fontNameSize = Math.max(7, Math.round(10 * scale));
                 const fontRoleSize = Math.max(6, Math.round(7.5 * scale));
 
-                return subs.map((sub) => {
+                const managerBadge = (
+                  <div
+                    key="manager-badge"
+                    style={{
+                      height: `${btnHeight}px`,
+                      paddingLeft: `${padX}px`,
+                      paddingRight: `${padX}px`,
+                      paddingTop: `${padY}px`,
+                      paddingBottom: `${padY}px`,
+                      gap: `${itemGap}px`,
+                      borderRadius: `${scale > 0.82 ? 12 : 8}px`,
+                    }}
+                    className="flex items-center shrink-0 transition-all select-none bg-indigo-950/45 hover:bg-indigo-950/60 border border-indigo-500/30 hover:border-indigo-400/50 shadow-[0_4px_12px_rgba(99,102,241,0.15)] mr-1"
+                  >
+                    {managerPhoto ? (
+                      <img
+                        src={managerPhoto}
+                        alt={managerName}
+                        style={{
+                          width: `${avatarSize}px`,
+                          height: `${avatarSize}px`
+                        }}
+                        className="rounded-full object-cover border border-indigo-500/40 pointer-events-none"
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: `${avatarSize}px`,
+                          height: `${avatarSize}px`
+                        }}
+                        className="rounded-full bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center font-bold text-white text-[10px] pointer-events-none border border-indigo-400/35"
+                      >
+                        👔
+                      </div>
+                    )}
+                    <div className="flex flex-col select-none leading-none">
+                      <span
+                        style={{ fontSize: `${fontNameSize}px` }}
+                        className="font-black text-white uppercase tracking-wide truncate max-w-[85px]"
+                      >
+                        {managerName}
+                      </span>
+                      <span
+                        style={{ fontSize: `${fontRoleSize}px` }}
+                        className="font-bold text-indigo-400 uppercase tracking-widest mt-0.5"
+                      >
+                        {lang === "id" ? "PELATIH" : "COACH"}
+                      </span>
+                    </div>
+                  </div>
+                );
+
+                const subNodes = subs.map((sub) => {
                   const currentBg = sub.role === "GK" ? gkColor : primaryColor;
                   return (
                     <motion.div
@@ -2677,7 +2733,7 @@ export default function Pitch({
                           {sub.number}
                         </div>
                       )}
-                      
+
                       <div className="flex flex-col justify-center select-none pointer-events-none">
                         <span
                           style={{ fontSize: `${fontNameSize}px` }}
@@ -2697,6 +2753,13 @@ export default function Pitch({
                     </motion.div>
                   );
                 });
+
+                return (
+                  <>
+                    {managerBadge}
+                    {subNodes}
+                  </>
+                );
               })()}
             </AnimatePresence>
 

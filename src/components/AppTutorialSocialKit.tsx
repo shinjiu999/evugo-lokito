@@ -44,6 +44,8 @@ interface AppTutorialSocialKitProps {
   teamLogo: string | null;
   primaryColor: string;
   gkColor: string;
+  initialManagerName?: string;
+  initialManagerPhoto?: string | null;
 }
 
 const SLIDES = {
@@ -110,28 +112,94 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
   formation,
   teamLogo,
   primaryColor,
-  gkColor
+  gkColor,
+  initialManagerName,
+  initialManagerPhoto
 }) => {
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeTab, setActiveTab] = useState<"tutorial" | "datasheet" | "instagram">("tutorial");
   
   // States for Instagram Graphic Customization
-  const [coachName, setCoachName] = useState(lang === "id" ? "Coach Budi" : "Manager Alex");
+  const [coachName, setCoachName] = useState(initialManagerName || (lang === "id" ? "Coach Budi" : "Manager Alex"));
+  const [managerRole, setManagerRole] = useState(lang === "id" ? "PELATIH KEPALA" : "HEAD COACH");
   const [matchTitle, setMatchTitle] = useState(lang === "id" ? "INDONESIA SUPER MATCHDAY" : "CHAMPIONS GRAND SHIFT");
-  const [stadiumTheme, setStadiumTheme] = useState<"cyber-stadium" | "legend-grass" | "dark-velvet">("cyber-stadium");
+  const [stadiumTheme, setStadiumTheme] = useState<"cyber-stadium" | "legend-grass" | "dark-velvet" | "red-arena" | "sunny-stadium" | "custom">("cyber-stadium");
   const [showPlayerRoles, setShowPlayerRoles] = useState(true);
   const [opacityOverlay, setOpacityOverlay] = useState(0.85);
+
+  const [customStadiumBg, setCustomStadiumBg] = useState<string | null>(null);
+  const [customBgImg, setCustomBgImg] = useState<HTMLImageElement | null>(null);
+  const [managerPhoto, setManagerPhoto] = useState<string | null>(initialManagerPhoto || null);
+  const [managerImgElement, setManagerImgElement] = useState<HTMLImageElement | null>(null);
+
+  // Sync state with props when props change
+  useEffect(() => {
+    if (initialManagerName) {
+      setCoachName(initialManagerName);
+    }
+  }, [initialManagerName]);
+
+  useEffect(() => {
+    if (initialManagerPhoto !== undefined) {
+      setManagerPhoto(initialManagerPhoto);
+    }
+  }, [initialManagerPhoto]);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const t_slides = SLIDES[lang];
   const isId = lang === "id";
 
+  // Preloading custom stadium background image
+  useEffect(() => {
+    if (!customStadiumBg) {
+      setCustomBgImg(null);
+      return;
+    }
+    const img = new Image();
+    img.src = customStadiumBg;
+    img.onload = () => {
+      setCustomBgImg(img);
+    };
+  }, [customStadiumBg]);
+
+  // Preloading manager photo image
+  useEffect(() => {
+    if (!managerPhoto) {
+      setManagerImgElement(null);
+      return;
+    }
+    const img = new Image();
+    img.src = managerPhoto;
+    img.onload = () => {
+      setManagerImgElement(img);
+    };
+  }, [managerPhoto]);
+
   // Pre-draw Instagram canvas preview
   useEffect(() => {
     if (activeTab !== "instagram" || !canvasRef.current) return;
     drawInstagramPoster();
-  }, [activeTab, coachName, matchTitle, stadiumTheme, showPlayerRoles, opacityOverlay, players, teamName, formation, teamLogo, primaryColor, gkColor, lang]);
+  }, [
+    activeTab,
+    coachName,
+    managerRole,
+    matchTitle,
+    stadiumTheme,
+    showPlayerRoles,
+    opacityOverlay,
+    players,
+    teamName,
+    formation,
+    teamLogo,
+    primaryColor,
+    gkColor,
+    lang,
+    customStadiumBg,
+    customBgImg,
+    managerPhoto,
+    managerImgElement
+  ]);
 
   const drawInstagramPoster = () => {
     const canvas = canvasRef.current;
@@ -147,262 +215,360 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
     // Clear Canvas
     ctx.clearRect(0, 0, size, size);
 
-    // 1. DRAW BACKGROUND THEME
-    if (stadiumTheme === "cyber-stadium") {
-      // Deep tech gradient background
-      const grad = ctx.createRadialGradient(size / 2, size / 2, 50, size / 2, size / 2, size * 0.7);
-      grad.addColorStop(0, "#0e1830");
-      grad.addColorStop(0.5, "#080c16");
-      grad.addColorStop(1, "#020306");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, size, size);
-
-      // Cyber lines
-      ctx.strokeStyle = "rgba(0, 240, 255, 0.08)";
-      ctx.lineWidth = 1.5;
-      for (let i = 0; i < size; i += 120) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i, size);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(0, i);
-        ctx.lineTo(size, i);
-        ctx.stroke();
-      }
-
-      // Cyber tactical vector circles in center
-      ctx.strokeStyle = "rgba(0, 240, 255, 0.15)";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(size / 2, size / 2 + 60, 280, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = "rgba(0, 240, 255, 0.25)";
-      ctx.setLineDash([12, 12]);
-      ctx.beginPath();
-      ctx.arc(size / 2, size / 2 + 60, 180, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    } else if (stadiumTheme === "legend-grass") {
-      // Emerald striped modern soccer field
-      ctx.fillStyle = "#1e3b20";
-      ctx.fillRect(0, 0, size, size);
-
-      const stripes = 10;
-      const stripeHeight = size / stripes;
-      for (let i = 0; i < stripes; i++) {
-        if (i % 2 === 0) {
-          ctx.fillStyle = "#162e18";
-          ctx.fillRect(0, i * stripeHeight, size, stripeHeight);
-        }
-      }
-
-      // Traditional field center circle overlay with transparent glow
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      // Center Circle
-      ctx.arc(size / 2, size / 2 + 60, 160, 0, Math.PI * 2);
-      // Half-line
-      ctx.moveTo(0, size / 2 + 60);
-      ctx.lineTo(size, size / 2 + 60);
-      ctx.stroke();
-    } else {
-      // Dark velvet stadium / editorial crimson black
-      const grad = ctx.createLinearGradient(0, 0, 0, size);
-      grad.addColorStop(0, "#2c0e12");
-      grad.addColorStop(0.3, "#14070a");
-      grad.addColorStop(1, "#050103");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, size, size);
-
-      // Abstract luxury star trails in background background
-      ctx.fillStyle = "rgba(234, 179, 8, 0.05)";
-      ctx.beginPath();
-      ctx.moveTo(0, size);
-      ctx.lineTo(size / 2, size * 0.4);
-      ctx.lineTo(size, size);
-      ctx.fill();
-
-      ctx.strokeStyle = "rgba(234, 179, 8, 0.15)";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([8, 16]);
-      ctx.beginPath();
-      ctx.arc(size / 2, size, 400, Math.PI, Math.PI * 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    // 2. STAGE WATERMARKING / TEXTURE OVERLAYS
-    ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
-    ctx.font = "italic 900 130px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("CHAMPIONS", size / 2, size * 0.62);
-
-    // 3. DRAW GLASS HEADER FRAME
-    ctx.fillStyle = `rgba(15, 17, 23, ${opacityOverlay})`;
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.roundRect(40, 40, size - 80, 160, 24);
-    ctx.fill();
-    ctx.stroke();
-
-    // 4. DRAW HEADER BRANDING TEXT (Tim, Match Name, Coach)
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-    ctx.shadowBlur = 10;
-
-    // Match Title
-    ctx.fillStyle = "#e5ebd5"; 
-    ctx.font = "italic 900 21px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText(matchTitle.toUpperCase(), 180, 94);
-
-    // Dynamic Team Identity
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "900 48px sans-serif";
-    ctx.fillText((teamName || "GARUDA FC").toUpperCase(), 180, 148);
-
-    // Formation Badge in Header
-    ctx.fillStyle = primaryColor || "#3b82f6";
-    ctx.beginPath();
-    ctx.roundRect(180, 164, 150, 26, 6);
-    ctx.fill();
-
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 13px 'JetBrains Mono', monospace";
-    ctx.fillText(`FORMATION: ${formation}`, 196, 181);
-
-    // Coach Badge right aligned
-    ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
-    ctx.beginPath();
-    ctx.roundRect(size - 340, 72, 280, 85, 14);
-    ctx.fill();
-
-    ctx.fillStyle = "#a1a1aa";
-    ctx.font = "bold 12px sans-serif";
-    ctx.fillText(isId ? "KEPALA PELATIH" : "CHIEF TACTICIAN", size - 324, 94);
-
-    ctx.fillStyle = "#ca8a04"; // gold coach name
-    ctx.font = "900 25px sans-serif";
-    ctx.fillText(coachName.toUpperCase(), size - 324, 126);
-
-    ctx.fillStyle = "#3b82f6";
-    ctx.font = "bold 12px sans-serif";
-    ctx.fillText("TACTIGEN PRO AI • LIVE", size - 324, 145);
-
-    // Draw team logo image if exists, otherwise draw uniform shield vector
-    if (teamLogo) {
-      const img = new Image();
-      img.src = teamLogo;
-      // Drawing immediately if loaded, fallback vector drawn below
-      try {
-        ctx.drawImage(img, 70, 65, 85, 85);
-      } catch (e) {
-        // Safe fallback vector if reader not ready immediately on redrawing loop
-        drawShieldLogo(ctx, 70, 65, 85);
-      }
-    } else {
-      drawShieldLogo(ctx, 70, 65, 85);
-    }
-
-    // 5. DRAW ACTIVE STARTING PLAYERS OVERLAY ON THE GRID
-    // We only filter starting XI players to fit perfectly on social graphic
-    const startingXI = players.filter(p => p.isStarting);
-    
-    startingXI.forEach((player) => {
-      // Map coordinate safely from 100x100 space to grid size 920x680 space
-      // Canvas starts at Y 240 down to 960 (720px total height context)
-      // Canvas width ranges from 120px to 960px (840px total width context)
-      const px = 120 + (player.x / 100) * 840;
-      const py = 250 + (player.y / 100) * 640;
-
-      const isGK = player.role === "GK";
-      const teamColor = isGK ? gkColor : primaryColor;
-
-      // Draw shiny neon player node glow
-      ctx.shadowColor = teamColor;
-      ctx.shadowBlur = 18;
-
-      // Outer disc
-      ctx.fillStyle = "#0a0b0e";
-      ctx.strokeStyle = teamColor;
-      ctx.lineWidth = 4.5;
-      ctx.beginPath();
-      ctx.arc(px, py, 26, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Outer golden trim if role is Captain/Forward etc
-      if (player.role === "FWD") {
-        ctx.strokeStyle = "#eab308";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(px, py, 31, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      ctx.shadowBlur = 0; // turn off shadow
-
-      // Draw Jersey number indicator inside disk
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "900 16px 'JetBrains Mono', monospace";
+    const continueDrawing = () => {
+      // 2. STAGE WATERMARKING / TEXTURE OVERLAYS
+      ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
+      ctx.font = "italic 900 130px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(player.number.toString(), px, py + 1.2);
+      ctx.fillText("CHAMPIONS", size / 2, size * 0.62);
 
-      // Player Name Plate under disc
-      ctx.fillStyle = "rgba(4, 5, 8, 0.9)";
-      ctx.strokeStyle = "rgba(255,255,255,0.15)";
-      ctx.lineWidth = 1.5;
+      // 3. DRAW GLASS HEADER FRAME
+      ctx.fillStyle = `rgba(15, 17, 23, ${opacityOverlay})`;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.roundRect(px - 60, py + 34, 120, 26, 8);
+      ctx.roundRect(40, 40, size - 80, 160, 24);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "900 11.5px sans-serif";
-      ctx.fillText(player.name.toUpperCase(), px, py + 46);
+      // 4. DRAW HEADER BRANDING TEXT (Tim, Match Name, Coach)
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 10;
 
-      // Role pill tag index setup overlay
-      if (showPlayerRoles) {
-        ctx.fillStyle = isGK ? "#f43f5e" : "#5b21b6"; // GK Red, Defense indigo/violet
+      // Match Title
+      ctx.fillStyle = "#e5ebd5"; 
+      ctx.font = "italic 900 21px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(matchTitle.toUpperCase(), 180, 94);
+
+      // Dynamic Team Identity
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 48px sans-serif";
+      ctx.fillText((teamName || "GARUDA FC").toUpperCase(), 180, 148);
+
+      // Formation Badge in Header
+      ctx.fillStyle = primaryColor || "#3b82f6";
+      ctx.beginPath();
+      ctx.roundRect(180, 164, 150, 26, 6);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 13px 'JetBrains Mono', monospace";
+      ctx.fillText(`FORMATION: ${formation}`, 196, 181);
+
+      // Coach Badge right aligned (made wider to fit photo nicely)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+      ctx.beginPath();
+      ctx.roundRect(size - 360, 72, 320, 96, 16);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+      ctx.stroke();
+
+      // Draw Manager Photo in circular frame
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(size - 315, 120, 32, 0, Math.PI * 2);
+      ctx.clip();
+
+      if (managerImgElement) {
+        ctx.drawImage(managerImgElement, size - 347, 88, 64, 64);
+      } else {
+        // Draw elegant default avatar silhouette
+        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.fillRect(size - 347, 88, 64, 64);
+        
+        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.font = "bold 24px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("👔", size - 315, 120);
+      }
+      ctx.restore();
+
+      // Draw elegant gold circle border for manager photo
+      ctx.strokeStyle = "#eab308";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(size - 315, 120, 32, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Text to the right of Manager photo
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      
+      ctx.fillStyle = "#a1a1aa";
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText(managerRole.toUpperCase(), size - 268, 100);
+
+      ctx.fillStyle = "#ca8a04"; // gold coach name
+      ctx.font = "900 20px sans-serif";
+      // Limit coach name to fit the badge
+      let truncatedCoachName = coachName.toUpperCase();
+      if (truncatedCoachName.length > 15) {
+        truncatedCoachName = truncatedCoachName.substring(0, 13) + "...";
+      }
+      ctx.fillText(truncatedCoachName, size - 268, 126);
+
+      ctx.fillStyle = "#3b82f6";
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText("TACTIGEN PRO AI • LIVE", size - 268, 144);
+
+      // Draw team logo image if exists, otherwise draw uniform shield vector
+      if (teamLogo) {
+        const img = new Image();
+        img.src = teamLogo;
+        // Drawing immediately if loaded, fallback vector drawn below
+        try {
+          ctx.drawImage(img, 70, 65, 85, 85);
+        } catch (e) {
+          // Safe fallback vector if reader not ready immediately on redrawing loop
+          drawShieldLogo(ctx, 70, 65, 85);
+        }
+      } else {
+        drawShieldLogo(ctx, 70, 65, 85);
+      }
+
+      // 5. DRAW ACTIVE STARTING PLAYERS OVERLAY ON THE GRID
+      // We only filter starting XI players to fit perfectly on social graphic
+      const startingXI = players.filter(p => p.isStarting);
+      
+      startingXI.forEach((player) => {
+        // Map coordinate safely from 100x100 space to grid size 920x680 space
+        // Canvas starts at Y 240 down to 960 (720px total height context)
+        // Canvas width ranges from 120px to 960px (840px total width context)
+        const px = 120 + (player.x / 100) * 840;
+        const py = 250 + (player.y / 100) * 640;
+
+        const isGK = player.role === "GK";
+        const teamColor = isGK ? gkColor : primaryColor;
+
+        // Draw shiny neon player node glow
+        ctx.shadowColor = teamColor;
+        ctx.shadowBlur = 18;
+
+        // Outer disc
+        ctx.fillStyle = "#0a0b0e";
+        ctx.strokeStyle = teamColor;
+        ctx.lineWidth = 4.5;
         ctx.beginPath();
-        ctx.roundRect(px + 18, py - 32, 34, 14, 4);
+        ctx.arc(px, py, 26, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
+
+        // Outer golden trim if role is Captain/Forward etc
+        if (player.role === "FWD") {
+          ctx.strokeStyle = "#eab308";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(px, py, 31, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        ctx.shadowBlur = 0; // turn off shadow
+
+        // Draw Jersey number indicator inside disk
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "900 16px 'JetBrains Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(player.number.toString(), px, py + 1.2);
+
+        // Player Name Plate under disc
+        ctx.fillStyle = "rgba(4, 5, 8, 0.9)";
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(px - 60, py + 34, 120, 26, 8);
+        ctx.fill();
+        ctx.stroke();
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = "black 8px sans-serif";
-        ctx.fillText(player.role, px + 35, py - 25);
+        ctx.font = "900 11.5px sans-serif";
+        ctx.fillText(player.name.toUpperCase(), px, py + 46);
+
+        // Role pill tag index setup overlay
+        if (showPlayerRoles) {
+          ctx.fillStyle = isGK ? "#f43f5e" : "#5b21b6"; // GK Red, Defense indigo/violet
+          ctx.beginPath();
+          ctx.roundRect(px + 18, py - 32, 34, 14, 4);
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "black 8px sans-serif";
+          ctx.fillText(player.role, px + 35, py - 25);
+        }
+      });
+
+      // 6. DRAW FOOTER PROMOTIONAL BAR WITH SPECIFIC BRAND LABELS
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(7, 8, 12, 0.95)";
+      ctx.beginPath();
+      ctx.rect(0, size - 80, size, 80);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, size - 80);
+      ctx.lineTo(size, size - 80);
+      ctx.stroke();
+
+      // Footer labels
+      ctx.fillStyle = "#71717a";
+      ctx.font = "bold 13px sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText("MADE WITH TACTIGEN PRO • SPORT BLUEPRINT GENERATOR", 46, size - 40);
+
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#3b82f6";
+      ctx.font = "900 14px 'JetBrains Mono', monospace";
+      ctx.fillText("UEFA LICENSE PRO ARCH", size - 46, size - 40);
+    };
+
+    // 1. DRAW BACKGROUND THEME
+    if (stadiumTheme === "custom" && customBgImg) {
+      ctx.drawImage(customBgImg, 0, 0, size, size);
+      continueDrawing();
+    } else {
+      if (stadiumTheme === "cyber-stadium") {
+        // Deep tech gradient background
+        const grad = ctx.createRadialGradient(size / 2, size / 2, 50, size / 2, size / 2, size * 0.7);
+        grad.addColorStop(0, "#0e1830");
+        grad.addColorStop(0.5, "#080c16");
+        grad.addColorStop(1, "#020306");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+
+        // Cyber lines
+        ctx.strokeStyle = "rgba(0, 240, 255, 0.08)";
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < size; i += 120) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, size);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(size, i);
+          ctx.stroke();
+        }
+
+        // Cyber tactical vector circles in center
+        ctx.strokeStyle = "rgba(0, 240, 255, 0.15)";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2 + 60, 280, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(0, 240, 255, 0.25)";
+        ctx.setLineDash([12, 12]);
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2 + 60, 180, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (stadiumTheme === "legend-grass") {
+        // Emerald striped modern soccer field
+        ctx.fillStyle = "#1e3b20";
+        ctx.fillRect(0, 0, size, size);
+
+        const stripes = 10;
+        const stripeHeight = size / stripes;
+        for (let i = 0; i < stripes; i++) {
+          if (i % 2 === 0) {
+            ctx.fillStyle = "#162e18";
+            ctx.fillRect(0, i * stripeHeight, size, stripeHeight);
+          }
+        }
+
+        // Traditional field center circle overlay with transparent glow
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        // Center Circle
+        ctx.arc(size / 2, size / 2 + 60, 160, 0, Math.PI * 2);
+        // Half-line
+        ctx.moveTo(0, size / 2 + 60);
+        ctx.lineTo(size, size / 2 + 60);
+        ctx.stroke();
+      } else if (stadiumTheme === "red-arena") {
+        // Red Arena
+        const grad = ctx.createLinearGradient(0, 0, 0, size);
+        grad.addColorStop(0, "#450a0a");
+        grad.addColorStop(0.4, "#1c0505");
+        grad.addColorStop(1, "#030000");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+
+        // Grid lines with deep red glow
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.08)";
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < size; i += 120) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, size);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(size, i);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.18)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2 + 60, 170, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (stadiumTheme === "sunny-stadium") {
+        // Sunny Stadium warm grass
+        ctx.fillStyle = "#3f6212";
+        ctx.fillRect(0, 0, size, size);
+
+        const stripes = 12;
+        const stripeWidth = size / stripes;
+        for (let i = 0; i < stripes; i++) {
+          if (i % 2 === 0) {
+            ctx.fillStyle = "#4d7c0f";
+            ctx.fillRect(i * stripeWidth, 0, stripeWidth, size);
+          }
+        }
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2 + 60, 150, 0, Math.PI * 2);
+        ctx.moveTo(size / 2, 0);
+        ctx.lineTo(size / 2, size);
+        ctx.stroke();
+      } else {
+        // Dark velvet stadium / editorial crimson black
+        const grad = ctx.createLinearGradient(0, 0, 0, size);
+        grad.addColorStop(0, "#2c0e12");
+        grad.addColorStop(0.3, "#14070a");
+        grad.addColorStop(1, "#050103");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+
+        // Abstract luxury star trails in background background
+        ctx.fillStyle = "rgba(234, 179, 8, 0.05)";
+        ctx.beginPath();
+        ctx.moveTo(0, size);
+        ctx.lineTo(size / 2, size * 0.4);
+        ctx.lineTo(size, size);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(234, 179, 8, 0.15)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([8, 16]);
+        ctx.beginPath();
+        ctx.arc(size / 2, size, 400, Math.PI, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
-    });
-
-    // 6. DRAW FOOTER PROMOTIONAL BAR WITH SPECIFIC BRAND LABELS
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "rgba(7, 8, 12, 0.95)";
-    ctx.beginPath();
-    ctx.rect(0, size - 80, size, 80);
-    ctx.fill();
-
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, size - 80);
-    ctx.lineTo(size, size - 80);
-    ctx.stroke();
-
-    // Footer labels
-    ctx.fillStyle = "#71717a";
-    ctx.font = "bold 13px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText("MADE WITH TACTIGEN PRO • SPORT BLUEPRINT GENERATOR", 46, size - 36);
-
-    ctx.textAlign = "right";
-    ctx.fillStyle = "#3b82f6";
-    ctx.font = "900 14px 'JetBrains Mono', monospace animate-pulse";
-    ctx.fillText("UEFA LICENSE PRO ARCH", size - 46, size - 36);
+      continueDrawing();
+    }
   };
 
   const drawShieldLogo = (ctx: CanvasRenderingContext2D, x: number, y: number, dimension: number) => {
@@ -763,23 +929,87 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
                   <div className="flex items-center gap-2 pb-2.5 border-b border-white/5">
                     <Palette className="w-4 h-4 text-indigo-400" />
                     <span className="text-xs font-black tracking-wide text-white uppercase">
-                      {isId ? "⚙️ Personalisasi Desain" : "⚙️ Design Customizations"}
+                      {isId ? "⚙️ Personalisasi Desain & Manager" : "⚙️ Design & Manager Setup"}
                     </span>
                   </div>
 
                   <div className="space-y-3.5 text-xs">
-                    {/* Coach Name Input */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">
-                        {isId ? "Nama Pelatih (Coach/Manager)" : "Coach/Manager Name"}
-                      </label>
-                      <input
-                        type="text"
-                        value={coachName}
-                        onChange={(e) => setCoachName(e.target.value)}
-                        placeholder="e.g. Coach Budi Santoso"
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-bold"
-                      />
+                    {/* Manager/Coach Section Heading */}
+                    <div className="bg-white/5 rounded-xl p-3 border border-white/10 space-y-3">
+                      <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block">
+                        👔 {isId ? "PENGATURAN MANAJER / PELATIH" : "MANAGER & COACHING SLOT"}
+                      </span>
+
+                      {/* Coach Name Input */}
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">
+                          {isId ? "Nama Manajer / Pelatih" : "Manager / Coach Name"}
+                        </label>
+                        <input
+                          type="text"
+                          value={coachName}
+                          onChange={(e) => setCoachName(e.target.value)}
+                          placeholder="e.g. Coach Budi Santoso"
+                          className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-bold font-mono"
+                        />
+                      </div>
+
+                      {/* Coach Role/Title Input */}
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">
+                          {isId ? "Jabatan / Gelar" : "Job Title / Role"}
+                        </label>
+                        <input
+                          type="text"
+                          value={managerRole}
+                          onChange={(e) => setManagerRole(e.target.value)}
+                          placeholder="e.g. HEAD COACH, MANAGER"
+                          className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-bold font-mono"
+                        />
+                      </div>
+
+                      {/* Manager Photo Upload */}
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">
+                          {isId ? "Foto Manajer / Pelatih" : "Manager / Coach Photo"}
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            id="managerPhotoUpload"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                  if (event.target?.result) {
+                                    setManagerPhoto(event.target.result as string);
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor="managerPhotoUpload"
+                            className="flex-1 py-1.5 px-3 bg-indigo-600/35 hover:bg-indigo-600/50 border border-indigo-500/40 rounded-xl text-[10px] font-black text-indigo-300 text-center cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                          >
+                            📷 {isId ? "PILIH FOTO" : "CHOOSE PHOTO"}
+                          </label>
+                          {managerPhoto && (
+                            <button
+                              type="button"
+                              onClick={() => setManagerPhoto(null)}
+                              className="px-2.5 bg-red-650/35 hover:bg-red-650/50 border border-red-500/30 rounded-xl text-xs font-bold text-red-300 cursor-pointer transition-all"
+                              title={isId ? "Hapus Foto" : "Remove Photo"}
+                            >
+                              ❌
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Matchday Title Header */}
@@ -799,28 +1029,88 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
                     {/* Choose background aesthetic */}
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">
-                        {isId ? "Estetika & Mood Stadion" : "Stadium Background Theme"}
+                        🏟️ {isId ? "Variasi Lapangan / Stadion" : "Pitch & Stadium Theme"}
                       </label>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 xs:grid-cols-3 gap-1.5">
                         {[
                           { key: "cyber-stadium", label: isId ? "Cyber" : "Cyber", emo: "⚡" },
                           { key: "legend-grass", label: isId ? "Classic" : "Classic", emo: "🌿" },
-                          { key: "dark-velvet", label: isId ? "Elegant" : "Elegant", emo: "🌌" }
+                          { key: "dark-velvet", label: isId ? "Elegant" : "Elegant", emo: "🌌" },
+                          { key: "red-arena", label: isId ? "Red Arena" : "Red Arena", emo: "🔥" },
+                          { key: "sunny-stadium", label: isId ? "Sunny" : "Sunny", emo: "☀️" },
+                          { key: "custom", label: isId ? "Custom" : "Custom", emo: "📁" }
                         ].map((thm) => (
                           <button
                             key={thm.key}
-                            onClick={() => setStadiumTheme(thm.key as any)}
-                            className={`py-2 px-1 rounded-xl text-[9px] font-black uppercase flex flex-col items-center justify-center gap-1.5 cursor-pointer border transition-all ${
+                            onClick={() => {
+                              if (thm.key === "custom" && !customStadiumBg) {
+                                document.getElementById("stadiumBgUpload")?.click();
+                              } else {
+                                setStadiumTheme(thm.key as any);
+                              }
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-[9px] font-black uppercase flex flex-col items-center justify-center gap-1 cursor-pointer border transition-all ${
                               stadiumTheme === thm.key
                                 ? "bg-indigo-650 border-indigo-400/50 text-white"
                                 : "bg-black/40 border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
                             }`}
                           >
-                            <span className="text-sm">{thm.emo}</span>
+                            <span className="text-xs">{thm.emo}</span>
                             <span>{thm.label}</span>
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Custom Stadium Background File Input */}
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-2.5 space-y-2 mt-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-gray-400 font-bold block">
+                          🖼️ {isId ? "Custom Background Lapangan" : "Custom Pitch Background"}
+                        </span>
+                        {customStadiumBg && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomStadiumBg(null);
+                              if (stadiumTheme === "custom") {
+                                setStadiumTheme("cyber-stadium");
+                              }
+                            }}
+                            className="text-[9px] font-bold text-red-400 hover:underline cursor-pointer"
+                          >
+                            {isId ? "Hapus" : "Remove"}
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="stadiumBgUpload"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              if (event.target?.result) {
+                                setCustomStadiumBg(event.target.result as string);
+                                setStadiumTheme("custom");
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById("stadiumBgUpload")?.click()}
+                        className="w-full py-1.5 bg-black/40 hover:bg-black/60 border border-white/10 rounded-lg text-[9.5px] font-black text-gray-300 text-center cursor-pointer transition-colors"
+                      >
+                        {customStadiumBg 
+                          ? (isId ? "✓ Ganti Gambar Custom" : "✓ Change Custom Image") 
+                          : (isId ? "📁 Upload Gambar Lapangan (.jpg / .png)" : "📁 Upload Pitch Image (.jpg / .png)")}
+                      </button>
                     </div>
 
                     {/* Opacity Overlay slider */}
