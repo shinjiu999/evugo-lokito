@@ -17,6 +17,7 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
   const [number, setNumber] = useState<number>(10);
   const [role, setRole] = useState<"GK" | "DEF" | "MID" | "FWD">("MID");
   const [photo, setPhoto] = useState<string | null>(null);
+  const [notes, setNotes] = useState("");
 
   // Individual athlete metrics/capabilities (speed, stamina, passing, defending, dribbling)
   const [speed, setSpeed] = useState<number>(75);
@@ -105,6 +106,8 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
     midfielder: lang === "id" ? "GELANDANG" : "MIDFIELDER",
     defender: lang === "id" ? "BEK" : "DEFENDER",
     goalkeeper: lang === "id" ? "KIPER" : "GOALKEEPER",
+    playerNotes: lang === "id" ? "Catatan Pemain" : "Player Notes",
+    notesPlaceholder: lang === "id" ? "Masukkan catatan performa, instruksi taktis spesifik..." : "Enter performance notes, specific tactical instructions...",
   };
 
   useEffect(() => {
@@ -113,6 +116,7 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
       setNumber(player.number);
       setRole(player.role);
       setPhoto(player.photo);
+      setNotes(player.notes ?? "");
       
       const currentStats = player.stats;
       setSpeed(currentStats?.speed ?? (player.role === "FWD" ? 85 : player.role === "MID" ? 78 : player.role === "DEF" ? 72 : 65));
@@ -144,6 +148,7 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
       number: isNaN(number) ? player.number : number,
       role,
       photo,
+      notes,
       stats: {
         speed,
         stamina,
@@ -1180,6 +1185,20 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
                     <option value="FWD">{t.forward} (FWD)</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Notes Input Section */}
+              <div className="border-t border-white/5 pt-4">
+                <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-1">
+                  📝 {t.playerNotes}
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={t.notesPlaceholder}
+                  rows={3}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-none scrollbar-thin"
+                />
               </div>
 
               {/* Athlete Capabilities Panel (0-100 attributes) with dynamic graphic editorial grid and layout */}

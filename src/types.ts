@@ -7,6 +7,7 @@ export interface Player {
   y: number; // 0-100 percentage
   isStarting: boolean;
   photo: string | null;
+  notes?: string;
   stats?: {
     speed: number;
     stamina: number;
