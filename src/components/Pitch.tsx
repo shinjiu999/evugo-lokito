@@ -590,8 +590,9 @@ export default function Pitch({
     const handleResize = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = container.clientWidth * dpr;
+      canvas.height = container.clientHeight * dpr;
       setPitchWidth(container.clientWidth);
       drawAllStrokes();
     };
@@ -601,8 +602,9 @@ export default function Pitch({
         setPitchWidth(entry.contentRect.width);
         const canvas = canvasRef.current;
         if (canvas) {
-          canvas.width = entry.contentRect.width;
-          canvas.height = entry.contentRect.height;
+          const dpr = window.devicePixelRatio || 1;
+          canvas.width = entry.contentRect.width * dpr;
+          canvas.height = entry.contentRect.height * dpr;
           drawAllStrokes();
         }
       }
@@ -625,7 +627,14 @@ export default function Pitch({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const dpr = window.devicePixelRatio || 1;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    const logicalWidth = canvas.width / dpr;
+    const logicalHeight = canvas.height / dpr;
 
     // --- HEATMAP RENDERING ENGINE ---
     if (showHeatmap) {
@@ -638,7 +647,7 @@ export default function Pitch({
       });
 
       // Calculate dynamic heatmap point radius proportional to width
-      const heatRadius = Math.max(18, Math.min(45, Math.round(30 * (canvas.width / 540))));
+      const heatRadius = Math.max(18, Math.min(45, Math.round(30 * (logicalWidth / 540))));
 
       if (pts.length > 0) {
         ctx.save();
@@ -662,8 +671,8 @@ export default function Pitch({
         ctx.save();
         ctx.globalCompositeOperation = "screen";
         starters.forEach((player) => {
-          const px = (player.x / 100) * canvas.width;
-          const actualPy = (player.y / 100) * canvas.height;
+          const px = (player.x / 100) * logicalWidth;
+          const actualPy = (player.y / 100) * logicalHeight;
           
           const playerRadius = heatRadius * 1.35;
           const grad = ctx.createRadialGradient(px, actualPy, 2, px, actualPy, playerRadius);
@@ -740,6 +749,8 @@ export default function Pitch({
 
       ctx.restore();
     });
+
+    ctx.restore();
   };
 
   const drawArrowhead = (
@@ -906,8 +917,11 @@ export default function Pitch({
     const pyPercent = (rawY / canvasHeight) * 100;
 
     // Snapping thresholds in percent coordinates
-    const pointThreshold = 3.2; // roughly ~15-20 pixels
-    const lineThreshold = 2.0;  // roughly ~10-12 pixels
+    // When in drawing mode, make grid thresholds extremely fine/small (0.5% instead of 2.0%)
+    // so freehand curves and diagonals (like 45-degree lines) do not jump-snap and stay completely smooth
+    const isDrawingMode = activeTool === "draw";
+    const pointThreshold = isDrawingMode ? 0.8 : 3.2; 
+    const lineThreshold = isDrawingMode ? 0.5 : 2.0;
 
     // 1. Try snapping to landmark points first (strongest magnet effect)
     let closestPoint: { x: number; y: number } | null = null;
@@ -974,19 +988,86 @@ export default function Pitch({
     return snapToGridAndMarkings(rawX, rawY, canvasWidth, canvasHeight);
   };
 
+  // --- VECTOR ERASER UTILITIES ---
+  const getDistancePointToSegment = (
+    px: number, py: number,
+    ax: number, ay: number,
+    bx: number, by: number
+  ) => {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const l2 = dx * dx + dy * dy;
+    if (l2 === 0) {
+      const dpx = px - ax;
+      const dpy = py - ay;
+      return Math.sqrt(dpx * dpx + dpy * dpy);
+    }
+    let t = ((px - ax) * dx + (py - ay) * dy) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const projX = ax + t * dx;
+    const projY = ay + t * dy;
+    const dpx = px - projX;
+    const dpy = py - projY;
+    return Math.sqrt(dpx * dpx + dpy * dpy);
+  };
+
+  const checkStrokeIntersection = (points: { x: number; y: number }[], cx: number, cy: number) => {
+    const threshold = Math.max(16, brushSize * 2);
+    if (points.length === 0) return false;
+    if (points.length === 1) {
+      const dx = points[0].x - cx;
+      const dy = points[0].y - cy;
+      return Math.sqrt(dx * dx + dy * dy) < threshold;
+    }
+    for (let i = 0; i < points.length - 1; i++) {
+      const dist = getDistancePointToSegment(cx, cy, points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
+      if (dist < threshold) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const eraseStrokesNear = (cx: number, cy: number) => {
+    setDrawHistory((prev) => {
+      let changed = false;
+      const filtered = prev.filter((stroke) => {
+        const strokeLayer = stroke.layer || 1;
+        if (!visibleSketchLayers.includes(strokeLayer)) return true;
+        const isNear = checkStrokeIntersection(stroke.points, cx, cy);
+        if (isNear) {
+          changed = true;
+          return false;
+        }
+        return true;
+      });
+      if (changed) {
+        soundManager.playClick();
+        return filtered;
+      }
+      return prev;
+    });
+  };
+
   // --- DRAW EVENTS ---
   const handleMouseDown = (e: ReactMouseEvent<HTMLCanvasElement>) => {
     if (activeTool !== "draw" || isDrawLocked) return;
     setIsDrawing(true);
     soundManager.playScribble();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = pitchRef.current;
+    if (!container) return;
     
     const coords = getZoomedCoordinates(e.clientX, e.clientY);
     const rawX = coords.x;
     const rawY = coords.y;
 
-    const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
+    const { x, y } = getProcessedPoint(rawX, rawY, container.clientWidth, container.clientHeight);
+
+    if (brushStyle === "eraser") {
+      eraseStrokesNear(x, y);
+      setLastPoint({ x, y });
+      return;
+    }
 
     setLastPoint({ x, y });
     setDrawHistory((prev) => [
@@ -1003,17 +1084,25 @@ export default function Pitch({
 
   const handleMouseMove = (e: ReactMouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || activeTool !== "draw" || !lastPoint || isDrawLocked) return;
-    if (Math.random() < 0.22) {
-      soundManager.playScribble();
-    }
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    
+    const container = pitchRef.current;
+    if (!container) return;
 
     const coords = getZoomedCoordinates(e.clientX, e.clientY);
     const rawX = coords.x;
     const rawY = coords.y;
 
-    const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
+    const { x, y } = getProcessedPoint(rawX, rawY, container.clientWidth, container.clientHeight);
+
+    if (brushStyle === "eraser") {
+      eraseStrokesNear(x, y);
+      setLastPoint({ x, y });
+      return;
+    }
+
+    if (Math.random() < 0.22) {
+      soundManager.playScribble();
+    }
 
     setDrawHistory((prev) => {
       const updated = [...prev];
@@ -1043,14 +1132,20 @@ export default function Pitch({
     if (activeTool !== "draw" || e.touches.length !== 1 || isDrawLocked) return;
     setIsDrawing(true);
     soundManager.playScribble();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = pitchRef.current;
+    if (!container) return;
 
     const coords = getZoomedCoordinates(e.touches[0].clientX, e.touches[0].clientY);
     const rawX = coords.x;
     const rawY = coords.y;
 
-    const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
+    const { x, y } = getProcessedPoint(rawX, rawY, container.clientWidth, container.clientHeight);
+
+    if (brushStyle === "eraser") {
+      eraseStrokesNear(x, y);
+      setLastPoint({ x, y });
+      return;
+    }
 
     setLastPoint({ x, y });
     setDrawHistory((prev) => [
@@ -1067,17 +1162,25 @@ export default function Pitch({
 
   const handleTouchMove = (e: ReactTouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing || activeTool !== "draw" || !lastPoint || e.touches.length !== 1 || isDrawLocked) return;
-    if (Math.random() < 0.22) {
-      soundManager.playScribble();
-    }
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    
+    const container = pitchRef.current;
+    if (!container) return;
 
     const coords = getZoomedCoordinates(e.touches[0].clientX, e.touches[0].clientY);
     const rawX = coords.x;
     const rawY = coords.y;
 
-    const { x, y } = getProcessedPoint(rawX, rawY, canvas.width, canvas.height);
+    const { x, y } = getProcessedPoint(rawX, rawY, container.clientWidth, container.clientHeight);
+
+    if (brushStyle === "eraser") {
+      eraseStrokesNear(x, y);
+      setLastPoint({ x, y });
+      return;
+    }
+
+    if (Math.random() < 0.22) {
+      soundManager.playScribble();
+    }
 
     setDrawHistory((prev) => {
       const updated = [...prev];
