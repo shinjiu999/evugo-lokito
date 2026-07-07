@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player, TacticalItem, DrawingStroke, AnimationFrame, TacticalPlay } from "./types";
 import Pitch from "./components/Pitch";
@@ -49,7 +49,9 @@ import {
   Eye,
   EyeOff,
   Volume2,
-  VolumeX
+  VolumeX,
+  Maximize2,
+  Minimize2
 } from "lucide-react";
 
 const TRANSLATIONS = {
@@ -524,6 +526,17 @@ export default function App() {
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showFormationMenu, setShowFormationMenu] = useState(false);
+  const [isPitchFullscreen, setIsPitchFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsPitchFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Line drawings brush strokes records
   const [drawHistory, setDrawHistory] = useState<DrawingStroke[]>([]);
@@ -1169,6 +1182,18 @@ export default function App() {
   return (
     <div className="relative min-h-screen bg-[#07070a] bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:28px_28px] text-white flex flex-col font-sans antialiased overflow-x-hidden">
       
+      {/* Global floating button to exit presentation mode */}
+      {isPitchFullscreen && (
+        <button
+          onClick={() => setIsPitchFullscreen(false)}
+          className="fixed top-4 right-4 z-[9999] px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl flex items-center gap-2 bg-red-600/90 hover:bg-red-600 text-white font-bold text-xs uppercase shadow-[0_10px_25px_rgba(239,68,68,0.4)] backdrop-blur-md border border-red-500/30 transition-all active:scale-95 cursor-pointer animate-fadeIn"
+          title={lang === "id" ? "Keluar Layar Penuh (ESC)" : "Exit Fullscreen (ESC)"}
+        >
+          <Minimize2 className="w-4 h-4 animate-pulse" />
+          <span>{lang === "id" ? "Keluar" : "Exit"}</span>
+        </button>
+      )}
+      
       {/* Premium ambient decorative glowing blobs */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[130px] pointer-events-none z-0" />
       <div className="absolute bottom-20 right-1/4 w-[450px] h-[450px] bg-indigo-500/10 rounded-full blur-[130px] pointer-events-none z-0" />
@@ -1593,8 +1618,16 @@ export default function App() {
         <div className="lg:col-span-6 flex flex-col gap-4 items-center h-full">
 
           {/* DIGITAL FIELD SCREEN WITH VERTICAL BALL AND CONE CONTROLS */}
-          <div className="w-full flex flex-row gap-2.5 sm:gap-4 items-start justify-center relative">
-            <div className="flex-1 min-w-0 w-full max-w-[580px] relative group/pitch">
+          <div className={`w-full flex transition-all duration-300 ${
+            isPitchFullscreen 
+              ? "fixed inset-0 z-[120] bg-[#07080a] flex-row gap-4 items-center justify-center p-4 md:p-8 overflow-hidden animate-fadeIn"
+              : "flex-row gap-2.5 sm:gap-4 items-start justify-center relative"
+          }`}>
+            <div className={`flex-1 min-w-0 w-full relative group/pitch transition-all duration-300 ${
+              isPitchFullscreen 
+                ? "h-full max-h-[92vh] max-w-[850px] lg:max-w-[950px] flex items-center justify-center" 
+                : "max-w-[580px]"
+            }`}>
               {/* Floating scoreboard overlay for Team Name and Formation at the top-middle of the pitch */}
               {activeTool !== "draw" && (
                 <div className="absolute top-2.5 sm:top-4 left-1/2 -translate-x-1/2 z-40 bg-[#0b0c10]/85 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/[0.08] px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)] hover:border-emerald-500/20 hover:bg-[#0b0c10]/95 transition-all duration-300 whitespace-nowrap">
@@ -1694,9 +1727,40 @@ export default function App() {
                 </div>
               )}
 
-              {/* Floating thin overlay for Reset Board button */}
+              {/* Floating thin overlay for Reset Board & Fullscreen buttons */}
               {activeTool !== "draw" && (
-                <div className="absolute top-2.5 sm:top-4 right-2.5 sm:right-4 z-40 flex items-center justify-center">
+                <div className="absolute top-2.5 sm:top-4 right-2.5 sm:right-4 z-40 flex items-center gap-1.5 sm:gap-2 justify-center">
+                  {/* FULLSCREEN BUTTON */}
+                  <div className="relative group/fullscreen">
+                    <button
+                      onClick={() => setIsPitchFullscreen(!isPitchFullscreen)}
+                      className={`w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+                        isPitchFullscreen
+                          ? "border-blue-550/50 text-blue-400"
+                          : "border-white/[0.08] text-gray-400 hover:text-white"
+                      }`}
+                      aria-label={lang === "id" ? "Mode Layar Penuh" : "Fullscreen Presentation Mode"}
+                    >
+                      {isPitchFullscreen ? (
+                        <Minimize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      ) : (
+                        <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      )}
+                    </button>
+                    {/* Floating descriptive tooltip/overlay */}
+                    <div className="absolute right-0 top-full mt-2.5 opacity-0 scale-90 pointer-events-none group-hover/fullscreen:opacity-100 group-hover/fullscreen:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                      <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">
+                        {lang === "id" ? "LAYAR PENUH" : "FULLSCREEN"}
+                      </span>
+                      <span className="text-white font-extrabold text-[9px] whitespace-nowrap">
+                        {isPitchFullscreen
+                          ? (lang === "id" ? "Keluar Layar Penuh" : "Exit Fullscreen")
+                          : (lang === "id" ? "Mode Presentasi Taktis" : "Tactical Presentation Mode")
+                        }
+                      </span>
+                    </div>
+                  </div>
+
                   {showResetConfirm ? (
                     <div className="flex items-center gap-1 sm:gap-1.5 bg-[#0e0f13]/95 backdrop-blur-md px-1.5 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-2xl border border-red-500/40 shadow-2xl transition-all duration-300 animate-fadeIn text-[8px] sm:text-[10px] whitespace-nowrap">
                       <span className="text-[7.5px] sm:text-[9px] text-red-400 font-extrabold uppercase tracking-wide">{t.resetConfirm}</span>
@@ -2078,6 +2142,7 @@ export default function App() {
                 setBrushStyle={setBrushStyle}
                 managerName={managerName}
                 managerPhoto={managerPhoto}
+                isFullscreen={isPitchFullscreen}
               />
 
               {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
@@ -2113,16 +2178,15 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Active Tool draw (Mode Coret/Draw) dengan Overlay & Dropdown Warna Pop-up */}
+              {/* Active Tool draw (Mode Coret/Draw) */}
               <div className="relative group/draw shrink-0">
                 <div className="flex items-center shrink-0">
                   <button
                     onClick={() => {
                       if (activeTool !== "draw") {
                         setActiveTool("draw");
-                        setShowDrawConfig(true);
                       } else {
-                        setShowDrawConfig(!showDrawConfig);
+                        setActiveTool("select");
                       }
                     }}
                     title={lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}
@@ -2133,8 +2197,6 @@ export default function App() {
                     }`}
                     aria-label={lang === "id" ? "Mode Coret Taktikal" : "Tactical Sketch Mode"}
                     aria-pressed={activeTool === "draw"}
-                    aria-haspopup="true"
-                    aria-expanded={activeTool === "draw" && showDrawConfig}
                   >
                     <PenTool className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
                     {/* Active Color dot indicator in the corner of draw button */}
@@ -2145,396 +2207,11 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Floating Tooltip Help (when config overlay is closed) */}
-                {(!showDrawConfig || activeTool !== "draw") && (
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover/draw:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                    <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.control}</span>
-                    <span className="text-white font-black">{lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}</span>
-                  </div>
-                )}
-
-                {/* GORGEOUS SKETCH SETUP OVERLAY (Anchored next to Draw Button) */}
-                {activeTool === "draw" && showDrawConfig && (
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 z-50 w-52 p-3 sm:p-4 bg-[#0d0e14]/98 border border-white/[0.12] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-xl animate-fadeIn flex flex-col gap-3 text-left">
-                    
-                    {/* Sub-header inside overlay with minimize toggle control */}
-                    <div className="flex justify-between items-center pb-1.5 border-b border-white/[0.06]">
-                      <span className="text-[9.5px] text-gray-300 font-extrabold uppercase tracking-widest flex items-center gap-1.5 matches-draft">
-                        <span className={`w-1.5 h-1.5 rounded-full ${isDrawLocked ? "bg-red-500 animate-pulse" : "bg-blue-500 animate-pulse"}`} />
-                        {lang === "id" ? "CORETAN TAKTIS" : "TACTICAL INK"}
-                      </span>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowDrawConfig(false);
-                        }}
-                        className="text-[9px] font-bold text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 w-4.5 h-4.5 rounded flex items-center justify-center transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-                        aria-label={lang === "id" ? "Tutup konfigurasi coretan" : "Close sketch configuration"}
-                      >
-                        ✕
-                      </button>
-                    </div>
-
-                    {/* LOCK STROKES TOGGLE SECTION */}
-                    <div className="flex flex-col gap-1 pb-1 border-b border-white/[0.05]">
-                      <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide flex justify-between items-center">
-                        <span>{lang === "id" ? "STATUS CORETAN" : "STROKE LOCK"}</span>
-                        <span className={`text-[8.5px] font-bold ${isDrawLocked ? "text-red-400" : "text-green-400"}`}>
-                          {isDrawLocked 
-                            ? (lang === "id" ? "Terkunci" : "Locked") 
-                            : (lang === "id" ? "Aktif" : "Active")}
-                        </span>
-                      </span>
-                      <button
-                        onClick={() => setIsDrawLocked(!isDrawLocked)}
-                        className={`w-full py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all text-[9.5px] font-bold uppercase cursor-pointer active:scale-95 border focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
-                          isDrawLocked
-                            ? "bg-red-500/15 border-red-500/55 text-red-300 hover:bg-red-500/25 shadow-md shadow-red-950/20"
-                            : "bg-emerald-500/10 border-emerald-500/35 text-emerald-400 hover:bg-emerald-500/20"
-                        }`}
-                        title={isDrawLocked ? (lang === "id" ? "Buka proteksi coretan" : "Unlock sketch controls") : (lang === "id" ? "Kunci agar tidak terhapus / tercoret tidak sengaja" : "Prevent accidental sketch edits")}
-                        aria-label={lang === "id" ? "Kunci Coretan" : "Lock Ink"}
-                        aria-pressed={isDrawLocked}
-                      >
-                        {isDrawLocked ? (
-                          <>
-                            <Lock className="w-3 h-3 text-red-400" />
-                            <span>{lang === "id" ? "Buka Coretan" : "Unlock Ink"}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Unlock className="w-3 h-3 text-emerald-400" />
-                            <span>{lang === "id" ? "Kunci Coretan" : "Lock Ink"}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* SKETCH LAYERING SYSTEM */}
-                    <div className="flex flex-col gap-1 pb-1.5 border-b border-white/[0.05]">
-                      <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
-                        {lang === "id" ? "LAPISAN CORETAN (LAYERS)" : "SKETCH LAYERS"}
-                      </span>
-                      
-                      <div className="flex flex-col gap-1">
-                        {[
-                          { id: 1, nameId: "L1: Serangan", nameEn: "L1: Offense", color: "border-blue-500/40 bg-blue-500/5 text-blue-300" },
-                          { id: 2, nameId: "L2: Bertahan", nameEn: "L2: Defense", color: "border-red-500/40 bg-red-500/5 text-red-300" },
-                          { id: 3, nameId: "L3: Transisi", nameEn: "L3: Transition", color: "border-amber-500/40 bg-amber-500/5 text-amber-300" }
-                        ].map((layer) => {
-                          const isLayerActive = activeSketchLayer === layer.id;
-                          const isLayerVisible = visibleSketchLayers.includes(layer.id);
-                          const layerName = lang === "id" ? layer.nameId : layer.nameEn;
-
-                          return (
-                            <div 
-                              key={layer.id}
-                              className={`flex items-center justify-between gap-1 p-1 rounded-lg border text-[10px] transition-all ${
-                                isLayerActive 
-                                  ? `${layer.color} border-white/20 font-bold shadow-md` 
-                                  : "bg-white/[0.02] border-white/5 text-gray-400 hover:bg-white/[0.04]"
-                              }`}
-                            >
-                              {/* Left selection block */}
-                              <button
-                                onClick={() => {
-                                  setActiveSketchLayer(layer.id);
-                                  // Auto-ensure visible when selected
-                                  if (!visibleSketchLayers.includes(layer.id)) {
-                                    setVisibleSketchLayers((v) => [...v, layer.id]);
-                                  }
-                                }}
-                                className="flex-1 text-left flex items-center gap-1.5 px-1 py-0.5 cursor-pointer text-[10px] focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-                                title={lang === "id" ? `Atur ${layerName} sebagai aktif` : `Set ${layerName} active`}
-                                aria-label={layerName}
-                                aria-pressed={isLayerActive}
-                              >
-                                <span className={`w-1.5 h-1.5 rounded-full ${isLayerActive ? "bg-cyan-400 shadow-[0_0_6px_#22d3ee]" : "bg-gray-600"}`} />
-                                <span className="truncate">{layerName}</span>
-                              </button>
-
-                              {/* Right Visibility control */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setVisibleSketchLayers((prev) =>
-                                    prev.includes(layer.id)
-                                      ? prev.filter((l) => l !== layer.id)
-                                      : [...prev, layer.id]
-                                  );
-                                }}
-                                className={`p-1.5 rounded hover:bg-white/10 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${isLayerVisible ? "text-cyan-400" : "text-gray-600"}`}
-                                title={isLayerVisible ? (lang === "id" ? "Sembunyikan layer" : "Hide layer") : (lang === "id" ? "Tampilkan layer" : "Show layer")}
-                                aria-label={isLayerVisible ? (lang === "id" ? `Sembunyikan ${layerName}` : `Hide ${layerName}`) : (lang === "id" ? `Tampilkan ${layerName}` : `Show ${layerName}`)}
-                                aria-pressed={isLayerVisible}
-                              >
-                                {isLayerVisible ? (
-                                  <Eye className="w-3 h-3" />
-                                ) : (
-                                  <EyeOff className="w-3 h-3" />
-                                )}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* 1. GAYA CORETAN (Logo buttons choices) */}
-                    <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
-                      <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
-                        {lang === "id" ? "PILIHAN GAYA" : "LINE STYLE"}
-                      </span>
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={() => setBrushStyle("solid")}
-                          disabled={isDrawLocked}
-                          className={`flex-1 py-1 px-1 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
-                            brushStyle === "solid"
-                              ? "bg-blue-600/25 border-blue-500/70 text-blue-300 shadow-inner"
-                              : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-                          }`}
-                          title={lang === "id" ? "Garis Lurus" : "Straight Line"}
-                        >
-                          <Slash className="w-3 h-3 text-blue-400 shrink-0" />
-                          <span>{lang === "id" ? "Lurus" : "Line"}</span>
-                        </button>
-                        
-                        <button
-                          onClick={() => setBrushStyle("arrow")}
-                          disabled={isDrawLocked}
-                          className={`flex-1 py-1 px-1 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
-                            brushStyle === "arrow"
-                              ? "bg-blue-600/25 border-blue-500/70 text-blue-300 shadow-inner"
-                              : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-                          }`}
-                          title={lang === "id" ? "Garis Panah" : "Arrow Line"}
-                        >
-                          <ArrowUpRight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                          <span>{lang === "id" ? "Panah" : "Arrow"}</span>
-                        </button>
-
-                        <button
-                          onClick={() => setBrushStyle("eraser")}
-                          disabled={isDrawLocked}
-                          className={`flex-1 py-1 px-1 rounded-lg border flex items-center justify-center gap-1 transition-all cursor-pointer text-[10px] font-bold ${
-                            brushStyle === "eraser"
-                              ? "bg-pink-600/25 border-pink-500/70 text-pink-300 shadow-inner"
-                              : "bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-                          }`}
-                          title={lang === "id" ? "Penghapus" : "Eraser"}
-                        >
-                          <Eraser className="w-3 h-3 text-pink-400 shrink-0" />
-                          <span>{lang === "id" ? "Hapus" : "Erase"}</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* 2. WARNA CORETAN (Popup palette / trigger) */}
-                    <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
-                          {lang === "id" ? "WARNA CORET" : "DRAW COLOR"}
-                        </span>
-                        <span className="text-[8.5px] font-mono font-bold text-gray-300 uppercase shrink-0">{brushColor}</span>
-                      </div>
-
-                      <div className="relative">
-                        {/* Main Trigger as custom selectable active palette */}
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => !isDrawLocked && setShowColorPickerPopup(!showColorPickerPopup)}
-                            disabled={isDrawLocked}
-                            className="w-full h-8 px-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between active:scale-95 cursor-pointer text-[10px] transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-                            aria-label={lang === "id" ? "Ubah Warna Coretan" : "Change Draw Color"}
-                            aria-haspopup="true"
-                            aria-expanded={showColorPickerPopup}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-inner flex shrink-0" style={{ backgroundColor: brushColor }} />
-                              <span className="text-gray-300 font-bold">{lang === "id" ? "Ubah Warna" : "Select Color"}</span>
-                            </div>
-                            <Palette className="w-3.5 h-3.5 text-blue-400" />
-                          </button>
-                        </div>
-
-                        {/* Animated Dropdown Pop-up Palette */}
-                        {showColorPickerPopup && !isDrawLocked && (
-                          <div className="absolute right-0 bottom-full mb-1.5 w-max max-w-[180px] z-55 p-2 bg-[#08090d]/95 border border-white/15 rounded-xl shadow-2xl flex flex-col gap-2 backdrop-blur-md animate-fadeIn">
-                            {/* Standard High Contrast Palette Presets Grid */}
-                            <div className="grid grid-cols-5 gap-1.5 justify-items-center">
-                              {[
-                                "#ffffff", // White
-                                "#ef4444", // Red
-                                "#facc15", // Neon Yellow
-                                "#22c55e", // Neon Green
-                                "#3b82f6", // Neon Blue
-                                "#fb923c", // Neon Orange
-                                "#a855f7", // Violet Purple
-                                "#2dd4bf", // Teal
-                                "#ec4899", // Pink
-                                "#000000"  // Black
-                              ].map((colorHex) => {
-                                const isSelected = brushColor.toLowerCase() === colorHex.toLowerCase();
-                                return (
-                                  <button
-                                    key={colorHex}
-                                    onClick={() => {
-                                      setBrushColor(colorHex);
-                                      setShowColorPickerPopup(false);
-                                    }}
-                                    style={{ backgroundColor: colorHex }}
-                                    className={`w-5 h-5 rounded-full border cursor-pointer hover:scale-110 active:scale-95 transition-all ${
-                                      isSelected 
-                                        ? "border-white ring-2 ring-blue-500/50 scale-105" 
-                                        : colorHex === "#000000" ? "border-white/25" : "border-transparent"
-                                    }`}
-                                    title={colorHex}
-                                  />
-                                );
-                              })}
-                            </div>
-
-                            {/* Custom Infinite Palette Picker Option */}
-                            <div className="border-t border-white/[0.08] pt-1.5 flex items-center justify-between">
-                              <span className="text-[8px] text-gray-500 font-bold uppercase">{lang === "id" ? "Kustom" : "Custom"}</span>
-                              <div className="relative w-5 h-5 rounded-md bg-white/5 hover:bg-white/10 border border-white/15 cursor-pointer flex items-center justify-center transition-all overflow-hidden shrink-0">
-                                <Palette className="w-3.5 h-3.5 text-gray-300" />
-                                <input
-                                  type="color"
-                                  value={brushColor}
-                                  onChange={(e) => setBrushColor(e.target.value)}
-                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                     {/* 3. KETEBALAN CORETAN */}
-                    <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
-                      <div className="flex justify-between items-center text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
-                        <span>{lang === "id" ? "UKURAN CORET" : "BRUSH SIZE"}</span>
-                        <span className="text-white font-mono text-[9px]">{brushSize}px</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={2}
-                        max={10}
-                        value={brushSize}
-                        disabled={isDrawLocked}
-                        onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                      />
-                    </div>
-
-                    {/* SNAP TO GRID/LINES TOGGLE */}
-                    <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
-                          {lang === "id" ? "SNAP KE GARIS/GRID" : "SNAP TO GRID/LINES"}
-                        </span>
-                        <button
-                          onClick={() => setIsSnapToGrid(!isSnapToGrid)}
-                          disabled={isDrawLocked}
-                          className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            isSnapToGrid ? "bg-emerald-500" : "bg-white/10"
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                              isSnapToGrid ? "translate-x-3" : "translate-x-0"
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Visual Stroke Preview */}
-                    <div className={`flex flex-col gap-1 transition-opacity ${isDrawLocked ? "opacity-35 pointer-events-none" : "opacity-100"}`}>
-                      <span className="text-[8.5px] text-gray-400 font-extrabold uppercase tracking-wide">
-                        {lang === "id" ? "PRATINJAU CORETAN" : "STROKE PREVIEW"}
-                      </span>
-                      <div className="h-10 w-full bg-black/60 border border-white/10 rounded-lg flex items-center justify-center overflow-hidden relative">
-                        {/* Dot pitch background indicator */}
-                        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:6px_6px] opacity-65" />
-                        
-                        <svg className="w-full h-full px-4 relative z-10" viewBox="0 0 100 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          {brushStyle === "solid" ? (
-                            <line
-                              x1="10"
-                              y1="12"
-                              x2="90"
-                              y2="12"
-                              stroke={brushColor}
-                              strokeWidth={brushSize}
-                              strokeLinecap="round"
-                              className="transition-all duration-150"
-                              style={{ filter: `drop-shadow(0 0 4px ${brushColor}33)` }}
-                            />
-                          ) : brushStyle === "arrow" ? (
-                            <g className="transition-all duration-150">
-                              {/* Arrow shaft */}
-                              <line
-                                x1="10"
-                                y1="12"
-                                x2={90 - Math.max(6, brushSize * 1.1)}
-                                y2="12"
-                                stroke={brushColor}
-                                strokeWidth={brushSize}
-                                strokeLinecap="round"
-                                style={{ filter: `drop-shadow(0 0 4px ${brushColor}33)` }}
-                              />
-                              {/* Arrow head */}
-                              <path
-                                d={`M 90 12 L ${90 - Math.max(8, brushSize * 1.5)} ${12 - Math.max(4, brushSize * 0.9)} L ${90 - Math.max(8, brushSize * 1.5)} ${12 + Math.max(4, brushSize * 0.9)} Z`}
-                                fill={brushColor}
-                                style={{ filter: `drop-shadow(0 0 4px ${brushColor}33)` }}
-                              />
-                            </g>
-                          ) : (
-                            /* Eraser stroke preview */
-                            <line
-                              x1="10"
-                              y1="12"
-                              x2="90"
-                              y2="12"
-                              stroke="#ec4899"
-                              strokeWidth={brushSize * 2}
-                              strokeLinecap="round"
-                              strokeDasharray="4,4"
-                              className="transition-all duration-150 opacity-80"
-                            />
-                          )}
-                        </svg>
-                      </div>
-                    </div>
-
-                    {/* 4. ACTIONS (Undo & Clear) inside pop-up */}
-                    <div className="flex gap-1.5 border-t border-white/[0.06] pt-2">
-                      <button
-                        onClick={handleUndoDraw}
-                        disabled={drawHistory.length === 0 || isDrawLocked}
-                        className="flex-1 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 disabled:opacity-40 disabled:pointer-events-none text-[9px] font-extrabold uppercase flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
-                        title={isDrawLocked ? (lang === "id" ? "Coretan dikunci" : "Sketches locked") : ""}
-                      >
-                        <Undo className="w-2.5 h-2.5" />
-                        <span>Undo</span>
-                      </button>
-                      <button
-                        onClick={() => setDrawHistory([])}
-                        disabled={drawHistory.length === 0 || isDrawLocked}
-                        className="flex-1 py-1 rounded-lg bg-red-950/25 hover:bg-red-950/45 border border-red-900/30 text-red-300 disabled:opacity-40 disabled:pointer-events-none text-[9px] font-extrabold uppercase flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
-                        title={isDrawLocked ? (lang === "id" ? "Coretan dikunci" : "Sketches locked") : ""}
-                      >
-                        <Trash2 className="w-2.5 h-2.5" />
-                        <span>Clear</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Floating Tooltip Help */}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover/draw:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.control}</span>
+                  <span className="text-white font-black">{lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}</span>
+                </div>
               </div>
 
               {/* Responsive separation line (divider) */}

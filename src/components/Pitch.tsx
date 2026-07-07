@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player, TacticalItem, DrawingStroke, AnimationFrame } from "../types";
-import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo } from "lucide-react";
 import { soundManager } from "../utils/sound";
 
 interface PitchProps {
@@ -51,6 +51,7 @@ interface PitchProps {
   setBrushStyle?: (style: "solid" | "arrow" | "eraser") => void;
   managerName?: string;
   managerPhoto?: string | null;
+  isFullscreen?: boolean;
 }
 
 // Catmull-Rom spline interpolation helpers for elegant, smooth drawing curves
@@ -156,7 +157,8 @@ export default function Pitch({
   setBrushSize,
   setBrushStyle,
   managerName = "Budi Santoso",
-  managerPhoto = null
+  managerPhoto = null,
+  isFullscreen = false
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1523,7 +1525,7 @@ export default function Pitch({
 
   const wrapperClass = isMobileDrawActive
     ? `fixed top-[70px] bottom-[155px] left-3 right-3 m-auto max-w-[580px] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
-    : `relative w-full max-w-[580px] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
+    : `relative w-full ${isFullscreen ? "max-w-[720px] md:max-w-[850px] lg:max-w-[920px] max-h-[88vh]" : "max-w-[580px]"} aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
 
   return (
     <div className="w-full flex flex-col items-center gap-4">
@@ -1579,13 +1581,10 @@ export default function Pitch({
                 if (onChangeTool) onChangeTool("select");
                 soundManager.playClick();
               }}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-red-500/20 hover:bg-red-500/30 active:scale-90 text-red-400 border border-red-500/30 flex flex-col items-center justify-center transition-all cursor-pointer"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-red-500/20 hover:bg-red-500/30 active:scale-90 text-red-400 border border-red-500/30 flex items-center justify-center transition-all cursor-pointer"
               title={lang === "id" ? "Tutup Coret" : "Close Draw"}
             >
-              <span className="text-[11px] sm:text-xs font-black">✕</span>
-              <span className="text-[5.5px] sm:text-[6.5px] font-bold uppercase tracking-wider mt-0.5">
-                {lang === "id" ? "Tutup" : "Close"}
-              </span>
+              <X className="w-4 h-4" />
             </button>
 
             <div className="w-full h-px bg-white/5 my-0.5" />
@@ -1597,13 +1596,10 @@ export default function Pitch({
                 soundManager.playClick();
               }}
               disabled={drawHistory.length === 0}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex flex-col items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5"
               title={lang === "id" ? "Batal" : "Undo"}
             >
-              <span className="text-xs sm:text-sm">↩️</span>
-              <span className="text-[5.5px] sm:text-[6.5px] font-extrabold uppercase tracking-wider mt-0.5">
-                {lang === "id" ? "Batal" : "Undo"}
-              </span>
+              <Undo className="w-4 h-4" />
             </button>
 
             {/* CLEAR ALL BUTTON */}
@@ -1613,57 +1609,51 @@ export default function Pitch({
                 soundManager.playClick();
               }}
               disabled={drawHistory.length === 0}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-red-950/40 hover:bg-red-900/30 active:scale-90 flex flex-col items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-red-400 cursor-pointer border border-red-500/10"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-red-950/40 hover:bg-red-900/30 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-red-400 cursor-pointer border border-red-500/10"
               title={lang === "id" ? "Hapus" : "Clear"}
             >
-              <span className="text-xs sm:text-sm">🗑️</span>
-              <span className="text-[5.5px] sm:text-[6.5px] font-extrabold uppercase tracking-wider mt-0.5">
-                {lang === "id" ? "Hapus" : "Clear"}
-              </span>
+              <Trash2 className="w-4 h-4" />
             </button>
 
             <div className="w-full h-px bg-white/5 my-0.5" />
 
             {/* BRUSH STYLE TOGGLE (Solid, Arrow, or Eraser) */}
-            <div className="flex flex-col gap-1 w-full items-center">
+            <div className="flex flex-col gap-1.5 w-full items-center">
               <button
                 onClick={() => {
                   if (setBrushStyle) setBrushStyle("solid");
                   soundManager.playClick();
                 }}
-                className={`w-8 h-7 sm:w-10 sm:h-8 rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
-                  brushStyle === "solid" ? "bg-emerald-600 text-white font-black" : "bg-white/5 text-gray-400"
+                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                  brushStyle === "solid" ? "bg-blue-600 text-white shadow-inner" : "bg-white/5 text-gray-400 border border-white/5"
                 }`}
                 title={lang === "id" ? "Garis Solid" : "Solid Line"}
               >
-                <span className="text-[9px] sm:text-[10px]">➖</span>
-                <span className="text-[5px] sm:text-[6px] font-bold uppercase mt-0.5">{lang === "id" ? "Garis" : "Solid"}</span>
+                <Slash className="w-4 h-4 shrink-0" />
               </button>
               <button
                 onClick={() => {
                   if (setBrushStyle) setBrushStyle("arrow");
                   soundManager.playClick();
                 }}
-                className={`w-8 h-7 sm:w-10 sm:h-8 rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
-                  brushStyle === "arrow" ? "bg-emerald-600 text-white font-black" : "bg-white/5 text-gray-400"
+                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                  brushStyle === "arrow" ? "bg-blue-600 text-white shadow-inner" : "bg-white/5 text-gray-400 border border-white/5"
                 }`}
                 title={lang === "id" ? "Garis Panah" : "Arrow Line"}
               >
-                <span className="text-[9px] sm:text-[10px]">➡️</span>
-                <span className="text-[5px] sm:text-[6px] font-bold uppercase mt-0.5">{lang === "id" ? "Panah" : "Arrow"}</span>
+                <ArrowUpRight className="w-4.5 h-4.5 shrink-0" />
               </button>
               <button
                 onClick={() => {
                   if (setBrushStyle) setBrushStyle("eraser");
                   soundManager.playClick();
                 }}
-                className={`w-8 h-7 sm:w-10 sm:h-8 rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
-                  brushStyle === "eraser" ? "bg-pink-600 text-white font-black" : "bg-white/5 text-gray-400"
+                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                  brushStyle === "eraser" ? "bg-pink-600 text-white shadow-inner" : "bg-white/5 text-gray-400 border border-white/5"
                 }`}
                 title={lang === "id" ? "Penghapus" : "Eraser"}
               >
-                <span className="text-[9px] sm:text-[10px]">🧽</span>
-                <span className="text-[5px] sm:text-[6px] font-bold uppercase mt-0.5">{lang === "id" ? "Hapus" : "Erase"}</span>
+                <Eraser className="w-4 h-4 shrink-0" />
               </button>
             </div>
 
@@ -1708,15 +1698,12 @@ export default function Pitch({
               className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex flex-col items-center justify-center transition-all text-white border border-white/5 cursor-pointer"
               title={lang === "id" ? "Ukuran Coret" : "Brush Size"}
             >
-              <div className="flex items-center justify-center h-2.5 sm:h-3">
+              <div className="flex items-center justify-center h-4 w-4">
                 <span 
                   className="rounded-full bg-white transition-all" 
                   style={{ width: `${Math.max(2, brushSize)}px`, height: `${Math.max(2, brushSize)}px` }}
                 />
               </div>
-              <span className="text-[5.5px] sm:text-[6.5px] font-extrabold uppercase mt-1">
-                {brushSize}px
-              </span>
             </button>
           </div>
         )}
