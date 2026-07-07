@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player, TacticalItem, DrawingStroke, AnimationFrame } from "../types";
-import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Maximize2, Minimize2 } from "lucide-react";
+import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Maximize2, Minimize2, Layers, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 import { soundManager } from "../utils/sound";
 
 interface PitchProps {
@@ -45,6 +45,10 @@ interface PitchProps {
   isDrawLocked?: boolean;
   activeSketchLayer?: number;
   visibleSketchLayers?: number[];
+  sketchLayerOrder?: number[];
+  onChangeActiveLayer?: (layer: number) => void;
+  onChangeVisibleLayers?: (layers: number[]) => void;
+  onChangeLayerOrder?: (order: number[]) => void;
   onChangeTool?: (tool: "select" | "draw") => void;
   setBrushColor?: (color: string) => void;
   setBrushSize?: (size: number) => void;
@@ -153,6 +157,10 @@ export default function Pitch({
   isDrawLocked = false,
   activeSketchLayer = 1,
   visibleSketchLayers = [1, 2, 3],
+  sketchLayerOrder = [1, 2, 3],
+  onChangeActiveLayer,
+  onChangeVisibleLayers,
+  onChangeLayerOrder,
   onChangeTool,
   setBrushColor,
   setBrushSize,
@@ -168,6 +176,75 @@ export default function Pitch({
   const [lastPoint, setLastPoint] = useState<{ x: number; y: number } | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<"player" | "item" | null>(null);
+  
+  // --- LAYER MANAGER STATE INTEGRATION & FALLBACKS ---
+  const [localActiveLayer, setLocalActiveLayer] = useState<number>(1);
+  const [localVisibleLayers, setLocalVisibleLayers] = useState<number[]>([1, 2, 3]);
+  const [localLayerOrder, setLocalLayerOrder] = useState<number[]>([1, 2, 3]);
+  const [showLayersPanel, setShowLayersPanel] = useState<boolean>(false);
+
+  const activeLayer = activeSketchLayer !== undefined ? activeSketchLayer : localActiveLayer;
+  const visibleLayers = visibleSketchLayers !== undefined ? visibleSketchLayers : localVisibleLayers;
+  const layerOrder = sketchLayerOrder !== undefined ? sketchLayerOrder : localLayerOrder;
+
+  const setActiveLayer = (l: number) => {
+    setLocalActiveLayer(l);
+    if (onChangeActiveLayer) onChangeActiveLayer(l);
+  };
+
+  const setVisibleLayers = (v: number[]) => {
+    setLocalVisibleLayers(v);
+    if (onChangeVisibleLayers) onChangeVisibleLayers(v);
+  };
+
+  const setLayerOrder = (o: number[]) => {
+    setLocalLayerOrder(o);
+    if (onChangeLayerOrder) onChangeLayerOrder(o);
+  };
+
+  const toggleLayerVisibility = (layerId: number) => {
+    if (visibleLayers.includes(layerId)) {
+      setVisibleLayers(visibleLayers.filter((id) => id !== layerId));
+    } else {
+      setVisibleLayers([...visibleLayers, layerId]);
+    }
+    soundManager.playClick();
+  };
+
+  const moveLayer = (layerId: number, direction: "up" | "down") => {
+    const idx = layerOrder.indexOf(layerId);
+    if (idx === -1) return;
+    
+    const newOrder = [...layerOrder];
+    if (direction === "up") {
+      // Move up in UI = move right in layerOrder (towards front)
+      if (idx < newOrder.length - 1) {
+        const temp = newOrder[idx];
+        newOrder[idx] = newOrder[idx + 1];
+        newOrder[idx + 1] = temp;
+      }
+    } else {
+      // Move down in UI = move left in layerOrder (towards back)
+      if (idx > 0) {
+        const temp = newOrder[idx];
+        newOrder[idx] = newOrder[idx - 1];
+        newOrder[idx - 1] = temp;
+      }
+    }
+    setLayerOrder(newOrder);
+    soundManager.playClick();
+  };
+
+  const clearLayerStrokes = (layerId: number) => {
+    setDrawHistory(prev => prev.filter(stroke => (stroke.layer || 1) !== layerId));
+    soundManager.playClick();
+  };
+
+  const layerNames: Record<number, { en: string; id: string }> = {
+    1: { en: "Tactical", id: "Taktis" },
+    2: { en: "Training", id: "Latihan" },
+    3: { en: "Notes", id: "Catatan" }
+  };
   
   // --- PINCH TO ZOOM & PAN STATES AND REFS ---
   const [zoom, setZoom] = useState(1);
@@ -706,50 +783,54 @@ export default function Pitch({
       }
     }
 
-    // --- ANNOTATION LINES RENDERING ---
-    drawHistory.forEach((stroke) => {
-      const strokeLayer = stroke.layer || 1;
-      if (!visibleSketchLayers.includes(strokeLayer)) return;
-      if (stroke.points.length < 2) return;
+    // --- ANNOTATION LINES RENDERING (LAYERED ORDER) ---
+    layerOrder.forEach((layerId) => {
+      if (!visibleLayers.includes(layerId)) return;
 
-      ctx.save();
-      
-      // Dim inactive layers to help visually organize defense/offense layouts
-      if (strokeLayer !== activeSketchLayer) {
-        ctx.globalAlpha = 0.35;
-      }
+      const layerStrokes = drawHistory.filter((stroke) => (stroke.layer || 1) === layerId);
 
-      ctx.beginPath();
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.style === "eraser" ? stroke.size * 2.5 : stroke.size;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+      layerStrokes.forEach((stroke) => {
+        if (stroke.points.length < 2) return;
 
-      if (stroke.style === "eraser") {
-        ctx.globalCompositeOperation = "destination-out";
-        ctx.strokeStyle = "rgba(0,0,0,1)";
-      }
+        ctx.save();
+        
+        // Dim inactive layers to help visually organize defense/offense layouts
+        if (layerId !== activeLayer) {
+          ctx.globalAlpha = 0.35;
+        }
 
-      if (stroke.style === "arrow") {
-        ctx.setLineDash([8, 8]);
-      } else {
-        ctx.setLineDash([]);
-      }
+        ctx.beginPath();
+        ctx.strokeStyle = stroke.color;
+        ctx.lineWidth = stroke.style === "eraser" ? stroke.size * 2.5 : stroke.size;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
 
-      const smoothedPoints = getCatmullRomSpline(stroke.points);
+        if (stroke.style === "eraser") {
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.strokeStyle = "rgba(0,0,0,1)";
+        }
 
-      ctx.moveTo(smoothedPoints[0].x, smoothedPoints[0].y);
-      for (let i = 1; i < smoothedPoints.length; i++) {
-        ctx.lineTo(smoothedPoints[i].x, smoothedPoints[i].y);
-      }
-      ctx.stroke();
+        if (stroke.style === "arrow") {
+          ctx.setLineDash([8, 8]);
+        } else {
+          ctx.setLineDash([]);
+        }
 
-      if (stroke.style === "arrow") {
-        // Draw standard proportional arrowhead
-        drawArrowhead(ctx, smoothedPoints, stroke.color, stroke.size);
-      }
+        const smoothedPoints = getCatmullRomSpline(stroke.points);
 
-      ctx.restore();
+        ctx.moveTo(smoothedPoints[0].x, smoothedPoints[0].y);
+        for (let i = 1; i < smoothedPoints.length; i++) {
+          ctx.lineTo(smoothedPoints[i].x, smoothedPoints[i].y);
+        }
+        ctx.stroke();
+
+        if (stroke.style === "arrow") {
+          // Draw standard proportional arrowhead
+          drawArrowhead(ctx, smoothedPoints, stroke.color, stroke.size);
+        }
+
+        ctx.restore();
+      });
     });
 
     ctx.restore();
@@ -1035,7 +1116,7 @@ export default function Pitch({
       let changed = false;
       const filtered = prev.filter((stroke) => {
         const strokeLayer = stroke.layer || 1;
-        if (!visibleSketchLayers.includes(strokeLayer)) return true;
+        if (!visibleLayers.includes(strokeLayer)) return true;
         const isNear = checkStrokeIntersection(stroke.points, cx, cy);
         if (isNear) {
           changed = true;
@@ -1079,7 +1160,7 @@ export default function Pitch({
         size: brushSize,
         style: brushStyle,
         points: [{ x, y }],
-        layer: activeSketchLayer
+        layer: activeLayer
       }
     ]);
   };
@@ -1157,7 +1238,7 @@ export default function Pitch({
         size: brushSize,
         style: brushStyle,
         points: [{ x, y }],
-        layer: activeSketchLayer
+        layer: activeLayer
       }
     ]);
   };
@@ -1205,7 +1286,7 @@ export default function Pitch({
   // Re-draw on stroke update
   useEffect(() => {
     drawAllStrokes();
-  }, [drawHistory, showHeatmap, players, activeSketchLayer, visibleSketchLayers]);
+  }, [drawHistory, showHeatmap, players, activeLayer, visibleLayers, layerOrder]);
 
   // --- DRAGGING CODES ---
   const handleDragStart = (e: ReactMouseEvent | ReactTouchEvent, id: string, type: "player" | "item") => {
@@ -2849,7 +2930,7 @@ export default function Pitch({
           className={`${
             isMobileDrawActive
               ? "fixed top-3 left-1/2 -translate-x-1/2 flex-row w-[96%] max-w-[500px] h-14 px-2.5 py-1 justify-between gap-1"
-              : "flex flex-col w-11 sm:w-14 h-auto p-1.5 gap-1.5"
+              : "relative flex flex-col w-11 sm:w-14 h-auto p-1.5 gap-1.5"
           } z-[160] flex items-center bg-[#0b0c10]/95 border border-white/10 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md animate-fade-in shrink-0`}
         >
           {/* CLOSE DRAW BUTTON */}
@@ -3002,6 +3083,154 @@ export default function Pitch({
               />
             </div>
           </button>
+
+          {!isMobileDrawActive && <div className="w-full h-px bg-white/5 my-0.5" />}
+
+          {/* LAYER MANAGER TOGGLE BUTTON */}
+          <button
+            onClick={() => {
+              setShowLayersPanel(!showLayersPanel);
+              soundManager.playClick();
+            }}
+            className={`w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl active:scale-90 flex flex-col items-center justify-center transition-all border cursor-pointer shrink-0 ${
+              showLayersPanel
+                ? "bg-blue-600 text-white border-blue-500 shadow-inner"
+                : "bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 hover:text-white"
+            }`}
+            title={lang === "id" ? "Pengelola Lapisan" : "Layer Manager"}
+          >
+            <Layers className="w-4 h-4" />
+          </button>
+
+          {/* LAYERS FLOATING PANEL */}
+          <AnimatePresence>
+            {showLayersPanel && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: isMobileDrawActive ? -10 : 0 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: isMobileDrawActive ? -10 : 0 }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                className={`${
+                  isMobileDrawActive
+                    ? "fixed top-18 left-1/2 -translate-x-1/2 w-[95%] max-w-[340px]"
+                    : "absolute right-14 sm:right-16 top-0 w-72"
+                } z-[170] bg-[#0c1015]/98 border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] p-4 text-white backdrop-blur-lg flex flex-col gap-3 text-left`}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-blue-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-200">
+                      {lang === "id" ? "Pengelola Lapisan" : "Layer Manager"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowLayersPanel(false);
+                      soundManager.playClick();
+                    }}
+                    className="p-1 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white cursor-pointer transition-all border-0 bg-transparent"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Info Tip */}
+                <p className="text-[10px] text-gray-400 leading-snug">
+                  {lang === "id" 
+                    ? "Klik nama lapisan untuk menggambar pada lapisan tersebut. Reorder lapisan untuk mengatur tumpukan visual."
+                    : "Select a layer to draw on. Reorder layers to control their visual stacking order."}
+                </p>
+
+                {/* Layer Items */}
+                <div className="flex flex-col gap-2">
+                  {[...layerOrder].reverse().map((layerId) => {
+                    const isLayerActive = activeLayer === layerId;
+                    const isLayerVisible = visibleLayers.includes(layerId);
+                    const strokeCount = drawHistory.filter((s) => (s.layer || 1) === layerId).length;
+                    const layerName = lang === "id" ? layerNames[layerId].id : layerNames[layerId].en;
+                    const idx = layerOrder.indexOf(layerId);
+
+                    return (
+                      <div
+                        key={layerId}
+                        className={`flex items-center justify-between p-2 rounded-xl transition-all border ${
+                          isLayerActive
+                            ? "bg-blue-600/15 border-blue-500/40 text-white"
+                            : "bg-white/[0.02] border-white/5 hover:bg-white/5 text-gray-300"
+                        }`}
+                      >
+                        {/* Radio select */}
+                        <button
+                          onClick={() => setActiveLayer(layerId)}
+                          className="flex items-center gap-2 cursor-pointer flex-1 text-left border-0 bg-transparent p-0"
+                        >
+                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                            isLayerActive ? "border-blue-500" : "border-gray-500"
+                          }`}>
+                            {isLayerActive && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-xs font-semibold truncate">{layerName}</span>
+                            <span className="text-[9px] text-gray-400">
+                              {strokeCount} {lang === "id" ? "garis" : "lines"}
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* Controls: Visibility, Reorder, Clear */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {/* Toggle Visibility */}
+                          <button
+                            onClick={() => toggleLayerVisibility(layerId)}
+                            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                              isLayerVisible
+                                ? "bg-white/5 text-gray-300 border-white/5 hover:bg-white/10 hover:text-white"
+                                : "bg-red-950/20 text-red-400 border-red-500/20 hover:bg-red-950/40"
+                            }`}
+                            title={isLayerVisible ? (lang === "id" ? "Sembunyikan Lapisan" : "Hide Layer") : (lang === "id" ? "Tampilkan Lapisan" : "Show Layer")}
+                          >
+                            {isLayerVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                          </button>
+
+                          {/* Move Up */}
+                          <button
+                            disabled={idx === layerOrder.length - 1}
+                            onClick={() => moveLayer(layerId, "up")}
+                            className="p-1.5 rounded-lg bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition-all animate-none"
+                            title={lang === "id" ? "Pindahkan ke Depan" : "Move Up / Front"}
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Move Down */}
+                          <button
+                            disabled={idx === 0}
+                            onClick={() => moveLayer(layerId, "down")}
+                            className="p-1.5 rounded-lg bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition-all animate-none"
+                            title={lang === "id" ? "Pindahkan ke Belakang" : "Move Down / Back"}
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Clear Layer */}
+                          <button
+                            disabled={strokeCount === 0}
+                            onClick={() => clearLayerStrokes(layerId)}
+                            className="p-1.5 rounded-lg bg-red-950/20 text-red-400 border-red-500/10 hover:bg-red-900/30 disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition-all"
+                            title={lang === "id" ? "Hapus Coretan Lapisan" : "Clear Layer Lines"}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

@@ -520,6 +520,7 @@ export default function App() {
   const [isDrawLocked, setIsDrawLocked] = useState<boolean>(false);
   const [activeSketchLayer, setActiveSketchLayer] = useState<number>(1);
   const [visibleSketchLayers, setVisibleSketchLayers] = useState<number[]>([1, 2, 3]);
+  const [sketchLayerOrder, setSketchLayerOrder] = useState<number[]>([1, 2, 3]);
 
   // Custom textures backdrop URL
   const [customBackgroundUrl, setCustomBackgroundUrl] = useState<string | null>(null);
@@ -2137,6 +2138,10 @@ export default function App() {
                 isDrawLocked={isDrawLocked}
                 activeSketchLayer={activeSketchLayer}
                 visibleSketchLayers={visibleSketchLayers}
+                sketchLayerOrder={sketchLayerOrder}
+                onChangeActiveLayer={setActiveSketchLayer}
+                onChangeVisibleLayers={setVisibleSketchLayers}
+                onChangeLayerOrder={setSketchLayerOrder}
                 onChangeTool={setActiveTool}
                 setBrushColor={setBrushColor}
                 setBrushSize={setBrushSize}
