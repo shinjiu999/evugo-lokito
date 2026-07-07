@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player, TacticalItem, DrawingStroke, AnimationFrame } from "../types";
-import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo } from "lucide-react";
+import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Maximize2, Minimize2 } from "lucide-react";
 import { soundManager } from "../utils/sound";
 
 interface PitchProps {
@@ -52,6 +52,7 @@ interface PitchProps {
   managerName?: string;
   managerPhoto?: string | null;
   isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 // Catmull-Rom spline interpolation helpers for elegant, smooth drawing curves
@@ -158,7 +159,8 @@ export default function Pitch({
   setBrushStyle,
   managerName = "Budi Santoso",
   managerPhoto = null,
-  isFullscreen = false
+  isFullscreen = false,
+  onToggleFullscreen
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1631,11 +1633,11 @@ export default function Pitch({
   const isMobileDrawActive = isMobile && activeTool === "draw";
 
   const wrapperClass = isMobileDrawActive
-    ? `fixed top-[70px] bottom-[155px] left-3 right-3 m-auto max-w-[580px] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
+    ? `fixed top-[82px] bottom-[20px] left-3 right-3 m-auto max-w-[580px] max-h-[calc(100vh-112px)] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
     : `relative w-full ${isFullscreen ? "max-w-[720px] md:max-w-[850px] lg:max-w-[920px] max-h-[88vh]" : "max-w-[580px]"} aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
 
   return (
-    <div className="w-full flex flex-col items-center gap-4">
+    <div className="w-full flex flex-col md:flex-row items-center justify-center gap-4 relative">
       
       {/* Mobile drawing fullscreen backdrop & controls overlay */}
       {isMobileDrawActive && (
@@ -1675,146 +1677,6 @@ export default function Pitch({
           backgroundPosition: "center"
         }}
       >
-        {/* SLEEK FLOATING SIDEBAR FOR DRAWING CONTROLS (DOCKED ON THE SIDE OF THE FIELD) */}
-        {activeTool === "draw" && (
-          <div 
-            onMouseDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-[160] flex flex-col items-center gap-1.5 bg-slate-950/95 border border-white/10 rounded-2xl p-1.5 w-11 sm:w-14 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-md animate-fade-in"
-          >
-            {/* CLOSE DRAW BUTTON */}
-            <button
-              onClick={() => {
-                if (onChangeTool) onChangeTool("select");
-                soundManager.playClick();
-              }}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-red-500/20 hover:bg-red-500/30 active:scale-90 text-red-400 border border-red-500/30 flex items-center justify-center transition-all cursor-pointer"
-              title={lang === "id" ? "Tutup Coret" : "Close Draw"}
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="w-full h-px bg-white/5 my-0.5" />
-
-            {/* UNDO BUTTON */}
-            <button
-              onClick={() => {
-                setDrawHistory((prev) => prev.slice(0, -1));
-                soundManager.playClick();
-              }}
-              disabled={drawHistory.length === 0}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5"
-              title={lang === "id" ? "Batal" : "Undo"}
-            >
-              <Undo className="w-4 h-4" />
-            </button>
-
-            {/* CLEAR ALL BUTTON */}
-            <button
-              onClick={() => {
-                setDrawHistory([]);
-                soundManager.playClick();
-              }}
-              disabled={drawHistory.length === 0}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-red-950/40 hover:bg-red-900/30 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-red-400 cursor-pointer border border-red-500/10"
-              title={lang === "id" ? "Hapus" : "Clear"}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-
-            <div className="w-full h-px bg-white/5 my-0.5" />
-
-            {/* BRUSH STYLE TOGGLE (Solid, Arrow, or Eraser) */}
-            <div className="flex flex-col gap-1.5 w-full items-center">
-              <button
-                onClick={() => {
-                  if (setBrushStyle) setBrushStyle("solid");
-                  soundManager.playClick();
-                }}
-                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                  brushStyle === "solid" ? "bg-blue-600 text-white shadow-inner" : "bg-white/5 text-gray-400 border border-white/5"
-                }`}
-                title={lang === "id" ? "Garis Solid" : "Solid Line"}
-              >
-                <Slash className="w-4 h-4 shrink-0" />
-              </button>
-              <button
-                onClick={() => {
-                  if (setBrushStyle) setBrushStyle("arrow");
-                  soundManager.playClick();
-                }}
-                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                  brushStyle === "arrow" ? "bg-blue-600 text-white shadow-inner" : "bg-white/5 text-gray-400 border border-white/5"
-                }`}
-                title={lang === "id" ? "Garis Panah" : "Arrow Line"}
-              >
-                <ArrowUpRight className="w-4.5 h-4.5 shrink-0" />
-              </button>
-              <button
-                onClick={() => {
-                  if (setBrushStyle) setBrushStyle("eraser");
-                  soundManager.playClick();
-                }}
-                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                  brushStyle === "eraser" ? "bg-pink-600 text-white shadow-inner" : "bg-white/5 text-gray-400 border border-white/5"
-                }`}
-                title={lang === "id" ? "Penghapus" : "Eraser"}
-              >
-                <Eraser className="w-4 h-4 shrink-0" />
-              </button>
-            </div>
-
-            <div className="w-full h-px bg-white/5 my-0.5" />
-
-            {/* COLOR PALETTE */}
-            <div className="flex flex-col items-center gap-1 py-0.5">
-              {["#ffffff", "#f59e0b", "#22d3ee", "#ef4444", "#10b981"].map((colorHex) => {
-                const isSelected = brushColor.toLowerCase() === colorHex.toLowerCase();
-                return (
-                  <button
-                    key={colorHex}
-                    onClick={() => {
-                      if (setBrushColor) setBrushColor(colorHex);
-                      soundManager.playClick();
-                    }}
-                    className="relative w-5 h-5 sm:w-7 sm:h-7 rounded-full border border-white/20 flex items-center justify-center shadow-inner transition-transform active:scale-90 cursor-pointer"
-                    style={{ backgroundColor: colorHex }}
-                    title={colorHex}
-                  >
-                    {isSelected && (
-                      <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-slate-900 ring-1 ring-white" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="w-full h-px bg-white/5 my-0.5" />
-
-            {/* BRUSH SIZE MULTI-CYCLE */}
-            <button
-              onClick={() => {
-                if (setBrushSize) {
-                  const sizes = [2, 4, 7, 10];
-                  const currentIndex = sizes.indexOf(brushSize);
-                  const nextSize = sizes[(currentIndex + 1) % sizes.length];
-                  setBrushSize(nextSize);
-                }
-                soundManager.playClick();
-              }}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex flex-col items-center justify-center transition-all text-white border border-white/5 cursor-pointer"
-              title={lang === "id" ? "Ukuran Coret" : "Brush Size"}
-            >
-              <div className="flex items-center justify-center h-4 w-4">
-                <span 
-                  className="rounded-full bg-white transition-all" 
-                  style={{ width: `${Math.max(2, brushSize)}px`, height: `${Math.max(2, brushSize)}px` }}
-                />
-              </div>
-            </button>
-          </div>
-        )}
-
         {/* Floating Instruction Banner for Click-to-Swap / Substitution */}
         {selectedSubPlayerId && (() => {
           const selPlayer = players.find((p) => p.id === selectedSubPlayerId);
@@ -2978,6 +2840,171 @@ export default function Pitch({
         </AnimatePresence>
 
       </div>
+
+      {/* SLEEK FLOATING SIDEBAR FOR DRAWING CONTROLS (DOCKED ON THE SIDE OF THE FIELD) */}
+      {activeTool === "draw" && (
+        <div 
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className={`${
+            isMobileDrawActive
+              ? "fixed top-3 left-1/2 -translate-x-1/2 flex-row w-[96%] max-w-[500px] h-14 px-2.5 py-1 justify-between gap-1"
+              : "flex flex-col w-11 sm:w-14 h-auto p-1.5 gap-1.5"
+          } z-[160] flex items-center bg-[#0b0c10]/95 border border-white/10 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md animate-fade-in shrink-0`}
+        >
+          {/* CLOSE DRAW BUTTON */}
+          <button
+            onClick={() => {
+              if (onChangeTool) onChangeTool("select");
+              soundManager.playClick();
+            }}
+            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-red-500/20 hover:bg-red-500/30 active:scale-90 text-red-400 border border-red-500/30 flex items-center justify-center transition-all cursor-pointer shrink-0"
+            title={lang === "id" ? "Tutup Coret" : "Close Draw"}
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          {onToggleFullscreen && (
+            <>
+              {!isMobileDrawActive && <div className="w-full h-px bg-white/5 my-0.5" />}
+              <button
+                onClick={() => {
+                  onToggleFullscreen();
+                  soundManager.playClick();
+                }}
+                className={`w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                  isFullscreen
+                    ? "bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 shadow-inner"
+                    : "bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 hover:text-white"
+                }`}
+                title={isFullscreen ? (lang === "id" ? "Keluar Layar Penuh" : "Exit Fullscreen") : (lang === "id" ? "Layar Penuh" : "Fullscreen")}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4 shrink-0" /> : <Maximize2 className="w-4 h-4 shrink-0" />}
+              </button>
+            </>
+          )}
+
+          {!isMobileDrawActive && <div className="w-full h-px bg-white/5 my-0.5" />}
+
+          {/* UNDO BUTTON */}
+          <button
+            onClick={() => {
+              setDrawHistory((prev) => prev.slice(0, -1));
+              soundManager.playClick();
+            }}
+            disabled={drawHistory.length === 0}
+            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5 shrink-0"
+            title={lang === "id" ? "Batal" : "Undo"}
+          >
+            <Undo className="w-4 h-4" />
+          </button>
+
+          {/* CLEAR ALL BUTTON */}
+          <button
+            onClick={() => {
+              setDrawHistory([]);
+              soundManager.playClick();
+            }}
+            disabled={drawHistory.length === 0}
+            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-red-950/40 hover:bg-red-900/30 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-red-400 cursor-pointer border border-red-500/10 shrink-0"
+            title={lang === "id" ? "Hapus" : "Clear"}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+
+          {!isMobileDrawActive && <div className="w-full h-px bg-white/5 my-0.5" />}
+
+          {/* BRUSH STYLE TOGGLE (Solid, Arrow, or Eraser) */}
+          <div className={`flex ${isMobileDrawActive ? "flex-row gap-0.5" : "flex-col gap-1.5"} items-center shrink-0`}>
+            <button
+              onClick={() => {
+                if (setBrushStyle) setBrushStyle("solid");
+                soundManager.playClick();
+              }}
+              className={`w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                brushStyle === "solid" ? "bg-blue-600 text-white shadow-inner" : "bg-white/5 text-gray-400 border border-white/5"
+              }`}
+              title={lang === "id" ? "Garis Solid" : "Solid Line"}
+            >
+              <Slash className="w-4 h-4 shrink-0" />
+            </button>
+            <button
+              onClick={() => {
+                if (setBrushStyle) setBrushStyle("arrow");
+                soundManager.playClick();
+              }}
+              className={`w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                brushStyle === "arrow" ? "bg-blue-600 text-white shadow-inner" : "bg-white/5 text-gray-400 border border-white/5"
+              }`}
+              title={lang === "id" ? "Garis Panah" : "Arrow Line"}
+            >
+              <ArrowUpRight className="w-4.5 h-4.5 shrink-0" />
+            </button>
+            <button
+              onClick={() => {
+                if (setBrushStyle) setBrushStyle("eraser");
+                soundManager.playClick();
+              }}
+              className={`w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                brushStyle === "eraser" ? "bg-pink-600 text-white shadow-inner" : "bg-white/5 text-gray-400 border border-white/5"
+              }`}
+              title={lang === "id" ? "Penghapus" : "Eraser"}
+            >
+              <Eraser className="w-4 h-4 shrink-0" />
+            </button>
+          </div>
+
+          {!isMobileDrawActive && <div className="w-full h-px bg-white/5 my-0.5" />}
+
+          {/* COLOR PALETTE */}
+          <div className={`flex ${isMobileDrawActive ? "flex-row gap-0.5 sm:gap-1" : "flex-col gap-1"} items-center py-0.5 shrink-0`}>
+            {["#ffffff", "#f59e0b", "#22d3ee", "#ef4444", "#10b981"].map((colorHex) => {
+              const isSelected = brushColor.toLowerCase() === colorHex.toLowerCase();
+              return (
+                <button
+                  key={colorHex}
+                  onClick={() => {
+                    if (setBrushColor) setBrushColor(colorHex);
+                    soundManager.playClick();
+                  }}
+                  className="relative w-4.5 h-4.5 sm:w-6.5 sm:h-6.5 rounded-full border border-white/20 flex items-center justify-center shadow-inner transition-transform active:scale-90 cursor-pointer"
+                  style={{ backgroundColor: colorHex }}
+                  title={colorHex}
+                >
+                  {isSelected && (
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-slate-900 ring-1 ring-white" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {!isMobileDrawActive && <div className="w-full h-px bg-white/5 my-0.5" />}
+
+          {/* BRUSH SIZE MULTI-CYCLE */}
+          <button
+            onClick={() => {
+              if (setBrushSize) {
+                const sizes = [2, 4, 7, 10];
+                const currentIndex = sizes.indexOf(brushSize);
+                const nextSize = sizes[(currentIndex + 1) % sizes.length];
+                setBrushSize(nextSize);
+              }
+              soundManager.playClick();
+            }}
+            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex flex-col items-center justify-center transition-all text-white border border-white/5 cursor-pointer shrink-0"
+            title={lang === "id" ? "Ukuran Coret" : "Brush Size"}
+          >
+            <div className="flex items-center justify-center h-4 w-4">
+              <span 
+                className="rounded-full bg-white transition-all" 
+                style={{ width: `${Math.max(2, brushSize)}px`, height: `${Math.max(2, brushSize)}px` }}
+              />
+            </div>
+          </button>
+        </div>
+      )}
+
     </div>
   );
 }

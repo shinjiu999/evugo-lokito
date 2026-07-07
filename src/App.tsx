@@ -2144,6 +2144,7 @@ export default function App() {
                 managerName={managerName}
                 managerPhoto={managerPhoto}
                 isFullscreen={isPitchFullscreen}
+                onToggleFullscreen={() => setIsPitchFullscreen(!isPitchFullscreen)}
               />
 
               {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
