@@ -51,7 +51,8 @@ import {
   Volume2,
   VolumeX,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Magnet
 } from "lucide-react";
 
 const TRANSLATIONS = {
@@ -2376,6 +2377,35 @@ export default function App() {
                       <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
                         <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.tacticalGrid}</span>
                         <span className="text-white font-black">{lang === "id" ? "Grid Taktis" : "Tactical Grid"}</span>
+                      </div>
+                    </div>
+
+                    {/* Magnetic Grid Snapping / Free Placement Toggle Button */}
+                    <div className="relative group shrink-0">
+                      <button
+                        onClick={() => {
+                          setIsSnapToGrid(!isSnapToGrid);
+                          soundManager.playClick();
+                        }}
+                        title={lang === "id" ? "Magnet Grid / Bebas" : "Grid Magnet / Free"}
+                        className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                          isSnapToGrid
+                            ? "bg-amber-600 text-white border-amber-400/30 shadow-[0_0_12px_rgba(217,119,6,0.35)]"
+                            : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        <Magnet className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
+                      </button>
+                      {/* Floating Tooltip Help */}
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">
+                          {lang === "id" ? "KONTROL PRESISI" : "PRECISION CONTROL"}
+                        </span>
+                        <span className="text-white font-black">
+                          {isSnapToGrid
+                            ? (lang === "id" ? "Magnet Grid: Aktif" : "Grid Magnet: Active")
+                            : (lang === "id" ? "Penempatan: Bebas & Halus" : "Placement: Free & Smooth")}
+                        </span>
                       </div>
                     </div>
 

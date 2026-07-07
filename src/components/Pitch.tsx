@@ -1303,12 +1303,13 @@ export default function Pitch({
       const adjustedX = rawX + dragOffset.x;
       const adjustedY = rawY + dragOffset.y;
 
-      const x = Math.max(2, Math.min(98, parseFloat(adjustedX.toFixed(1))));
-      const y = Math.max(2, Math.min(98, parseFloat(adjustedY.toFixed(1))));
+      const precision = isSnapToGrid ? 1 : 3;
+      const x = Math.max(2, Math.min(98, parseFloat(adjustedX.toFixed(precision))));
+      const y = Math.max(2, Math.min(98, parseFloat(adjustedY.toFixed(precision))));
 
       // Find nearest starting player (different from current dragged player)
       let targetId: string | null = null;
-      let nearestDist = 9; // distance threshold in percentage coordinates
+      let nearestDist = isSnapToGrid ? 9 : 3; // Tight threshold in free mode so player swaps don't trigger too early/magnetically
       starters.forEach((starter) => {
         if (starter.id !== draggedId) {
           const dist = Math.hypot(starter.x - x, starter.y - y);
@@ -1324,8 +1325,9 @@ export default function Pitch({
     } else {
       const adjustedX = rawX + dragOffset.x;
       const adjustedY = rawY + dragOffset.y;
-      const x = Math.max(-10, Math.min(110, parseFloat(adjustedX.toFixed(1))));
-      const y = Math.max(-10, Math.min(110, parseFloat(adjustedY.toFixed(1))));
+      const precision = isSnapToGrid ? 1 : 3;
+      const x = Math.max(-10, Math.min(110, parseFloat(adjustedX.toFixed(precision))));
+      const y = Math.max(-10, Math.min(110, parseFloat(adjustedY.toFixed(precision))));
       onUpdateItemPosition(draggedId, x, y);
     }
   };
@@ -1357,12 +1359,13 @@ export default function Pitch({
       const adjustedX = rawX + dragOffset.x;
       const adjustedY = rawY + dragOffset.y;
 
-      const x = Math.max(2, Math.min(98, parseFloat(adjustedX.toFixed(1))));
-      const y = Math.max(2, Math.min(98, parseFloat(adjustedY.toFixed(1))));
+      const precision = isSnapToGrid ? 1 : 3;
+      const x = Math.max(2, Math.min(98, parseFloat(adjustedX.toFixed(precision))));
+      const y = Math.max(2, Math.min(98, parseFloat(adjustedY.toFixed(precision))));
 
       // Find nearest starting player (different from current dragged player)
       let targetId: string | null = null;
-      let nearestDist = 9; // distance threshold in percentage coordinates
+      let nearestDist = isSnapToGrid ? 9 : 3; // Tight threshold in free mode so player swaps don't trigger too early/magnetically
       starters.forEach((starter) => {
         if (starter.id !== draggedId) {
           const dist = Math.hypot(starter.x - x, starter.y - y);
@@ -1378,8 +1381,9 @@ export default function Pitch({
     } else {
       const adjustedX = rawX + dragOffset.x;
       const adjustedY = rawY + dragOffset.y;
-      const x = Math.max(-10, Math.min(110, parseFloat(adjustedX.toFixed(1))));
-      const y = Math.max(-10, Math.min(110, parseFloat(adjustedY.toFixed(1))));
+      const precision = isSnapToGrid ? 1 : 3;
+      const x = Math.max(-10, Math.min(110, parseFloat(adjustedX.toFixed(precision))));
+      const y = Math.max(-10, Math.min(110, parseFloat(adjustedY.toFixed(precision))));
       onUpdateItemPosition(draggedId, x, y);
     }
   };
