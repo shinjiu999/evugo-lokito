@@ -77,6 +77,10 @@ const TRANSLATIONS = {
     deleteLogo: "Hapus",
     chooseLogo: "Pilihlah File Logo...",
     logoRecomend: "File PNG / JPG transparan sangat direkomendasikan.",
+    mainJersey: "Jersey Tim Utama",
+    deleteJersey: "Hapus Jersey",
+    chooseJersey: "Pilihlah File Jersey...",
+    jerseyRecomend: "File PNG / JPG gambar baju tim sangat direkomendasikan.",
     mainTeamName: "Nama Tim Utama",
     defaultFormation: "Formasi Default",
     standardFormation: "Formasi standar",
@@ -137,6 +141,10 @@ const TRANSLATIONS = {
     deleteLogo: "Delete",
     chooseLogo: "Upload Logo...",
     logoRecomend: "Transparent PNG or JPG formats are highly recommended.",
+    mainJersey: "Team Jersey",
+    deleteJersey: "Delete Jersey",
+    chooseJersey: "Upload Jersey...",
+    jerseyRecomend: "Transparent PNG or JPG team shirt images are highly recommended.",
     mainTeamName: "Main Team Name",
     defaultFormation: "Default Formations",
     standardFormation: "Standard formation",
@@ -445,6 +453,26 @@ export default function App() {
 
   const [teamName, setTeamName] = useState("GARUDA FC");
   const [teamLogo, setTeamLogo] = useState<string | null>(null);
+  const [teamJersey, setTeamJersey] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("tactigen_team_jersey") || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const handleUpdateTeamJersey = (jersey: string | null) => {
+    setTeamJersey(jersey);
+    try {
+      if (jersey) {
+        localStorage.setItem("tactigen_team_jersey", jersey);
+      } else {
+        localStorage.removeItem("tactigen_team_jersey");
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  };
 
   const [managerName, setManagerName] = useState(() => {
     try {
@@ -624,20 +652,11 @@ export default function App() {
     return coords;
   };
 
-  const spawnEnemyModeTeam = (count: number) => {
-    setItems((prev) => prev.filter((item) => item.type !== "enemy"));
-
-    const enemyCoords = getBalancedEnemyPositionsForCount(count);
-    const newEnemies = enemyCoords.map((pos, idx) => ({
-      id: `enemy-auto-${idx}-${Date.now()}`,
-      type: "enemy" as const,
-      x: pos.x,
-      y: pos.y,
-      number: idx + 1,
-      role: pos.role
-    }));
-
-    setItems((prev) => [...prev, ...newEnemies]);
+  const getDefaultFormationForSport = (mode: string): string => {
+    if (mode === "minisoccer") return "2-3-1";
+    if (mode === "futsal") return "1-2-1";
+    if (mode === "custom") return "custom";
+    return "4-3-3";
   };
 
   const handleToggleEnemyMode = (active: boolean) => {
@@ -662,9 +681,9 @@ export default function App() {
         })
       );
 
-      // 3. Spawn balanced enemies in top half matching current sport mode count
-      const enemyCount = getSportModeLimit();
-      spawnEnemyModeTeam(enemyCount);
+      // 3. Spawn enemies in the correct default formation for chosen sport
+      const defaultOpponentFormation = getDefaultFormationForSport(sportMode);
+      handleSpawnEnemyTeam(defaultOpponentFormation);
     } else {
       // Remove enemies
       setItems((prev) => prev.filter((item) => item.type !== "enemy"));
@@ -690,8 +709,8 @@ export default function App() {
   // Sync enemies if sportMode or customCount changes while enemy mode is active
   useEffect(() => {
     if (isEnemyModeActive) {
-      const enemyCount = getSportModeLimit();
-      spawnEnemyModeTeam(enemyCount);
+      const defaultOpponentFormation = getDefaultFormationForSport(sportMode);
+      handleSpawnEnemyTeam(defaultOpponentFormation);
     }
   }, [sportMode, customCount, isEnemyModeActive]);
 
@@ -1355,44 +1374,18 @@ export default function App() {
 
     let enemyPositions: { x: number; y: number }[] = [];
 
-    if (sportMode === "futsal") {
-      if (formationType === "2-0-2" || formationType === "2-2") {
-        enemyPositions = [
-          { x: 50, y: 12 },
-          { x: 30, y: 34 }, { x: 70, y: 34 },
-          { x: 30, y: 68 }, { x: 70, y: 68 }
-        ];
-      } else {
-        enemyPositions = [
-          { x: 50, y: 12 },
-          { x: 50, y: 32 },
-          { x: 25, y: 50 }, { x: 75, y: 50 },
-          { x: 50, y: 72 }
-        ];
-      }
+    const modeFormations = SPORT_FORMATIONS[sportMode];
+    if (modeFormations && modeFormations[formationType]) {
+      // Dynamic mapping by inverting the Y-coordinate from the home team's template
+      enemyPositions = modeFormations[formationType].map((coord) => ({
+        x: coord.x,
+        y: 100 - coord.y
+      }));
     } else {
-      if (formationType === "4-4-2") {
-        enemyPositions = [
-          { x: 50, y: 12 },
-          { x: 18, y: 32 }, { x: 38, y: 26 }, { x: 62, y: 26 }, { x: 82, y: 32 },
-          { x: 18, y: 54 }, { x: 38, y: 48 }, { x: 62, y: 48 }, { x: 82, y: 54 },
-          { x: 35, y: 75 }, { x: 65, y: 75 }
-        ];
-      } else if (formationType === "3-5-2") {
-        enemyPositions = [
-          { x: 50, y: 12 },
-          { x: 30, y: 28 }, { x: 50, y: 26 }, { x: 70, y: 28 },
-          { x: 15, y: 45 }, { x: 35, y: 52 }, { x: 50, y: 45 }, { x: 65, y: 52 }, { x: 85, y: 45 },
-          { x: 35, y: 72 }, { x: 65, y: 72 }
-        ];
-      } else {
-        enemyPositions = [
-          { x: 50, y: 12 },
-          { x: 18, y: 32 }, { x: 38, y: 26 }, { x: 62, y: 26 }, { x: 82, y: 32 },
-          { x: 34, y: 54 }, { x: 50, y: 42 }, { x: 66, y: 54 },
-          { x: 20, y: 72 }, { x: 50, y: 78 }, { x: 80, y: 72 }
-        ];
-      }
+      // Fallback to balanced enemy positioning matching the sport's capacity limit
+      const count = getSportModeLimit();
+      const coords = getBalancedEnemyPositionsForCount(count);
+      enemyPositions = coords.map((pos) => ({ x: pos.x, y: pos.y }));
     }
 
     const newEnemies = enemyPositions.map((pos, idx) => {
@@ -1832,6 +1825,56 @@ export default function App() {
                       {teamLogo ? t.deleteLogo : t.chooseLogo}
                     </span>
                     <span className="text-[7.5px] text-gray-400 font-medium whitespace-nowrap">{t.logoRecomend}</span>
+                  </div>
+                </div>
+
+                {/* Upload Jersey area is highly compact */}
+                <div className="relative group/jersey-upload shrink-0">
+                  <div className="flex items-center gap-2">
+                    {teamJersey ? (
+                      <div className="relative w-10 h-10 bg-black/50 border border-white/15 rounded-xl overflow-hidden flex items-center justify-center group/jersey-view">
+                        <img src={teamJersey} className="w-full h-full object-contain p-1" alt={lang === "id" ? "Pratinjau Jersey Tim" : "Team Jersey Preview"} />
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTeamJersey(null)}
+                          className="absolute inset-0 bg-red-950/90 opacity-0 group-hover/jersey-view:opacity-100 flex items-center justify-center transition-all text-red-500 font-extrabold text-[10px] cursor-pointer focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                          aria-label={lang === "id" ? "Hapus Jersey Tim" : "Remove Team Jersey"}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-black/45 hover:bg-[#0b0c10]/85 border-white/10 hover:border-emerald-500/30 text-gray-400 hover:text-white shadow-xl backdrop-blur-md active:scale-95 focus-within:ring-2 focus-within:ring-emerald-500">
+                        <Shirt className="w-4 h-4 text-emerald-400 animate-bounce" style={{ animationDuration: '3s' }} aria-hidden="true" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                if (event.target?.result) {
+                                  handleUpdateTeamJersey(event.target.result as string);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="sr-only"
+                          aria-label={t.chooseJersey}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Descriptions overlay as modern tooltip */}
+                  <div className="absolute right-0 bottom-full mb-2.5 opacity-0 scale-90 pointer-events-none group-hover/jersey-upload:opacity-100 group-hover/jersey-upload:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                    <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.mainJersey}</span>
+                    <span className="text-white font-extrabold text-[9px] whitespace-nowrap">
+                      {teamJersey ? t.deleteJersey : t.chooseJersey}
+                    </span>
+                    <span className="text-[7.5px] text-gray-400 font-medium whitespace-nowrap">{t.jerseyRecomend}</span>
                   </div>
                 </div>
               </div>
@@ -2523,59 +2566,38 @@ export default function App() {
                           {lang === "id" ? "FORMASI LAWAN" : "OPP FORMATION"}
                         </span>
                         
-                        <div className="flex flex-col gap-1">
-                          {sportMode === "futsal" ? (
-                            <>
-                              <button
-                                onClick={() => {
-                                  handleSpawnEnemyTeam("1-2-1");
-                                  setShowEnemyDropdown(false);
-                                }}
-                                className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
-                              >
-                                DIAMOND
-                              </button>
-                              <button
-                                onClick={() => {
-                                  handleSpawnEnemyTeam("2-2");
-                                  setShowEnemyDropdown(false);
-                                }}
-                                className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
-                              >
-                                2-2 BOX
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => {
-                                  handleSpawnEnemyTeam("4-3-3");
-                                  setShowEnemyDropdown(false);
-                                }}
-                                className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
-                              >
-                                4-3-3
-                              </button>
-                              <button
-                                onClick={() => {
-                                  handleSpawnEnemyTeam("4-4-2");
-                                  setShowEnemyDropdown(false);
-                                }}
-                                className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
-                              >
-                                4-4-2
-                              </button>
-                              <button
-                                onClick={() => {
-                                  handleSpawnEnemyTeam("3-5-2");
-                                  setShowEnemyDropdown(false);
-                                }}
-                                className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
-                              >
-                                3-5-2
-                              </button>
-                            </>
-                          )}
+                        <div className="flex flex-col gap-1 max-h-[160px] overflow-y-auto pr-1">
+                          {(() => {
+                            const availableFormations = SPORT_FORMATIONS[sportMode] ? Object.keys(SPORT_FORMATIONS[sportMode]) : [];
+                            if (availableFormations.length > 0) {
+                              return availableFormations.map((formKey) => (
+                                <button
+                                  key={formKey}
+                                  onClick={() => {
+                                    handleSpawnEnemyTeam(formKey);
+                                    setShowEnemyDropdown(false);
+                                  }}
+                                  className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                                >
+                                  {formKey === "1-2-1" && sportMode === "futsal" ? "DIAMOND" : 
+                                   formKey === "2-2" && sportMode === "futsal" ? "2-2 BOX" : 
+                                   formKey}
+                                </button>
+                              ));
+                            } else {
+                              return (
+                                <button
+                                  onClick={() => {
+                                    handleSpawnEnemyTeam("custom");
+                                    setShowEnemyDropdown(false);
+                                  }}
+                                  className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                                >
+                                  {lang === "id" ? "SEIMBANG" : "BALANCED"}
+                                </button>
+                              );
+                            }
+                          })()}
                         </div>
 
                         <div className="border-t border-white/5 my-0.5" />
@@ -3072,6 +3094,7 @@ export default function App() {
             numberColor={numberColor}
             players={players}
             teamLogo={teamLogo}
+            teamJersey={teamJersey}
             lang={lang}
             managerName={managerName}
             managerPhoto={managerPhoto}
