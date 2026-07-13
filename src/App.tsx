@@ -1962,11 +1962,11 @@ export default function App() {
           }`}>
             <div className={`flex-1 min-w-0 w-full relative group/pitch transition-all duration-300 ${
               isPitchFullscreen 
-                ? "h-full max-h-[92vh] max-w-[850px] lg:max-w-[950px] flex items-center justify-center" 
+                ? "h-full max-h-[92vh] max-w-none flex items-center justify-center" 
                 : "max-w-[580px]"
             }`}>
               {/* Floating scoreboard overlay for Team Name and Formation at the top-middle of the pitch */}
-              {activeTool !== "draw" && (
+              {activeTool !== "draw" && !isPitchFullscreen && (
                 <div className="absolute top-2.5 sm:top-4 left-1/2 -translate-x-1/2 z-40 bg-[#0b0c10]/85 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/[0.08] px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)] hover:border-emerald-500/20 hover:bg-[#0b0c10]/95 transition-all duration-300 whitespace-nowrap">
                   <div className="flex items-center gap-1.5 sm:gap-2.5 border-r border-white/10 pr-2 sm:pr-3.5">
                     {teamLogo ? (
@@ -2002,7 +2002,7 @@ export default function App() {
               )}
 
               {/* Floating thin overlay for Pitch Board Theme option dropdown */}
-              {activeTool !== "draw" && (
+              {activeTool !== "draw" && !isPitchFullscreen && (
                 <div className="absolute top-2.5 sm:top-4 left-2.5 sm:left-4 z-40 flex flex-col items-start group/themeselect">
                   <button
                     onClick={() => setShowThemeDropdown(!showThemeDropdown)}
@@ -2065,7 +2065,7 @@ export default function App() {
               )}
 
               {/* Floating thin overlay for Reset Board & Fullscreen buttons */}
-              {activeTool !== "draw" && (
+              {activeTool !== "draw" && !isPitchFullscreen && (
                 <div className="absolute top-2.5 sm:top-4 right-2.5 sm:right-4 z-40 flex items-center gap-1.5 sm:gap-2 justify-center">
                   {/* FULLSCREEN BUTTON */}
                   <div className="relative group/fullscreen">
@@ -2161,7 +2161,7 @@ export default function App() {
               )}
 
               {/* Floating Match Sport Mode Selector at the left-middle side of the pitch */}
-              {activeTool !== "draw" && (
+              {activeTool !== "draw" && !isPitchFullscreen && (
                 <div className="absolute top-1/2 -translate-y-1/2 left-2.5 sm:left-4 z-45 flex flex-col items-start group/sportselect">
                   <button
                     onClick={() => setShowSportOverlay(!showSportOverlay)}
@@ -2347,7 +2347,7 @@ export default function App() {
               )}
 
                 {/* Floating thin overlay for Default Formation Selector at the bottom-left inside the pitch */}
-              {activeTool !== "draw" && (
+              {activeTool !== "draw" && !isPitchFullscreen && (
                 <div className="absolute bottom-[29%] sm:bottom-[18.5%] left-2.5 sm:left-4 z-45">
                   <div className="relative group/formation">
                     <button
@@ -2490,14 +2490,14 @@ export default function App() {
               />
 
               {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
-              {activeTool !== "draw" && (
+              {activeTool !== "draw" && !isPitchFullscreen && (
                 <div className="absolute bottom-[29%] sm:bottom-[18.5%] right-2.5 sm:right-4 z-45">
                   <SquadImport onImport={handleImportSquad} lang={lang} />
                 </div>
               )}
 
               {/* Floating checkmark button for Enemy Mode Activation on the right of the field */}
-              {activeTool !== "draw" && (
+              {activeTool !== "draw" && !isPitchFullscreen && (
                 <div className="absolute top-[35%] sm:top-[38%] -translate-y-1/2 right-2.5 sm:right-4 z-45 flex flex-col items-end gap-2 group/enemyselect">
                   <div className="flex items-center gap-1.5">
                     {/* Small button to open/toggle dropdown when enemy mode is active */}

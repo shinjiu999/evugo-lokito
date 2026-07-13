@@ -279,14 +279,27 @@ export default function Pitch({
     const container = pitchRef.current;
     if (!container) return { x: 0, y: 0, percentX: 0, percentY: 0 };
     const rect = container.getBoundingClientRect();
-    const relativeX = clientX - rect.left;
-    const relativeY = clientY - rect.top;
+    let relativeX = clientX - rect.left;
+    let relativeY = clientY - rect.top;
+    
+    let originalWidth = rect.width;
+    let originalHeight = rect.height;
+
+    if (isFullscreen && !isMobileOrTablet) {
+      // Rotated 90 degrees clockwise in fullscreen
+      const mappedX = relativeY;
+      const mappedY = rect.width - relativeX;
+      relativeX = mappedX;
+      relativeY = mappedY;
+      originalWidth = rect.height;
+      originalHeight = rect.width;
+    }
     
     const internalX = (relativeX - pan.x) / zoom;
     const internalY = (relativeY - pan.y) / zoom;
     
-    const percentX = (internalX / rect.width) * 100;
-    const percentY = (internalY / rect.height) * 100;
+    const percentX = (internalX / originalWidth) * 100;
+    const percentY = (internalY / originalHeight) * 100;
     
     return {
       x: internalX,
@@ -497,9 +510,11 @@ export default function Pitch({
   const [clickStartInfo, setClickStartInfo] = useState<{ id: string; time: number; x: number; y: number } | null>(null);
 
   const [isMobile, setIsMobile] = useState(false);
+  const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
+      setIsMobileOrTablet(window.innerWidth < 1024);
     };
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -1597,8 +1612,23 @@ export default function Pitch({
         benchLongPressTimer = null;
       }
 
-      const x = parseFloat((((clientX - rect.left) / rect.width) * 100).toFixed(1));
-      const y = parseFloat((((clientY - rect.top) / rect.height) * 100).toFixed(1));
+      let relativeX = clientX - rect.left;
+      let relativeY = clientY - rect.top;
+      let originalWidth = rect.width;
+      let originalHeight = rect.height;
+
+      if (isFullscreen && !isMobileOrTablet) {
+        // Rotated 90 degrees clockwise in fullscreen
+        const mappedX = relativeY;
+        const mappedY = rect.width - relativeX;
+        relativeX = mappedX;
+        relativeY = mappedY;
+        originalWidth = rect.height;
+        originalHeight = rect.width;
+      }
+
+      const x = parseFloat(((relativeX / originalWidth) * 100).toFixed(1));
+      const y = parseFloat(((relativeY / originalHeight) * 100).toFixed(1));
 
       setSidelineDragCoords({ x, y });
     };
@@ -1719,7 +1749,9 @@ export default function Pitch({
 
   const wrapperClass = isMobileDrawActive
     ? `fixed top-[82px] bottom-[20px] left-3 right-3 m-auto max-w-[580px] max-h-[calc(100vh-112px)] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
-    : `relative w-full ${isFullscreen ? "max-w-[720px] md:max-w-[850px] lg:max-w-[920px] max-h-[88vh]" : "max-w-[580px]"} aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
+    : (isFullscreen && !isMobileOrTablet)
+      ? `relative w-[50vh] sm:w-[68vh] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none rotate-90 origin-center ${pitchWrapperClass}`
+      : `relative w-full ${isFullscreen ? "max-w-[720px] md:max-w-[850px] max-h-[88vh]" : "max-w-[580px]"} aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
 
   return (
     <div className="w-full flex flex-col md:flex-row items-center justify-center gap-4 relative">
@@ -2291,7 +2323,9 @@ export default function Pitch({
                   onMouseDown={(e) => handleDragStart(e, player.id, "player")}
                   onTouchStart={(e) => handleDragStart(e, player.id, "player")}
                   onDoubleClick={() => onDblClickPlayer(player.id)}
-                  className={`absolute flex flex-col items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center group ${
+                  className={`absolute flex flex-col items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center group transition-transform ${
+                    (isFullscreen && !isMobileOrTablet) ? "rotate-[-90deg]" : ""
+                  } ${
                     activeTool === "select" ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none cursor-default"
                   }`}
                   style={{
@@ -2428,7 +2462,7 @@ export default function Pitch({
                    onMouseDown={(e) => handleDragStart(e, item.id, "item")}
                    onTouchStart={(e) => handleDragStart(e, item.id, "item")}
                    onDoubleClick={() => onRemoveItem(item.id)}
-                   className={`absolute flex items-center justify-center -translate-x-[50%] -translate-y-[50%] ${
+                   className={`absolute flex items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center transition-transform ${(isFullscreen && !isMobileOrTablet) ? "rotate-[-90deg]" : ""} ${
                      activeTool === "select" ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none cursor-default"
                    }`}
                    style={{
