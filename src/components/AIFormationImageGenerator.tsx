@@ -1230,8 +1230,35 @@ export default function AIFormationImageGenerator({
       ctx.fillText("STARTING LINE UP", titleCenterX, 72);
 
       ctx.fillStyle = "#ebd55b";
-      ctx.font = "bold 13.5px sans-serif";
-      ctx.fillText(`★ DENGAN BERGABUNGNYA ${teamName.toUpperCase()} ★`, titleCenterX, 110);
+      ctx.font = "bold 24px Impact, Arial Black, sans-serif";
+      ctx.fillText(teamName.toUpperCase(), titleCenterX, 110);
+
+      // Draw club logo at top right
+      const tLogoImg = loadedImages["teamLogo"];
+      if (tLogoImg) {
+        const logoX = 1110;
+        const logoY = 72;
+        const logoRadius = 40;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(logoX, logoY, logoRadius, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+        ctx.strokeStyle = "rgba(234, 179, 8, 0.85)";
+        ctx.lineWidth = 3;
+        ctx.shadowColor = "rgba(234, 179, 8, 0.5)";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(logoX, logoY, logoRadius - 1.5, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(tLogoImg, logoX - logoRadius, logoY - logoRadius, logoRadius * 2, logoRadius * 2);
+        ctx.restore();
+      }
 
       // 6. Draw FUT player cards
       starters.forEach((player) => {
