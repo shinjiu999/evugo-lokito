@@ -103,10 +103,10 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
     <div className="relative group/importer">
       <button
         onClick={() => setIsOpen(true)}
-        className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-emerald-500/30 text-gray-300 hover:text-white shadow-xl backdrop-blur-md active:scale-95 text-[9.5px] sm:text-[11px] font-black tracking-wide"
+        className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 border-white/[0.08] hover:border-emerald-500/30 text-gray-500 hover:text-white shadow-xl backdrop-blur-md active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+        aria-label={lang === "id" ? "Impor Skuad" : "Roster Import"}
       >
-        <Import className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-emerald-400" />
-        <span>{lang === "id" ? "Impor Skuad" : "Roster Import"}</span>
+        <Import className="w-4.5 sm:w-5.5 h-4.5 sm:h-5.5 text-emerald-400 transition-transform group-hover/importer:scale-110" />
       </button>
       
       {/* Tooltip Overlay help */}

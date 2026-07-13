@@ -19,9 +19,11 @@ export interface Player {
 
 export interface TacticalItem {
   id: string;
-  type: "ball" | "cone";
+  type: "ball" | "cone" | "enemy";
   x: number;
   y: number;
+  number?: number;
+  role?: string;
 }
 
 export interface AnimationFrame {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Image, Sparkles, AlertCircle, Download, RefreshCw, Key, HelpCircle, Eye, MonitorPlay } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player } from "../types";
@@ -15,6 +15,7 @@ interface AIFormationImageGeneratorProps {
   lang?: string;
   managerName?: string;
   managerPhoto?: string | null;
+  isEnemyModeActive?: boolean;
 }
 
 export default function AIFormationImageGenerator({
@@ -27,7 +28,8 @@ export default function AIFormationImageGenerator({
   teamLogo,
   lang = "en",
   managerName = "Budi Santoso",
-  managerPhoto = null
+  managerPhoto = null,
+  isEnemyModeActive = false
 }: AIFormationImageGeneratorProps) {
   const [activeTab, setActiveTab] = useState<"instant" | "gemini">("instant");
   const [customApiKey, setCustomApiKey] = useState(() => localStorage.getItem("tactigen_custom_key") || "");
@@ -40,6 +42,18 @@ export default function AIFormationImageGenerator({
   // Instant Vector Canvas State
   const [instantImageUrl, setInstantImageUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Compute adjusted players by uncompressing Y coordinates if enemy mode is active
+  const adjustedPlayers = useMemo(() => {
+    return players.map((player) => {
+      if (isEnemyModeActive && player.isStarting) {
+        // Stretch Y back from the compressed [52, 90] to the original full [0, 100] range
+        const uncompressedY = Math.max(0, Math.min(100, ((player.y - 52) / 38) * 100));
+        return { ...player, y: parseFloat(uncompressedY.toFixed(1)) };
+      }
+      return player;
+    });
+  }, [players, isEnemyModeActive]);
 
   // Sync with localStorage periodically
   useEffect(() => {
@@ -318,7 +332,7 @@ export default function AIFormationImageGenerator({
       }
 
       // 7. DRAW STARTING PLAYERS IN HIGH FIDELITY 3D JERSEY DECALS OR AVATAR PHOTOS
-      players
+      adjustedPlayers
         .filter((p) => p.isStarting)
         .forEach((player) => {
           const pt = toScreen(player.x, player.y);
@@ -536,7 +550,7 @@ export default function AIFormationImageGenerator({
       }
 
       // 7.5 DRAW SUBSTITUTE PLAYERS ON THE LEFT (straight line, top-to-bottom)
-      const substitutes = players.filter((p) => !p.isStarting);
+      const substitutes = adjustedPlayers.filter((p) => !p.isStarting);
       if (substitutes.length > 0) {
         const panelX = 40;
         const panelY = 220;
@@ -732,7 +746,7 @@ export default function AIFormationImageGenerator({
   // Run initial vector drawing and redraw when properties change
   useEffect(() => {
     let active = true;
-    const playersWithPhotos = players.filter((p) => p.isStarting && p.photo);
+    const playersWithPhotos = adjustedPlayers.filter((p) => p.isStarting && p.photo);
 
     // List of items to load
     const toLoad: { id: string; url: string }[] = [];
@@ -786,7 +800,7 @@ export default function AIFormationImageGenerator({
     return () => {
       active = false;
     };
-  }, [players, formation, teamName, primaryColor, gkColor, numberColor, teamLogo, lang, managerName, managerPhoto]);
+  }, [adjustedPlayers, formation, teamName, primaryColor, gkColor, numberColor, teamLogo, lang, managerName, managerPhoto]);
 
   // Helper utility to adjust HEX brightness for shadow curves
   const adjustColorBrightness = (hex: string, percent: number): string => {

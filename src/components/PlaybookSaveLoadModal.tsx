@@ -18,7 +18,7 @@ interface Player {
   id: string;
   name: string;
   number: number;
-  role: string;
+  role: "FWD" | "MID" | "DEF" | "GK" | string;
   x: number;
   y: number;
   isStarting: boolean;
@@ -27,9 +27,11 @@ interface Player {
 
 interface TacticalItem {
   id: string;
-  type: "ball" | "cone";
+  type: "ball" | "cone" | "enemy";
   x: number;
   y: number;
+  number?: number;
+  role?: string;
 }
 
 interface SavedPlaybook {

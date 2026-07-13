@@ -10,6 +10,7 @@ interface PitchProps {
   primaryColor: string;
   gkColor: string;
   numberColor: string;
+  enemyColor?: string;
   activeTool: "select" | "draw";
   brushColor: string;
   brushSize: number;
@@ -21,6 +22,7 @@ interface PitchProps {
   onUpdatePlayerPosition: (id: string, x: number, y: number) => void;
   onUpdateItemPosition: (id: string, x: number, y: number) => void;
   onRemoveItem: (id: string) => void;
+  onAddTacticalItem?: (type: "ball" | "cone" | "enemy", x?: number, y?: number) => void;
   onDblClickPlayer: (id: string) => void;
   onSidelineSwap: (sidelinePlayerId: string, starterPlayerId: string) => void;
   onPromotePlayer: (sidelinePlayerId: string, x: number, y: number) => void;
@@ -127,6 +129,7 @@ export default function Pitch({
   primaryColor,
   gkColor,
   numberColor,
+  enemyColor = "#2563eb",
   activeTool,
   brushColor,
   brushSize,
@@ -138,6 +141,7 @@ export default function Pitch({
   onUpdatePlayerPosition,
   onUpdateItemPosition,
   onRemoveItem,
+  onAddTacticalItem,
   onDblClickPlayer,
   onSidelineSwap,
   onPromotePlayer,
@@ -1736,6 +1740,22 @@ export default function Pitch({
         onTouchMove={handleContainerTouchMove}
         onMouseUp={handleDragEnd}
         onTouchEnd={handleDragEnd}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          const itemType = e.dataTransfer.getData("text/plain");
+          if (itemType === "enemy" || itemType === "ball" || itemType === "cone") {
+            const coords = getZoomedCoordinates(e.clientX, e.clientY);
+            const x = Math.max(2, Math.min(98, parseFloat(coords.percentX.toFixed(1))));
+            const y = Math.max(2, Math.min(98, parseFloat(coords.percentY.toFixed(1))));
+            if (onAddTacticalItem) {
+              onAddTacticalItem(itemType as "ball" | "cone" | "enemy", x, y);
+            }
+          }
+        }}
         onClick={(e) => {
           // Deselect if we clicked on empty space (pitch wrapper or svg/canvas element)
           const target = e.target as HTMLElement;
@@ -2131,6 +2151,68 @@ export default function Pitch({
               return null;
             })}
 
+            {/* Enemy/Opponent movement trajectories */}
+            {items
+              .filter((item) => item.type === "enemy")
+              .map((enemy) => {
+                if (draggedId === enemy.id) return null;
+                const prevFrame = frames[activeFrameIndex - 1];
+                if (!prevFrame || !prevFrame.items) return null;
+                const prevPos = prevFrame.items.find((i) => i.id === enemy.id);
+                if (!prevPos) return null;
+
+                const dx = enemy.x - prevPos.x;
+                const dy = enemy.y - prevPos.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > 2.5) {
+                  const midX = (prevPos.x + enemy.x) / 2;
+                  const midY = (prevPos.y + enemy.y) / 2;
+                  
+                  const len = dist || 1;
+                  const nx = -dy / len;
+                  const ny = dx / len;
+                  
+                  const curvature = Math.min(6, len * 0.18);
+                  const controlX = midX + nx * curvature;
+                  const controlY = midY + ny * curvature;
+
+                  const pathData = `M ${prevPos.x} ${prevPos.y} Q ${controlX} ${controlY} ${enemy.x} ${enemy.y}`;
+
+                  return (
+                    <g key={`trail-enemy-${enemy.id}`}>
+                      {/* Shadow/Backing line */}
+                      <path
+                        d={pathData}
+                        fill="none"
+                        stroke="rgba(0,0,0,0.3)"
+                        strokeWidth="1.2"
+                      />
+                      {/* Pulsing trail path */}
+                      <path
+                        d={pathData}
+                        fill="none"
+                        stroke={enemyColor}
+                        strokeWidth="0.8"
+                        strokeDasharray="2, 2.5"
+                        markerEnd="url(#movement-trail-arrow)"
+                        filter={pitchTheme !== "emerald-grass" ? "url(#trail-glowing-glow)" : "none"}
+                        className="opacity-80"
+                      />
+                      {/* Animated running dot representing phase progress */}
+                      <circle r="0.75" fill="#ffffff" filter="url(#trail-glowing-glow)">
+                        <animateMotion
+                          dur={playSpeed === "slow" ? "2.4s" : playSpeed === "fast" ? "0.8s" : playSpeed === "superfast" ? "0.4s" : "1.5s"}
+                          repeatCount="indefinite"
+                          path={pathData}
+                        />
+                      </circle>
+                    </g>
+                  );
+                }
+                return null;
+              })}
+
             {/* Ball movement trajectory */}
             {items
               .filter((item) => item.type === "ball")
@@ -2375,6 +2457,54 @@ export default function Pitch({
                            <span style={{ fontSize: `${ballEmojiSize}px`, lineHeight: 1 }}>⚽</span>
                          )}
                        </div>
+                     ) : item.type === "enemy" ? (
+                       (() => {
+                         const isEnemyGK = item.role === "GK" || item.number === 1;
+                         const enemyGkColor = (enemyColor?.toLowerCase() === "#f97316" || enemyColor?.toLowerCase() === "orange") ? "#22c55e" : "#f97316";
+                         const itemBgColor = showDeleteIndicator
+                           ? "rgba(127,29,29,0.9)"
+                           : isEnemyGK
+                             ? enemyGkColor
+                             : enemyColor;
+                         const labelText = isEnemyGK
+                           ? (lang === "id" ? "GK LAWAN" : "GK OPP")
+                           : (lang === "id" ? `LAWAN ${item.number ?? ""}` : `OPP ${item.number ?? ""}`);
+
+                         return (
+                           <div
+                             className={`relative rounded-full border-2 border-black/40 shadow-lg flex flex-col items-center justify-center transition-all ${
+                               showDeleteIndicator
+                                 ? "border-red-500 bg-red-950/90 ring-2 ring-red-500 scale-90 text-red-400"
+                                 : "border-white/50"
+                             }`}
+                             style={{
+                               width: `${jerseySize}px`,
+                               height: `${jerseySize}px`,
+                               backgroundColor: itemBgColor,
+                               color: "#ffffff"
+                             }}
+                           >
+                             {showDeleteIndicator ? (
+                               <span style={{ fontSize: `${fontSize}px` }}>🗑️</span>
+                             ) : (
+                               <span
+                                 className="font-extrabold select-none text-white leading-none"
+                                 style={{ fontSize: `${fontSize}px` }}
+                               >
+                                 {isEnemyGK ? "GK" : (item.number ?? "E")}
+                               </span>
+                             )}
+                             {!showDeleteIndicator && (
+                               <div
+                                 className="absolute top-[105%] px-1.5 py-0.5 bg-[#0f0f12]/95 backdrop-blur-md rounded border border-white/10 text-white font-bold whitespace-nowrap shadow select-none uppercase tracking-wide leading-tight"
+                                 style={{ fontSize: `${nameFontSize * 0.95}px` }}
+                               >
+                                 {labelText}
+                               </div>
+                             )}
+                           </div>
+                         );
+                       })()
                      ) : (
                        <div
                          className={`filter drop-shadow-md leading-none flex items-center justify-center transition-all ${

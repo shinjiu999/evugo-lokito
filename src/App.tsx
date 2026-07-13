@@ -19,6 +19,7 @@ import { toPng } from "html-to-image";
 import Interactive3DCard from "./components/Interactive3DCard";
 import {
   Sparkles,
+  Check,
   Download,
   Tv,
   PenTool,
@@ -487,6 +488,9 @@ export default function App() {
   const [formation, setFormation] = useState<any>("4-3-3");
   const [players, setPlayers] = useState<Player[]>(DEFAULT_PLAYERS);
   const [items, setItems] = useState<TacticalItem[]>(DEFAULT_ITEMS);
+  const [isEnemyModeActive, setIsEnemyModeActive] = useState<boolean>(false);
+  const [showEnemyDropdown, setShowEnemyDropdown] = useState<boolean>(false);
+  const [preEnemyTeamPositions, setPreEnemyTeamPositions] = useState<Record<string, { x: number; y: number }>>({});
 
   const handleAddBenchDirect = (name: string, num: number, role: "GK" | "DEF" | "MID" | "FWD") => {
     const newPlayer: Player = {
@@ -507,6 +511,7 @@ export default function App() {
   const [primaryColor, setPrimaryColor] = useState("#dc2626"); // Red
   const [gkColor, setGkColor] = useState("#eab308"); // Yellow
   const [numberColor, setNumberColor] = useState("#ffffff");
+  const [enemyColor, setEnemyColor] = useState("#2563eb"); // Royal Blue Opponent
 
   // Tools state
   const [activeTool, setActiveTool] = useState<"select" | "draw">("select");
@@ -539,6 +544,156 @@ export default function App() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const getBalancedEnemyPositionsForCount = (count: number): { x: number; y: number; role: string }[] => {
+    if (count <= 0) return [];
+    const coords: { x: number; y: number; role: string }[] = [];
+    
+    // First player is always GK
+    coords.push({ x: 50, y: 10, role: "GK" });
+    if (count === 1) return coords;
+
+    const fieldCount = count - 1;
+    if (fieldCount === 1) {
+      coords.push({ x: 50, y: 35, role: "FIELD" });
+    } else if (fieldCount === 2) {
+      coords.push({ x: 35, y: 25, role: "FIELD" });
+      coords.push({ x: 65, y: 35, role: "FIELD" });
+    } else if (fieldCount === 3) {
+      coords.push({ x: 50, y: 22, role: "FIELD" });
+      coords.push({ x: 30, y: 38, role: "FIELD" });
+      coords.push({ x: 70, y: 38, role: "FIELD" });
+    } else if (fieldCount === 4) {
+      coords.push({ x: 30, y: 22, role: "FIELD" });
+      coords.push({ x: 70, y: 22, role: "FIELD" });
+      coords.push({ x: 35, y: 38, role: "FIELD" });
+      coords.push({ x: 65, y: 38, role: "FIELD" });
+    } else if (fieldCount === 5) {
+      coords.push({ x: 30, y: 22, role: "FIELD" });
+      coords.push({ x: 70, y: 22, role: "FIELD" });
+      coords.push({ x: 50, y: 32, role: "FIELD" });
+      coords.push({ x: 35, y: 42, role: "FIELD" });
+      coords.push({ x: 65, y: 42, role: "FIELD" });
+    } else if (fieldCount === 6) {
+      coords.push({ x: 25, y: 22, role: "FIELD" });
+      coords.push({ x: 75, y: 22, role: "FIELD" });
+      coords.push({ x: 20, y: 34, role: "FIELD" });
+      coords.push({ x: 50, y: 34, role: "FIELD" });
+      coords.push({ x: 80, y: 34, role: "FIELD" });
+      coords.push({ x: 50, y: 44, role: "FIELD" });
+    } else if (fieldCount === 7) {
+      coords.push({ x: 25, y: 22, role: "FIELD" });
+      coords.push({ x: 75, y: 22, role: "FIELD" });
+      coords.push({ x: 30, y: 32, role: "FIELD" });
+      coords.push({ x: 50, y: 32, role: "FIELD" });
+      coords.push({ x: 70, y: 32, role: "FIELD" });
+      coords.push({ x: 35, y: 44, role: "FIELD" });
+      coords.push({ x: 65, y: 44, role: "FIELD" });
+    } else if (fieldCount === 8) {
+      coords.push({ x: 20, y: 22, role: "FIELD" });
+      coords.push({ x: 50, y: 20, role: "FIELD" });
+      coords.push({ x: 80, y: 22, role: "FIELD" });
+      coords.push({ x: 30, y: 32, role: "FIELD" });
+      coords.push({ x: 70, y: 32, role: "FIELD" });
+      coords.push({ x: 20, y: 42, role: "FIELD" });
+      coords.push({ x: 50, y: 44, role: "FIELD" });
+      coords.push({ x: 80, y: 42, role: "FIELD" });
+    } else if (fieldCount === 9) {
+      coords.push({ x: 20, y: 22, role: "FIELD" });
+      coords.push({ x: 50, y: 20, role: "FIELD" });
+      coords.push({ x: 80, y: 22, role: "FIELD" });
+      coords.push({ x: 20, y: 32, role: "FIELD" });
+      coords.push({ x: 50, y: 32, role: "FIELD" });
+      coords.push({ x: 80, y: 32, role: "FIELD" });
+      coords.push({ x: 30, y: 44, role: "FIELD" });
+      coords.push({ x: 50, y: 44, role: "FIELD" });
+      coords.push({ x: 70, y: 44, role: "FIELD" });
+    } else {
+      coords.push({ x: 18, y: 22, role: "FIELD" });
+      coords.push({ x: 38, y: 20, role: "FIELD" });
+      coords.push({ x: 62, y: 20, role: "FIELD" });
+      coords.push({ x: 82, y: 22, role: "FIELD" });
+      coords.push({ x: 20, y: 34, role: "FIELD" });
+      coords.push({ x: 40, y: 32, role: "FIELD" });
+      coords.push({ x: 60, y: 32, role: "FIELD" });
+      coords.push({ x: 80, y: 34, role: "FIELD" });
+      coords.push({ x: 35, y: 44, role: "FIELD" });
+      coords.push({ x: 65, y: 44, role: "FIELD" });
+    }
+
+    return coords;
+  };
+
+  const spawnEnemyModeTeam = (count: number) => {
+    setItems((prev) => prev.filter((item) => item.type !== "enemy"));
+
+    const enemyCoords = getBalancedEnemyPositionsForCount(count);
+    const newEnemies = enemyCoords.map((pos, idx) => ({
+      id: `enemy-auto-${idx}-${Date.now()}`,
+      type: "enemy" as const,
+      x: pos.x,
+      y: pos.y,
+      number: idx + 1,
+      role: pos.role
+    }));
+
+    setItems((prev) => [...prev, ...newEnemies]);
+  };
+
+  const handleToggleEnemyMode = (active: boolean) => {
+    setIsEnemyModeActive(active);
+    if (active) {
+      // 1. Save current team positions
+      const teamPos: Record<string, { x: number; y: number }> = {};
+      players.forEach((p) => {
+        if (p.isStarting) {
+          teamPos[p.id] = { x: p.x, y: p.y };
+        }
+      });
+      setPreEnemyTeamPositions(teamPos);
+
+      // 2. Compress our players to the bottom half
+      setPlayers((prev) =>
+        prev.map((player) => {
+          if (player.isStarting) {
+            return { ...player, y: parseFloat((52 + (player.y / 100) * 38).toFixed(1)) };
+          }
+          return player;
+        })
+      );
+
+      // 3. Spawn balanced enemies in top half matching current sport mode count
+      const enemyCount = getSportModeLimit();
+      spawnEnemyModeTeam(enemyCount);
+    } else {
+      // Remove enemies
+      setItems((prev) => prev.filter((item) => item.type !== "enemy"));
+
+      // Restore our players
+      if (Object.keys(preEnemyTeamPositions).length > 0) {
+        setPlayers((prev) =>
+          prev.map((player) => {
+            if (player.isStarting && preEnemyTeamPositions[player.id]) {
+              return {
+                ...player,
+                x: preEnemyTeamPositions[player.id].x,
+                y: preEnemyTeamPositions[player.id].y
+              };
+            }
+            return player;
+          })
+        );
+      }
+    }
+  };
+
+  // Sync enemies if sportMode or customCount changes while enemy mode is active
+  useEffect(() => {
+    if (isEnemyModeActive) {
+      const enemyCount = getSportModeLimit();
+      spawnEnemyModeTeam(enemyCount);
+    }
+  }, [sportMode, customCount, isEnemyModeActive]);
 
   // Line drawings brush strokes records
   const [drawHistory, setDrawHistory] = useState<DrawingStroke[]>([]);
@@ -1033,7 +1188,10 @@ export default function App() {
         if (player.isStarting && coordinates[starterCounter]) {
           const coord = coordinates[starterCounter];
           starterCounter++;
-          return { ...player, x: coord.x, y: coord.y };
+          const finalY = isEnemyModeActive 
+            ? parseFloat((52 + (coord.y / 100) * 38).toFixed(1)) 
+            : coord.y;
+          return { ...player, x: coord.x, y: finalY };
         }
         return player;
       });
@@ -1103,12 +1261,80 @@ export default function App() {
     setPlayers(newPlayers);
   };
 
-  const handleAddTacticalItem = (type: "ball" | "cone") => {
+  const getBalancedEnemyPosition = (count: number, sport: string): { x: number; y: number; role: string; number: number } => {
+    const isFutsal = sport === "futsal";
+    if (isFutsal) {
+      const futsalPresets = [
+        { x: 50, y: 12, role: "GK" },    // Goalkeeper
+        { x: 30, y: 32, role: "DEF" },   // Left Defender
+        { x: 70, y: 32, role: "DEF" },   // Right Defender
+        { x: 35, y: 68, role: "FWD" },   // Left Attacker
+        { x: 65, y: 68, role: "FWD" }    // Right Attacker
+      ];
+      const index = count % 5;
+      const preset = futsalPresets[index];
+      const wrapOffsetMultiplier = Math.floor(count / 5);
+      const offsetX = (wrapOffsetMultiplier * 4) % 12;
+      const offsetY = (wrapOffsetMultiplier * 3) % 9;
+      return {
+        x: Math.max(5, Math.min(95, parseFloat((preset.x + offsetX).toFixed(1)))),
+        y: Math.max(5, Math.min(80, parseFloat((preset.y + offsetY).toFixed(1)))),
+        role: preset.role,
+        number: count + 1
+      };
+    } else {
+      const soccerPresets = [
+        { x: 50, y: 12, role: "GK" },    // Goalkeeper
+        { x: 38, y: 26, role: "DEF" },   // Center Back Left
+        { x: 62, y: 26, role: "DEF" },   // Center Back Right
+        { x: 35, y: 48, role: "MID" },   // Center Mid Left
+        { x: 65, y: 48, role: "MID" },   // Center Mid Right
+        { x: 50, y: 74, role: "FWD" },   // Striker
+        { x: 18, y: 32, role: "DEF" },   // Left Back
+        { x: 82, y: 32, role: "DEF" },   // Right Back
+        { x: 50, y: 42, role: "MID" },   // Attacking Mid
+        { x: 25, y: 72, role: "FWD" },  // Left Winger
+        { x: 75, y: 72, role: "FWD" }   // Right Winger
+      ];
+      const index = count % 11;
+      const preset = soccerPresets[index];
+      const wrapOffsetMultiplier = Math.floor(count / 11);
+      const offsetX = (wrapOffsetMultiplier * 4) % 12;
+      const offsetY = (wrapOffsetMultiplier * 3) % 9;
+      return {
+        x: Math.max(5, Math.min(95, parseFloat((preset.x + offsetX).toFixed(1)))),
+        y: Math.max(5, Math.min(80, parseFloat((preset.y + offsetY).toFixed(1)))),
+        role: preset.role,
+        number: count + 1
+      };
+    }
+  };
+
+  const handleAddTacticalItem = (type: "ball" | "cone" | "enemy", x?: number, y?: number) => {
+    const enemyCount = items.filter((i) => i.type === "enemy").length;
+    let finalX = x;
+    let finalY = y;
+    let role: string | undefined = undefined;
+    let number: number | undefined = undefined;
+
+    if (type === "enemy") {
+      const balanced = getBalancedEnemyPosition(enemyCount, sportMode);
+      finalX = x !== undefined ? x : balanced.x;
+      finalY = y !== undefined ? y : balanced.y;
+      role = balanced.role;
+      number = balanced.number;
+    } else {
+      finalX = x !== undefined ? x : 50;
+      finalY = y !== undefined ? y : 40;
+    }
+
     const newItem: TacticalItem = {
       id: `item-${Date.now()}`,
       type,
-      x: 50,
-      y: 40
+      x: finalX,
+      y: finalY,
+      number,
+      role
     };
     setItems((prev) => [...prev, newItem]);
     setActiveTool("select");
@@ -1122,6 +1348,72 @@ export default function App() {
         items: frame.items.filter((item) => item.id !== id)
       }))
     );
+  };
+
+  const handleSpawnEnemyTeam = (formationType: string) => {
+    setItems((prev) => prev.filter((item) => item.type !== "enemy"));
+
+    let enemyPositions: { x: number; y: number }[] = [];
+
+    if (sportMode === "futsal") {
+      if (formationType === "2-0-2" || formationType === "2-2") {
+        enemyPositions = [
+          { x: 50, y: 12 },
+          { x: 30, y: 34 }, { x: 70, y: 34 },
+          { x: 30, y: 68 }, { x: 70, y: 68 }
+        ];
+      } else {
+        enemyPositions = [
+          { x: 50, y: 12 },
+          { x: 50, y: 32 },
+          { x: 25, y: 50 }, { x: 75, y: 50 },
+          { x: 50, y: 72 }
+        ];
+      }
+    } else {
+      if (formationType === "4-4-2") {
+        enemyPositions = [
+          { x: 50, y: 12 },
+          { x: 18, y: 32 }, { x: 38, y: 26 }, { x: 62, y: 26 }, { x: 82, y: 32 },
+          { x: 18, y: 54 }, { x: 38, y: 48 }, { x: 62, y: 48 }, { x: 82, y: 54 },
+          { x: 35, y: 75 }, { x: 65, y: 75 }
+        ];
+      } else if (formationType === "3-5-2") {
+        enemyPositions = [
+          { x: 50, y: 12 },
+          { x: 30, y: 28 }, { x: 50, y: 26 }, { x: 70, y: 28 },
+          { x: 15, y: 45 }, { x: 35, y: 52 }, { x: 50, y: 45 }, { x: 65, y: 52 }, { x: 85, y: 45 },
+          { x: 35, y: 72 }, { x: 65, y: 72 }
+        ];
+      } else {
+        enemyPositions = [
+          { x: 50, y: 12 },
+          { x: 18, y: 32 }, { x: 38, y: 26 }, { x: 62, y: 26 }, { x: 82, y: 32 },
+          { x: 34, y: 54 }, { x: 50, y: 42 }, { x: 66, y: 54 },
+          { x: 20, y: 72 }, { x: 50, y: 78 }, { x: 80, y: 72 }
+        ];
+      }
+    }
+
+    const newEnemies = enemyPositions.map((pos, idx) => {
+      const finalY = isEnemyModeActive 
+        ? parseFloat(((pos.y / 100) * 40 + 6).toFixed(1)) 
+        : pos.y;
+      return {
+        id: `enemy-auto-${idx}-${Date.now()}`,
+        type: "enemy" as const,
+        x: pos.x,
+        y: finalY,
+        number: idx + 1,
+        role: idx === 0 ? "GK" : "FIELD"
+      };
+    });
+
+    setItems((prev) => [...prev, ...newEnemies]);
+  };
+
+  const handleClearAllEnemies = () => {
+    setItems((prev) => prev.filter((item) => item.type !== "enemy"));
   };
 
   const handleSavePlayerEdit = (id: string, updated: Partial<Player>) => {
@@ -2108,6 +2400,7 @@ export default function App() {
                 primaryColor={primaryColor}
                 gkColor={gkColor}
                 numberColor={numberColor}
+                enemyColor={enemyColor}
                 activeTool={activeTool}
                 brushColor={brushColor}
                 brushSize={brushSize}
@@ -2119,6 +2412,7 @@ export default function App() {
                 onUpdatePlayerPosition={handleUpdatePlayerPosition}
                 onUpdateItemPosition={handleUpdateItemPosition}
                 onRemoveItem={handleRemoveItem}
+                onAddTacticalItem={handleAddTacticalItem}
                 onDblClickPlayer={(id) => setEditingPlayerId(id)}
                 onSidelineSwap={handleSidelineSwap}
                 onPromotePlayer={handlePromotePlayer}
@@ -2156,6 +2450,148 @@ export default function App() {
               {activeTool !== "draw" && (
                 <div className="absolute bottom-[29%] sm:bottom-[18.5%] right-2.5 sm:right-4 z-45">
                   <SquadImport onImport={handleImportSquad} lang={lang} />
+                </div>
+              )}
+
+              {/* Floating checkmark button for Enemy Mode Activation on the right of the field */}
+              {activeTool !== "draw" && (
+                <div className="absolute top-[35%] sm:top-[38%] -translate-y-1/2 right-2.5 sm:right-4 z-45 flex flex-col items-end gap-2 group/enemyselect">
+                  <div className="flex items-center gap-1.5">
+                    {/* Small button to open/toggle dropdown when enemy mode is active */}
+                    {isEnemyModeActive && (
+                      <button
+                        onClick={() => setShowEnemyDropdown(!showEnemyDropdown)}
+                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 border-white/[0.08] text-gray-400 hover:text-white shadow-xl active:scale-95 focus-visible:outline-none`}
+                        aria-label={lang === "id" ? "Pilih Formasi Lawan" : "Choose Opponent Formation"}
+                      >
+                        <ChevronDown className={`w-4 sm:w-4.5 h-4 sm:h-4.5 transition-transform duration-200 ${
+                          showEnemyDropdown ? "rotate-180 text-red-400" : ""
+                        }`} />
+                      </button>
+                    )}
+
+                    <div className="relative">
+                      <button
+                        onClick={() => {
+                          if (isEnemyModeActive) {
+                            handleToggleEnemyMode(false);
+                            setShowEnemyDropdown(false);
+                          } else {
+                            handleToggleEnemyMode(true);
+                            setShowEnemyDropdown(true);
+                          }
+                        }}
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border shadow-xl backdrop-blur-md active:scale-95 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none ${
+                          isEnemyModeActive 
+                            ? "bg-red-600 border-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.4)]" 
+                            : "bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 border-white/[0.08] hover:border-white/25 text-gray-500 hover:text-white"
+                        }`}
+                        aria-label={lang === "id" ? "Mode Lawan Aktif" : "Toggle Enemy Mode Active"}
+                        aria-pressed={isEnemyModeActive}
+                      >
+                        <Check className={`w-4.5 sm:w-5.5 h-4.5 sm:h-5.5 stroke-[3.5px] transition-all duration-200 ${
+                          isEnemyModeActive ? "scale-100 opacity-100" : "scale-75 opacity-30"
+                        }`} />
+                      </button>
+                      
+                      {/* Floating descriptive tooltip/overlay */}
+                      <div className="absolute right-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/enemyselect:opacity-100 group-hover/enemyselect:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 backdrop-blur-md whitespace-nowrap">
+                        <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">
+                          {lang === "id" ? "MODE TIM LAWAN" : "OPPONENT MODE"}
+                        </span>
+                        <span className="text-white font-extrabold text-[9px]">
+                          {isEnemyModeActive 
+                            ? (lang === "id" ? "Mode Lawan Aktif (Klik centang untuk matikan)" : "Enemy Mode Active (Click check to deactivate)")
+                            : (lang === "id" ? "Centang untuk aktifkan setengah lapangan" : "Check to activate split-field layout")
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dropdown/Drag-down list of opponent formations, revealed when Enemy Mode is active */}
+                  <AnimatePresence>
+                    {isEnemyModeActive && showEnemyDropdown && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                        transition={{ duration: 0.18, ease: "easeOut" }}
+                        className="bg-[#0b0c10]/95 border border-white/[0.08] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 shadow-2xl backdrop-blur-md flex flex-col gap-1.5 min-w-[120px] sm:min-w-[140px] hover:border-red-500/20 transition-colors duration-300"
+                      >
+                        <span className="text-[7.5px] sm:text-[8px] font-black text-gray-400 tracking-widest text-center uppercase border-b border-white/5 pb-1 block">
+                          {lang === "id" ? "FORMASI LAWAN" : "OPP FORMATION"}
+                        </span>
+                        
+                        <div className="flex flex-col gap-1">
+                          {sportMode === "futsal" ? (
+                            <>
+                              <button
+                                onClick={() => {
+                                  handleSpawnEnemyTeam("1-2-1");
+                                  setShowEnemyDropdown(false);
+                                }}
+                                className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                              >
+                                DIAMOND
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleSpawnEnemyTeam("2-2");
+                                  setShowEnemyDropdown(false);
+                                }}
+                                className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                              >
+                                2-2 BOX
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => {
+                                  handleSpawnEnemyTeam("4-3-3");
+                                  setShowEnemyDropdown(false);
+                                }}
+                                className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                              >
+                                4-3-3
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleSpawnEnemyTeam("4-4-2");
+                                  setShowEnemyDropdown(false);
+                                }}
+                                className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                              >
+                                4-4-2
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleSpawnEnemyTeam("3-5-2");
+                                  setShowEnemyDropdown(false);
+                                }}
+                                className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                              >
+                                3-5-2
+                              </button>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="border-t border-white/5 my-0.5" />
+                        
+                        <button
+                          onClick={() => {
+                            handleClearAllEnemies();
+                            setShowEnemyDropdown(false);
+                          }}
+                          className="w-full px-2 py-1 bg-red-950/45 hover:bg-red-900/60 text-red-400 hover:text-red-300 rounded-lg border border-red-500/20 text-[8.5px] sm:text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                        >
+                          🗑️ {lang === "id" ? "BERSIHKAN" : "CLEAR"}
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
             </div>
@@ -2267,15 +2703,20 @@ export default function App() {
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => handleAddTacticalItem("ball")}
-                        title={lang === "id" ? "Tambah Bola Baru" : "Spawn New Ball"}
-                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-emerald-600/20 text-white hover:text-emerald-400 border border-white/10 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", "ball");
+                          e.dataTransfer.effectAllowed = "copy";
+                        }}
+                        title={lang === "id" ? "Tambah Bola Baru (Bisa Di-drag)" : "Spawn New Ball (Draggable)"}
+                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-emerald-600/20 text-white hover:text-emerald-400 border border-white/10 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-md shrink-0"
                       >
                         <span className="text-[12px] sm:text-[14px] md:text-[19px] hover:scale-110 transition-transform">⚽</span>
                       </button>
                       {/* Floating Tooltip Help */}
                       <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
                         <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.elements}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Tambah Bola Baru" : "Spawn New Ball"}</span>
+                        <span className="text-white font-black">{lang === "id" ? "Tambah Bola Baru (Klik / Drag)" : "Spawn New Ball (Click / Drag)"}</span>
                       </div>
                     </div>
 
@@ -2283,8 +2724,13 @@ export default function App() {
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => handleAddTacticalItem("cone")}
-                        title={lang === "id" ? "Tambah Cone Latihan" : "Spawn Practice Cone"}
-                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-orange-650/20 text-white hover:text-orange-400 border border-white/10 hover:border-orange-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", "cone");
+                          e.dataTransfer.effectAllowed = "copy";
+                        }}
+                        title={lang === "id" ? "Tambah Cone Latihan (Bisa Di-drag)" : "Spawn Practice Cone (Draggable)"}
+                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-orange-650/20 text-white hover:text-orange-400 border border-white/10 hover:border-orange-500/20 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-md shrink-0"
                       >
                         <div className="relative flex flex-col items-center">
                           <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 bg-gradient-to-t from-orange-600 via-orange-500 to-amber-300 rounded-t-full border-t border-amber-200 flex items-center justify-center shadow-lg">
@@ -2296,7 +2742,33 @@ export default function App() {
                       {/* Floating Tooltip Help */}
                       <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
                         <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.elements}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Tambah Cone Latihan" : "Spawn Practice Cone"}</span>
+                        <span className="text-white font-black">{lang === "id" ? "Tambah Cone Latihan (Klik / Drag)" : "Spawn Practice Cone (Click / Drag)"}</span>
+                      </div>
+                    </div>
+
+                    {/* Add Enemy Player Button */}
+                    <div className="relative group shrink-0">
+                      <button
+                        onClick={() => handleAddTacticalItem("enemy")}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", "enemy");
+                          e.dataTransfer.effectAllowed = "copy";
+                        }}
+                        title={lang === "id" ? "Tambah Pemain Lawan (Bisa Di-drag)" : "Spawn Opponent Player (Draggable)"}
+                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-blue-600/20 text-white hover:text-blue-400 border border-white/10 hover:border-blue-500/20 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-md shrink-0"
+                      >
+                        <div
+                          className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-white/40 flex items-center justify-center shadow-md font-black text-[9px] sm:text-[10px]"
+                          style={{ backgroundColor: enemyColor, color: "#ffffff" }}
+                        >
+                          E
+                        </div>
+                      </button>
+                      {/* Floating Tooltip Help */}
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
+                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{lang === "id" ? "LAWAN" : "OPPONENT"}</span>
+                        <span className="text-white font-black">{lang === "id" ? "Tambah Pemain Lawan (Klik / Drag)" : "Spawn Opponent Player (Click / Drag)"}</span>
                       </div>
                     </div>
 
@@ -2360,6 +2832,84 @@ export default function App() {
                       <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
                         <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.uniform}</span>
                         <span className="text-white font-black">{lang === "id" ? "Warna Nomor" : "Numbers Color"}</span>
+                      </div>
+                    </div>
+
+                    {/* Jersey Lawan */}
+                    <div className="relative group/opponentcolor shrink-0">
+                      <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
+                        <div className="relative flex items-center justify-center">
+                          <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover/opponentcolor:scale-115 duration-205" style={{ fill: enemyColor, color: enemyColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
+                          <input
+                            type="color"
+                            value={enemyColor}
+                            onChange={(e) => setEnemyColor(e.target.value)}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                            title={lang === "id" ? "Pilih Warna Custom" : "Choose Custom Color"}
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Floating Opponent Color Picker Panel */}
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 opacity-0 pointer-events-none group-hover/opponentcolor:opacity-100 group-hover/opponentcolor:pointer-events-auto transition-all duration-200 bg-[#0e0f13]/98 border border-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] backdrop-blur-md z-55 flex flex-col gap-2 min-w-[160px] sm:min-w-[190px]">
+                        <div className="flex flex-col gap-0.5 border-b border-white/5 pb-1.5 mb-1 text-right">
+                          <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">
+                            {lang === "id" ? "WARNA TIM LAWAN" : "OPPONENT CLUB COLOR"}
+                          </span>
+                          <span className="text-white font-extrabold text-[9px] sm:text-[10px]">
+                            {lang === "id" ? "Preset Klub / Custom" : "Club Presets / Custom"}
+                          </span>
+                        </div>
+
+                        {/* Colors Grid */}
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[
+                            { name: "Chelsea / Royal", hex: "#1e40af" },
+                            { name: "Man City / Sky", hex: "#38bdf8" },
+                            { name: "Man Utd / Bayern", hex: "#dc2626" },
+                            { name: "Dortmund / Yellow", hex: "#eab308" },
+                            { name: "Celtic / Green", hex: "#10b981" },
+                            { name: "Madrid / White", hex: "#ffffff" },
+                            { name: "Wolves / Orange", hex: "#f97316" },
+                            { name: "Juve / Black", hex: "#171717" },
+                          ].map((preset) => (
+                            <button
+                              key={preset.hex}
+                              onClick={() => setEnemyColor(preset.hex)}
+                              title={preset.name}
+                              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer active:scale-90 relative ${
+                                enemyColor.toLowerCase() === preset.hex.toLowerCase()
+                                  ? "border-red-500 scale-105 shadow-[0_0_10px_rgba(239,68,68,0.4)] z-10"
+                                  : "border-white/10 hover:border-white/30"
+                              }`}
+                              style={{ backgroundColor: preset.hex }}
+                            >
+                              {enemyColor.toLowerCase() === preset.hex.toLowerCase() && (
+                                <Check className={`w-3 h-3 ${preset.hex === "#ffffff" ? "text-slate-900" : "text-white"}`} strokeWidth={3} />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="border-t border-white/5 my-0.5" />
+
+                        {/* Custom Color Picker Input row */}
+                        <div className="flex items-center justify-between gap-1.5 bg-black/40 border border-white/5 rounded-lg p-1.5">
+                          <span className="text-[8px] sm:text-[9px] font-black text-gray-400 font-mono uppercase">
+                            {enemyColor.toUpperCase()}
+                          </span>
+                          <div className="relative w-6 h-6 rounded-md border border-white/20 overflow-hidden cursor-pointer" style={{ backgroundColor: enemyColor }}>
+                            <input
+                              type="color"
+                              value={enemyColor}
+                              onChange={(e) => setEnemyColor(e.target.value)}
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <Palette className={`w-3 h-3 ${enemyColor === "#ffffff" ? "text-slate-950" : "text-white"}`} />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -2525,6 +3075,7 @@ export default function App() {
             lang={lang}
             managerName={managerName}
             managerPhoto={managerPhoto}
+            isEnemyModeActive={isEnemyModeActive}
           />
 
           {/* AI Coach integration */}
