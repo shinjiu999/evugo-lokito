@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Player, TacticalItem, DrawingStroke, AnimationFrame } from "../types";
-import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Maximize2, Minimize2, Layers, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
+import { Player, TacticalItem, DrawingStroke, AnimationFrame, PitchTheme } from "../types";
+import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Redo, Maximize2, Minimize2, Layers, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 import { soundManager } from "../utils/sound";
 
 interface PitchProps {
@@ -34,7 +34,7 @@ interface PitchProps {
     id1OriginalCoords: { x: number; y: number },
     id2OriginalCoords: { x: number; y: number }
   ) => void;
-  pitchTheme?: "emerald-grass" | "neon-hologram" | "dark-slate" | "aurora-stadium";
+  pitchTheme?: PitchTheme;
   frames?: AnimationFrame[];
   activeFrameIndex?: number;
   showMovementTrails?: boolean;
@@ -177,9 +177,22 @@ export default function Pitch({
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [redoHistory, setRedoHistory] = useState<DrawingStroke[]>([]);
   const [lastPoint, setLastPoint] = useState<{ x: number; y: number } | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<"player" | "item" | null>(null);
+
+  // RAF throttling refs for ultra-smooth drag-and-drop tracking
+  const rafIdRef = useRef<number | null>(null);
+  const latestCoordsRef = useRef<{ clientX: number; clientY: number } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
   
   // --- LAYER MANAGER STATE INTEGRATION & FALLBACKS ---
   const [localActiveLayer, setLocalActiveLayer] = useState<number>(1);
@@ -659,6 +672,9 @@ export default function Pitch({
   const getRoleThemeColor = (role: string) => {
     if (pitchTheme === "neon-hologram") return "#22d3ee";
     if (pitchTheme === "aurora-stadium") return "#f472b6";
+    if (pitchTheme === "midnight-ice") return "#38bdf8";
+    if (pitchTheme === "sunset-arena") return "#fbbf24";
+    if (pitchTheme === "tactical-board") return "#4ade80";
     if (role === "GK") return "#f59e0b";
     if (role === "DEF") return "#10b981";
     if (role === "MID") return "#3b82f6";
@@ -1155,6 +1171,7 @@ export default function Pitch({
   const handleMouseDown = (e: ReactMouseEvent<HTMLCanvasElement>) => {
     if (activeTool !== "draw" || isDrawLocked) return;
     setIsDrawing(true);
+    setRedoHistory([]);
     soundManager.playScribble();
     const container = pitchRef.current;
     if (!container) return;
@@ -1232,7 +1249,11 @@ export default function Pitch({
   // --- TOUCH SUPPORT DRAWING ---
   const handleTouchStart = (e: ReactTouchEvent<HTMLCanvasElement>) => {
     if (activeTool !== "draw" || e.touches.length !== 1 || isDrawLocked) return;
+    if (e.cancelable) {
+      e.preventDefault();
+    }
     setIsDrawing(true);
+    setRedoHistory([]);
     soundManager.playScribble();
     const container = pitchRef.current;
     if (!container) return;
@@ -1264,6 +1285,9 @@ export default function Pitch({
 
   const handleTouchMove = (e: ReactTouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing || activeTool !== "draw" || !lastPoint || e.touches.length !== 1 || isDrawLocked) return;
+    if (e.cancelable) {
+      e.preventDefault();
+    }
     
     const container = pitchRef.current;
     if (!container) return;
@@ -1377,23 +1401,10 @@ export default function Pitch({
     soundManager.playClick();
   };
 
-  const handleContainerMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
+  const processDragMove = (clientX: number, clientY: number) => {
     if (!draggedId || !draggedType || activeTool !== "select") return;
     const container = pitchRef.current;
     if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const clientX = e.clientX;
-    const clientY = e.clientY;
-
-    // Clear hold timer if moved significantly
-    if (clickStartInfo && draggedId === clickStartInfo.id && longPressTimerRef.current) {
-      const dist = Math.hypot(clientX - clickStartInfo.x, clientY - clickStartInfo.y);
-      if (dist > 8) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
-    }
 
     // Convert to percentage coordinate limits
     const coords = getZoomedCoordinates(clientX, clientY);
@@ -1434,12 +1445,45 @@ export default function Pitch({
     }
   };
 
+  const handleContainerMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
+    if (!draggedId || !draggedType || activeTool !== "select") return;
+    const container = pitchRef.current;
+    if (!container) return;
+
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    // Clear hold timer if moved significantly
+    if (clickStartInfo && draggedId === clickStartInfo.id && longPressTimerRef.current) {
+      const dist = Math.hypot(clientX - clickStartInfo.x, clientY - clickStartInfo.y);
+      if (dist > 8) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+
+    latestCoordsRef.current = { clientX, clientY };
+
+    if (!rafIdRef.current) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        if (!latestCoordsRef.current || !draggedId) return;
+        const { clientX: targetX, clientY: targetY } = latestCoordsRef.current;
+        processDragMove(targetX, targetY);
+      });
+    }
+  };
+
   const handleContainerTouchMove = (e: ReactTouchEvent<HTMLDivElement>) => {
     if (!draggedId || !draggedType || activeTool !== "select" || e.touches.length !== 1) return;
     const container = pitchRef.current;
     if (!container) return;
 
-    const rect = container.getBoundingClientRect();
+    // Prevent screen scroll and make drag feel responsive & sticky on touch screens
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+
     const clientX = e.touches[0].clientX;
     const clientY = e.touches[0].clientY;
 
@@ -1452,45 +1496,25 @@ export default function Pitch({
       }
     }
 
-    const coords = getZoomedCoordinates(clientX, clientY);
-    const rawX = coords.percentX;
-    const rawY = coords.percentY;
+    latestCoordsRef.current = { clientX, clientY };
 
-    if (draggedType === "player") {
-      // Apply the precise grab offset
-      const adjustedX = rawX + dragOffset.x;
-      const adjustedY = rawY + dragOffset.y;
-
-      const precision = isSnapToGrid ? 1 : 3;
-      const x = Math.max(2, Math.min(98, parseFloat(adjustedX.toFixed(precision))));
-      const y = Math.max(2, Math.min(98, parseFloat(adjustedY.toFixed(precision))));
-
-      // Find nearest starting player (different from current dragged player)
-      let targetId: string | null = null;
-      let nearestDist = isSnapToGrid ? 9 : 3; // Tight threshold in free mode so player swaps don't trigger too early/magnetically
-      starters.forEach((starter) => {
-        if (starter.id !== draggedId) {
-          const dist = Math.hypot(starter.x - x, starter.y - y);
-          if (dist < nearestDist) {
-            nearestDist = dist;
-            targetId = starter.id;
-          }
-        }
+    if (!rafIdRef.current) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        if (!latestCoordsRef.current || !draggedId) return;
+        const { clientX: targetX, clientY: targetY } = latestCoordsRef.current;
+        processDragMove(targetX, targetY);
       });
-      setActiveSwapTargetId(targetId);
-
-      onUpdatePlayerPosition(draggedId, x, y);
-    } else {
-      const adjustedX = rawX + dragOffset.x;
-      const adjustedY = rawY + dragOffset.y;
-      const precision = isSnapToGrid ? 1 : 3;
-      const x = Math.max(-10, Math.min(110, parseFloat(adjustedX.toFixed(precision))));
-      const y = Math.max(-10, Math.min(110, parseFloat(adjustedY.toFixed(precision))));
-      onUpdateItemPosition(draggedId, x, y);
     }
   };
 
   const handleDragEnd = (e?: ReactMouseEvent | ReactTouchEvent | MouseEvent | TouchEvent) => {
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    latestCoordsRef.current = null;
+
     // Always clear the mobile long-press timer on drag end
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
@@ -1722,27 +1746,46 @@ export default function Pitch({
   const coneSize = Math.max(15, Math.min(26, Math.round(24 * scaleFactor)));
   
   let lineStroke = "#ffffff";
-  let lineOpacity = 0.5;
+  let lineOpacity = 0.55;
   let useGlow = false;
-  let pitchWrapperClass = "border-slate-900 bg-emerald-950 shadow-2xl";
+  let pitchWrapperClass = "border-slate-800 bg-[#0b2b14] shadow-2xl";
 
   if (theme === "emerald-grass") {
     lineStroke = "#ffffff";
-    lineOpacity = 0.55;
+    lineOpacity = 0.6;
     pitchWrapperClass = "border-slate-800 shadow-2xl bg-[#0b2b14]";
+  } else if (theme === "premier-pitch") {
+    lineStroke = "#ffffff";
+    lineOpacity = 0.75;
+    pitchWrapperClass = "border-emerald-700/80 ring-2 ring-emerald-500/20 shadow-[0_15px_40px_rgba(4,47,20,0.5)] bg-[#072410]";
   } else if (theme === "neon-hologram") {
     lineStroke = "#22d3ee";
     lineOpacity = 0.85;
     useGlow = true;
-    pitchWrapperClass = "border-cyan-500/80 ring-2 ring-cyan-500/20 shadow-[0_0_25px_rgba(6,182,212,0.2)] bg-[#020617]";
+    pitchWrapperClass = "border-cyan-500/80 ring-2 ring-cyan-500/25 shadow-[0_0_30px_rgba(6,182,212,0.3)] bg-[#020617]";
   } else if (theme === "dark-slate") {
     lineStroke = "#cbd5e1";
-    lineOpacity = 0.35;
-    pitchWrapperClass = "border-zinc-700 shadow-xl bg-[#0f172a]";
+    lineOpacity = 0.4;
+    pitchWrapperClass = "border-slate-700/80 shadow-2xl bg-[#0f172a]";
+  } else if (theme === "tactical-board") {
+    lineStroke = "#f1f5f9";
+    lineOpacity = 0.65;
+    pitchWrapperClass = "border-[#78350f]/80 ring-2 ring-[#b45309]/30 shadow-[0_15px_35px_rgba(0,0,0,0.6)] bg-[#14281f]";
+  } else if (theme === "midnight-ice") {
+    lineStroke = "#38bdf8";
+    lineOpacity = 0.8;
+    useGlow = true;
+    pitchWrapperClass = "border-sky-500/80 ring-2 ring-sky-500/25 shadow-[0_0_30px_rgba(56,189,248,0.25)] bg-[#030914]";
   } else if (theme === "aurora-stadium") {
     lineStroke = "#f472b6";
-    lineOpacity = 0.7;
-    pitchWrapperClass = "border-purple-600/80 ring-2 ring-purple-500/10 shadow-[0_0_20px_rgba(168,85,247,0.15)] bg-[#090518]";
+    lineOpacity = 0.75;
+    useGlow = true;
+    pitchWrapperClass = "border-purple-600/80 ring-2 ring-purple-500/25 shadow-[0_0_30px_rgba(168,85,247,0.25)] bg-[#090518]";
+  } else if (theme === "sunset-arena") {
+    lineStroke = "#fbbf24";
+    lineOpacity = 0.75;
+    useGlow = true;
+    pitchWrapperClass = "border-amber-600/80 ring-2 ring-amber-500/25 shadow-[0_0_30px_rgba(245,158,11,0.25)] bg-[#1c0a02]";
   }
 
   const isMobileDrawActive = isMobile && activeTool === "draw";
@@ -1862,6 +1905,23 @@ export default function Pitch({
               </div>
             )}
 
+            {theme === "premier-pitch" && (
+              <div className="absolute inset-0 opacity-95 pointer-events-none z-0">
+                <div
+                  className="w-full h-full"
+                  style={{
+                    background: `
+                      repeating-linear-gradient(0deg, #0e3d1c, #0e3d1c 6.25%, #134e24 6.25%, #134e24 12.5%),
+                      repeating-linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.06) 12.5%, transparent 12.5%, transparent 25%)
+                    `
+                  }}
+                />
+                {/* Stadium Floodlights Glow Effect at top and corners */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.22),transparent_60%),radial-gradient(circle_at_15%_15%,rgba(255,255,255,0.15),transparent_45%),radial-gradient(circle_at_85%_15%,rgba(255,255,255,0.15),transparent_45%)]" />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40" />
+              </div>
+            )}
+
             {theme === "neon-hologram" && (
               <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
                 <div
@@ -1900,6 +1960,45 @@ export default function Pitch({
               </div>
             )}
 
+            {theme === "tactical-board" && (
+              <div className="absolute inset-0 pointer-events-none z-0">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#183126] via-[#13281f] to-[#0f1f18]" />
+                <div
+                  className="w-full h-full opacity-10"
+                  style={{
+                    backgroundImage: `radial-gradient(circle_at 25% 25%, rgba(255,255,255,0.3) 1px, transparent 1px), radial-gradient(circle_at 75% 75%, rgba(255,255,255,0.2) 1px, transparent 1px)`,
+                    backgroundSize: "24px 24px"
+                  }}
+                />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.04),transparent_70%)]" />
+                <div className="absolute top-3 right-4 font-mono text-[8px] text-emerald-300/30 font-bold uppercase tracking-widest select-none">
+                  TACTICAL MASTER
+                </div>
+              </div>
+            )}
+
+            {theme === "midnight-ice" && (
+              <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-b from-[#030d1c] via-[#051733] to-[#020914]" />
+                <div 
+                  className="absolute inset-0 opacity-25 bg-[radial-gradient(circle_at_50%_20%,#0284c7,transparent_60%),radial-gradient(circle_at_50%_80%,#0369a1,transparent_60%)] filter blur-2xl" 
+                />
+                <div
+                  className="w-full h-full opacity-10"
+                  style={{
+                    backgroundImage: `
+                      linear-gradient(to right, #38bdf8 1px, transparent 1px),
+                      linear-gradient(to bottom, #38bdf8 1px, transparent 1px)
+                    `,
+                    backgroundSize: "28px 28px"
+                  }}
+                />
+                <div className="absolute top-2.5 left-3.5 font-mono text-[7px] text-sky-400/40 uppercase tracking-widest">
+                  FROST ARENA // 0°C
+                </div>
+              </div>
+            )}
+
             {theme === "aurora-stadium" && (
               <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#0c0528] via-[#020010] to-[#030005]" />
@@ -1917,6 +2016,29 @@ export default function Pitch({
                     backgroundSize: "40px 40px"
                   }}
                 />
+              </div>
+            )}
+
+            {theme === "sunset-arena" && (
+              <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#2a0e05] via-[#1a0803] to-[#0d0401]" />
+                <div 
+                  className="absolute inset-0 opacity-35 bg-[radial-gradient(circle_at_50%_0%,#ea580c,transparent_65%),radial-gradient(circle_at_50%_100%,#b45309,transparent_70%)] filter blur-2xl animate-pulse"
+                  style={{ animationDuration: "8s" }}
+                />
+                <div
+                  className="w-full h-full opacity-[0.05]"
+                  style={{
+                    backgroundImage: `
+                      linear-gradient(to right, #f59e0b 1px, transparent 1px),
+                      linear-gradient(to bottom, #d97706 1px, transparent 1px)
+                    `,
+                    backgroundSize: "32px 32px"
+                  }}
+                />
+                <div className="absolute top-2.5 right-3.5 font-mono text-[7px] text-amber-400/40 uppercase tracking-widest">
+                  GOLDEN HOUR STADIUM
+                </div>
               </div>
             )}
           </>
@@ -1944,6 +2066,12 @@ export default function Pitch({
           
           {/* Pitch borders */}
           <rect x="3" y="3" width="94" height="94" fill="none" stroke={lineStroke} strokeWidth="0.6" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+          
+          {/* Corner arcs (FIFA regulations: corner quadrants) */}
+          <path d="M 3 5.5 A 2.5 2.5 0 0 0 5.5 3" fill="none" stroke={lineStroke} strokeWidth="0.5" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+          <path d="M 94.5 3 A 2.5 2.5 0 0 0 97 5.5" fill="none" stroke={lineStroke} strokeWidth="0.5" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+          <path d="M 3 94.5 A 2.5 2.5 0 0 1 5.5 97" fill="none" stroke={lineStroke} strokeWidth="0.5" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
+          <path d="M 94.5 97 A 2.5 2.5 0 0 1 97 94.5" fill="none" stroke={lineStroke} strokeWidth="0.5" filter={useGlow ? "url(#neon-line-glow)" : "none"} />
           
            {/* Halfway line & sports markings dynamically adjusted based on active arena (sportMode) */}
           {sportMode === "futsal" ? (
@@ -2316,10 +2444,14 @@ export default function Pitch({
                     left: `${player.x}%`,
                     top: `${player.y}%`
                   }}
-                  transition={{
-                    ...dynamicTransition,
-                    layout: { duration: 0.2 }
-                  }}
+                  transition={
+                    draggedId === player.id
+                      ? { type: "tween", duration: 0 }
+                      : {
+                          ...dynamicTransition,
+                          layout: { duration: 0.2 }
+                        }
+                  }
                   onMouseDown={(e) => handleDragStart(e, player.id, "player")}
                   onTouchStart={(e) => handleDragStart(e, player.id, "player")}
                   onDoubleClick={() => onDblClickPlayer(player.id)}
@@ -2349,8 +2481,8 @@ export default function Pitch({
 
                   {/* Jersey Element or Avatar Picture */}
                   <div
-                    className={`relative rounded-full border-2 border-black/50 shadow-lg flex items-center justify-center transition-all ${
-                      isSelected ? "scale-115 ring-2 ring-blue-500 border-blue-500" : ""
+                    className={`relative rounded-full border-2 border-white/20 shadow-xl flex items-center justify-center transition-all overflow-hidden ${
+                      isSelected ? "scale-115 ring-2 ring-blue-500 border-blue-400" : ""
                     } ${
                       selectedSubPlayerId === player.id
                         ? "scale-120 border-amber-400 ring-4 ring-amber-400/80 shadow-[0_0_25px_rgba(245,158,11,0.95)]"
@@ -2362,9 +2494,15 @@ export default function Pitch({
                       width: `${jerseySize}px`,
                       height: `${jerseySize}px`,
                       backgroundColor: player.photo ? "#15151a" : currentBg,
-                      color: player.photo ? "#fff" : numberColor
+                      color: player.photo ? "#fff" : numberColor,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.5), inset 0 2px 3px rgba(255,255,255,0.25), inset 0 -2px 3px rgba(0,0,0,0.35)"
                     }}
                   >
+                    {/* Top-down 3D gloss shine */}
+                    {!player.photo && (
+                      <div className="absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-black/30 pointer-events-none rounded-full" />
+                    )}
+
                     {selectedSubPlayerId === player.id && (
                       <div className="absolute inset-0 rounded-full ring-4 ring-amber-400 animate-ping opacity-60 pointer-events-none" />
                     )}
@@ -2382,7 +2520,7 @@ export default function Pitch({
                       />
                     ) : (
                       <span
-                        className="font-extrabold pointer-events-none select-none"
+                        className="font-extrabold pointer-events-none select-none relative z-10 drop-shadow-sm"
                         style={{ fontSize: `${fontSize}px` }}
                       >
                         {player.number}
@@ -2391,7 +2529,7 @@ export default function Pitch({
 
                     {/* Small number overlay badge if profile image avatar exists */}
                     {player.photo && (
-                      <span className="absolute -bottom-1 -right-1 text-[8px] font-black w-4.5 h-4.5 bg-[#0a0a0c] border border-white/10 text-blue-400 rounded-full flex items-center justify-center select-none shadow">
+                      <span className="absolute -bottom-1 -right-1 text-[8px] font-black w-4.5 h-4.5 bg-[#0a0a0c] border border-white/10 text-blue-400 rounded-full flex items-center justify-center select-none shadow z-20">
                         {player.number}
                       </span>
                     )}
@@ -2458,7 +2596,11 @@ export default function Pitch({
                      left: `${item.x}%`,
                      top: `${item.y}%`
                    }}
-                   transition={dynamicTransition}
+                   transition={
+                     draggedId === item.id
+                       ? { type: "tween", duration: 0 }
+                       : dynamicTransition
+                   }
                    onMouseDown={(e) => handleDragStart(e, item.id, "item")}
                    onTouchStart={(e) => handleDragStart(e, item.id, "item")}
                    onDoubleClick={() => onRemoveItem(item.id)}
@@ -3093,7 +3235,7 @@ export default function Pitch({
           onTouchStart={(e) => e.stopPropagation()}
           className={`${
             isMobileDrawActive
-              ? "fixed top-3 left-1/2 -translate-x-1/2 flex-row w-[96%] max-w-[500px] h-14 px-2.5 py-1 justify-between gap-1"
+              ? "fixed top-3 left-1/2 -translate-x-1/2 flex-row w-[96%] max-w-[500px] h-14 px-2.5 py-1 justify-between gap-1 overflow-x-auto scrollbar-none"
               : "relative flex flex-col w-11 sm:w-14 h-auto p-1.5 gap-1.5"
           } z-[160] flex items-center bg-[#0b0c10]/95 border border-white/10 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md animate-fade-in shrink-0`}
         >
@@ -3134,14 +3276,35 @@ export default function Pitch({
           {/* UNDO BUTTON */}
           <button
             onClick={() => {
-              setDrawHistory((prev) => prev.slice(0, -1));
+              if (drawHistory.length > 0) {
+                const lastStroke = drawHistory[drawHistory.length - 1];
+                setRedoHistory((prev) => [...prev, lastStroke]);
+                setDrawHistory((prev) => prev.slice(0, -1));
+              }
               soundManager.playClick();
             }}
             disabled={drawHistory.length === 0}
             className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5 shrink-0"
-            title={lang === "id" ? "Batal" : "Undo"}
+            title={lang === "id" ? "Batal (Undo)" : "Undo"}
           >
             <Undo className="w-4 h-4" />
+          </button>
+
+          {/* REDO BUTTON */}
+          <button
+            onClick={() => {
+              if (redoHistory.length > 0) {
+                const nextStroke = redoHistory[redoHistory.length - 1];
+                setRedoHistory((prev) => prev.slice(0, -1));
+                setDrawHistory((prev) => [...prev, nextStroke]);
+              }
+              soundManager.playClick();
+            }}
+            disabled={redoHistory.length === 0}
+            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5 shrink-0"
+            title={lang === "id" ? "Ulangi (Redo)" : "Redo"}
+          >
+            <Redo className="w-4 h-4" />
           </button>
 
           {/* CLEAR ALL BUTTON */}

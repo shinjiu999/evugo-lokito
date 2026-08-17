@@ -42,6 +42,16 @@ export interface DrawingStroke {
   layer?: number; // 1, 2, or 3 for multi-layer drawings
 }
 
+export type PitchTheme =
+  | "emerald-grass"
+  | "premier-pitch"
+  | "neon-hologram"
+  | "dark-slate"
+  | "tactical-board"
+  | "midnight-ice"
+  | "aurora-stadium"
+  | "sunset-arena";
+
 export interface TacticalPlay {
   title: string;
   description: string;

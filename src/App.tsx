@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Player, TacticalItem, DrawingStroke, AnimationFrame, TacticalPlay } from "./types";
+import { Player, TacticalItem, DrawingStroke, AnimationFrame, TacticalPlay, PitchTheme } from "./types";
 import Pitch from "./components/Pitch";
 import AICoach from "./components/AICoach";
 import AIFormationImageGenerator from "./components/AIFormationImageGenerator";
@@ -518,6 +518,7 @@ export default function App() {
   const [items, setItems] = useState<TacticalItem[]>(DEFAULT_ITEMS);
   const [isEnemyModeActive, setIsEnemyModeActive] = useState<boolean>(false);
   const [showEnemyDropdown, setShowEnemyDropdown] = useState<boolean>(false);
+  const [opponentFormation, setOpponentFormation] = useState<string>("custom");
   const [preEnemyTeamPositions, setPreEnemyTeamPositions] = useState<Record<string, { x: number; y: number }>>({});
 
   const handleAddBenchDirect = (name: string, num: number, role: "GK" | "DEF" | "MID" | "FWD") => {
@@ -557,7 +558,7 @@ export default function App() {
 
   // Custom textures backdrop URL
   const [customBackgroundUrl, setCustomBackgroundUrl] = useState<string | null>(null);
-  const [pitchTheme, setPitchTheme] = useState<"emerald-grass" | "neon-hologram" | "dark-slate" | "aurora-stadium">("emerald-grass");
+  const [pitchTheme, setPitchTheme] = useState<PitchTheme>("emerald-grass");
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showFormationMenu, setShowFormationMenu] = useState(false);
@@ -683,6 +684,7 @@ export default function App() {
 
       // 3. Spawn enemies in the correct default formation for chosen sport
       const defaultOpponentFormation = getDefaultFormationForSport(sportMode);
+      setOpponentFormation(defaultOpponentFormation);
       handleSpawnEnemyTeam(defaultOpponentFormation);
     } else {
       // Remove enemies
@@ -710,6 +712,7 @@ export default function App() {
   useEffect(() => {
     if (isEnemyModeActive) {
       const defaultOpponentFormation = getDefaultFormationForSport(sportMode);
+      setOpponentFormation(defaultOpponentFormation);
       handleSpawnEnemyTeam(defaultOpponentFormation);
     }
   }, [sportMode, customCount, isEnemyModeActive]);
@@ -942,6 +945,32 @@ export default function App() {
     };
     setFrames((prev) => [...prev, newFrame]);
     setActiveFrameIndex(frames.length);
+  };
+
+  const handleDeleteFrame = (idx: number) => {
+    if (frames.length <= 1) return;
+    const updatedFrames = frames.filter((_, i) => i !== idx);
+    // Rename remaining frames so Fasa indices match correctly and look high quality
+    const renamedFrames = updatedFrames.map((f, i) => {
+      if (f.name.startsWith("Fasa ") || f.name.startsWith("Phase ")) {
+        const colonIdx = f.name.indexOf(":");
+        const rest = colonIdx !== -1 ? f.name.substring(colonIdx + 1) : "";
+        return {
+          ...f,
+          name: lang === "id" ? `Fasa ${i + 1}:${rest}` : `Phase ${i + 1}:${rest}`
+        };
+      }
+      return f;
+    });
+    setFrames(renamedFrames);
+    if (activeFrameIndex >= renamedFrames.length) {
+      setActiveFrameIndex(renamedFrames.length - 1);
+    } else if (activeFrameIndex === idx) {
+      setActiveFrameIndex(Math.max(0, idx - 1));
+    } else if (activeFrameIndex > idx) {
+      setActiveFrameIndex(activeFrameIndex - 1);
+    }
+    soundManager.playClick();
   };
 
   // Integrate AI responses from Express Google Omni client
@@ -1370,6 +1399,7 @@ export default function App() {
   };
 
   const handleSpawnEnemyTeam = (formationType: string) => {
+    setOpponentFormation(formationType);
     setItems((prev) => prev.filter((item) => item.type !== "enemy"));
 
     let enemyPositions: { x: number; y: number }[] = [];
@@ -1402,11 +1432,87 @@ export default function App() {
       };
     });
 
-    setItems((prev) => [...prev, ...newEnemies]);
+    setItems((prev) => {
+      const combined = [...prev, ...newEnemies];
+      setFrames((fPrev) => {
+        const fUpdated = [...fPrev];
+        if (fUpdated[activeFrameIndex]) {
+          fUpdated[activeFrameIndex].items = combined.map((i) => ({ id: i.id, x: i.x, y: i.y }));
+        }
+        return fUpdated;
+      });
+      return combined;
+    });
+  };
+
+  const handleRebalanceEnemies = () => {
+    const currentFormation = opponentFormation || getDefaultFormationForSport(sportMode);
+    const existingEnemies = items.filter((item) => item.type === "enemy");
+
+    let enemyPositions: { x: number; y: number }[] = [];
+    const modeFormations = SPORT_FORMATIONS[sportMode];
+
+    // Check if the current formation is standard and count matches
+    const isStandardFormation = modeFormations && modeFormations[currentFormation];
+    const standardCount = isStandardFormation ? modeFormations[currentFormation].length : 0;
+
+    if (isStandardFormation && existingEnemies.length === standardCount) {
+      enemyPositions = modeFormations[currentFormation].map((coord) => ({
+        x: coord.x,
+        y: 100 - coord.y
+      }));
+    } else {
+      // Symmetrically balance based on the current number of enemy players
+      const count = existingEnemies.length > 0 ? existingEnemies.length : getSportModeLimit();
+      const coords = getBalancedEnemyPositionsForCount(count);
+      enemyPositions = coords.map((pos) => ({ x: pos.x, y: pos.y }));
+    }
+
+    // Now map the positions to existing enemies to preserve ids/numbers/etc
+    if (existingEnemies.length === 0) {
+      // If there are no enemies, spawn them fresh
+      handleSpawnEnemyTeam(currentFormation);
+    } else {
+      // Map one-by-one
+      const updatedItems = items.map((item) => {
+        if (item.type !== "enemy") return item;
+        const idx = existingEnemies.findIndex((e) => e.id === item.id);
+        if (idx !== -1 && enemyPositions[idx]) {
+          const pos = enemyPositions[idx];
+          const finalY = isEnemyModeActive 
+            ? parseFloat(((pos.y / 100) * 40 + 6).toFixed(1)) 
+            : pos.y;
+          return {
+            ...item,
+            x: pos.x,
+            y: finalY
+          };
+        }
+        return item;
+      });
+      setItems(updatedItems);
+      setFrames((fPrev) => {
+        const fUpdated = [...fPrev];
+        if (fUpdated[activeFrameIndex]) {
+          fUpdated[activeFrameIndex].items = updatedItems.map((i) => ({ id: i.id, x: i.x, y: i.y }));
+        }
+        return fUpdated;
+      });
+    }
   };
 
   const handleClearAllEnemies = () => {
-    setItems((prev) => prev.filter((item) => item.type !== "enemy"));
+    setItems((prev) => {
+      const filtered = prev.filter((item) => item.type !== "enemy");
+      setFrames((fPrev) => {
+        const fUpdated = [...fPrev];
+        if (fUpdated[activeFrameIndex]) {
+          fUpdated[activeFrameIndex].items = filtered.map((i) => ({ id: i.id, x: i.x, y: i.y }));
+        }
+        return fUpdated;
+      });
+      return filtered;
+    });
   };
 
   const handleSavePlayerEdit = (id: string, updated: Partial<Player>) => {
@@ -2013,41 +2119,53 @@ export default function App() {
                   >
                     <span className="text-sm sm:text-base shrink-0">
                       {pitchTheme === "emerald-grass" && "🌿"}
+                      {pitchTheme === "premier-pitch" && "🏟️"}
                       {pitchTheme === "neon-hologram" && "⚡"}
                       {pitchTheme === "dark-slate" && "📓"}
+                      {pitchTheme === "tactical-board" && "📋"}
+                      {pitchTheme === "midnight-ice" && "❄️"}
                       {pitchTheme === "aurora-stadium" && "🌌"}
+                      {pitchTheme === "sunset-arena" && "🌅"}
                     </span>
                   </button>
 
                   {/* Floating tooltip showing the current active style name */}
                   {!showThemeDropdown && (
                     <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 opacity-0 group-hover/themeselect:opacity-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-gray-200 backdrop-blur-md whitespace-nowrap z-50">
-                      {pitchTheme === "emerald-grass" && (lang === "id" ? "Padang Klasik" : "Classic Grass")}
-                      {pitchTheme === "neon-hologram" && (lang === "id" ? "Hologram Neon" : "Neon Hologram")}
-                      {pitchTheme === "dark-slate" && (lang === "id" ? "Taktis Gelap" : "Dark Tactical Slate")}
-                      {pitchTheme === "aurora-stadium" && (lang === "id" ? "Stadion Aurora" : "Aurora Stadium")}
+                      {pitchTheme === "emerald-grass" && (lang === "id" ? "Padang Rumput Hijau" : "Classic Grass")}
+                      {pitchTheme === "premier-pitch" && (lang === "id" ? "Stadion Premier Rumput Strip" : "Premier Pitch")}
+                      {pitchTheme === "neon-hologram" && (lang === "id" ? "Hologram Laser Cyber" : "Neon Hologram")}
+                      {pitchTheme === "dark-slate" && (lang === "id" ? "Papan Taktis Gelap" : "Dark Tactical Slate")}
+                      {pitchTheme === "tactical-board" && (lang === "id" ? "Papan Chalkboard Master" : "Master Board")}
+                      {pitchTheme === "midnight-ice" && (lang === "id" ? "Arena Frost Es Dingin" : "Midnight Frost")}
+                      {pitchTheme === "aurora-stadium" && (lang === "id" ? "Stadion Aurora Kosmik" : "Aurora Stadium")}
+                      {pitchTheme === "sunset-arena" && (lang === "id" ? "Arena Sunset Senja Emas" : "Golden Sunset")}
                     </div>
                   )}
 
                   {showThemeDropdown && (
-                    <div className="absolute left-0 top-full mt-1.5 w-42 sm:w-48 bg-[#0b0c10]/95 border border-white/[0.12] rounded-xl sm:rounded-2xl shadow-2xl z-55 overflow-hidden flex flex-col gap-0.5 p-1 animate-fadeIn backdrop-blur-md max-h-48 overflow-y-auto" role="menu">
+                    <div className="absolute left-0 top-full mt-1.5 w-44 sm:w-52 bg-[#0b0c10]/95 border border-white/[0.12] rounded-xl sm:rounded-2xl shadow-2xl z-55 overflow-hidden flex flex-col gap-0.5 p-1 animate-fadeIn backdrop-blur-md max-h-60 overflow-y-auto" role="menu">
                       {[
-                        { key: "emerald-grass", label: lang === "id" ? "Padang Klasik" : "Classic Grass", icon: "🌿" },
-                        { key: "neon-hologram", label: lang === "id" ? "Hologram Neon" : "Neon Hologram", icon: "⚡" },
-                        { key: "dark-slate", label: lang === "id" ? "Taktis Gelap" : "Dark Tactical Slate", icon: "📓" },
-                        { key: "aurora-stadium", label: lang === "id" ? "Stadion Aurora" : "Aurora Stadium", icon: "🌌" }
+                        { key: "emerald-grass", label: lang === "id" ? "Padang Hijau" : "Classic Grass", icon: "🌿" },
+                        { key: "premier-pitch", label: lang === "id" ? "Stadion Premier" : "Premier Pitch", icon: "🏟️" },
+                        { key: "neon-hologram", label: lang === "id" ? "Hologram Cyber" : "Neon Hologram", icon: "⚡" },
+                        { key: "dark-slate", label: lang === "id" ? "Taktis Gelap" : "Dark Slate", icon: "📓" },
+                        { key: "tactical-board", label: lang === "id" ? "Papan Chalkboard" : "Tactical Board", icon: "📋" },
+                        { key: "midnight-ice", label: lang === "id" ? "Frost Es Dingin" : "Midnight Ice", icon: "❄️" },
+                        { key: "aurora-stadium", label: lang === "id" ? "Stadion Aurora" : "Aurora Stadium", icon: "🌌" },
+                        { key: "sunset-arena", label: lang === "id" ? "Sunset Senja Emas" : "Golden Sunset", icon: "🌅" }
                       ].map((th) => {
                         const isActive = pitchTheme === th.key;
                         return (
                           <button
                             key={th.key}
                             onClick={() => {
-                              setPitchTheme(th.key as any);
+                              setPitchTheme(th.key as PitchTheme);
                               setShowThemeDropdown(false);
                             }}
                             className={`w-full text-left px-2 py-1.5 sm:py-2 rounded-lg text-[9.5px] sm:text-[11px] font-bold flex items-center gap-2 cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                               isActive
-                                ? "bg-blue-650/25 border border-blue-550/30 text-blue-300"
+                                ? "bg-blue-600/25 border border-blue-500/30 text-blue-300"
                                 : "bg-transparent border border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
                             }`}
                             role="menuitem"
@@ -2601,6 +2719,18 @@ export default function App() {
                         </div>
 
                         <div className="border-t border-white/5 my-0.5" />
+
+                        <button
+                          onClick={() => {
+                            handleRebalanceEnemies();
+                            setShowEnemyDropdown(false);
+                          }}
+                          className="w-full px-2 py-1.5 bg-[#10192e]/80 hover:bg-[#162544] text-blue-400 hover:text-blue-300 rounded-lg border border-blue-500/20 text-[8.5px] sm:text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                        >
+                          🔄 {lang === "id" ? "SEIMBANGKAN" : "RE-BALANCE"}
+                        </button>
+
+                        <div className="border-t border-white/5 my-0.5" />
                         
                         <button
                           onClick={() => {
@@ -2935,6 +3065,67 @@ export default function App() {
                       </div>
                     </div>
 
+                    {/* Team Kit Presets Quick Palette Selector */}
+                    <div className="relative group/kitpresets shrink-0">
+                      <button
+                        type="button"
+                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0"
+                        title={lang === "id" ? "Preset Warna Kostum Tim" : "Team Kit Color Presets"}
+                      >
+                        <Palette className="w-3.5 h-3.5 md:w-5 md:h-5 text-indigo-400 group-hover/kitpresets:rotate-45 transition-transform duration-300" />
+                      </button>
+
+                      {/* Floating Team Kit Presets Panel */}
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 opacity-0 pointer-events-none group-hover/kitpresets:opacity-100 group-hover/kitpresets:pointer-events-auto transition-all duration-200 bg-[#0e0f13]/98 border border-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.7)] backdrop-blur-md z-55 flex flex-col gap-2 min-w-[210px] sm:min-w-[240px]">
+                        <div className="flex flex-col gap-0.5 border-b border-white/5 pb-1.5 mb-0.5 text-right">
+                          <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-indigo-400 uppercase">
+                            {lang === "id" ? "PRESET KOSTUM TIM" : "TEAM KIT PRESETS"}
+                          </span>
+                          <span className="text-white font-extrabold text-[9px] sm:text-[10px]">
+                            {lang === "id" ? "Palet Warna Pro Klub" : "Pro Club Color Schemes"}
+                          </span>
+                        </div>
+
+                        {/* Presets List */}
+                        <div className="flex flex-col gap-1 max-h-52 overflow-y-auto pr-0.5">
+                          {[
+                            { name: "Garuda Indonesia", primary: "#dc2626", gk: "#eab308", num: "#ffffff", flag: "🇮🇩" },
+                            { name: "Royal Madrid", primary: "#f8fafc", gk: "#eab308", num: "#0f172a", flag: "⚪" },
+                            { name: "FC Blaugrana", primary: "#1d4ed8", gk: "#10b981", num: "#facc15", flag: "🔵" },
+                            { name: "Sky Citizens", primary: "#38bdf8", gk: "#f97316", num: "#ffffff", flag: "🩵" },
+                            { name: "Selecao Samba", primary: "#eab308", gk: "#18181b", num: "#15803d", flag: "🟡" },
+                            { name: "Bianconeri Noir", primary: "#18181b", gk: "#eab308", num: "#ffffff", flag: "⚫" },
+                            { name: "Cyberpunk Neon", primary: "#9333ea", gk: "#06b6d4", num: "#ffffff", flag: "⚡" },
+                            { name: "Verde Celtic", primary: "#059669", gk: "#d97706", num: "#ffffff", flag: "🟢" }
+                          ].map((kit) => (
+                            <button
+                              key={kit.name}
+                              type="button"
+                              onClick={() => {
+                                setPrimaryColor(kit.primary);
+                                setGkColor(kit.gk);
+                                setNumberColor(kit.num);
+                                soundManager.playClick();
+                              }}
+                              className="w-full flex items-center justify-between p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-indigo-500/30 transition-all text-left group/kitbtn cursor-pointer"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs">{kit.flag}</span>
+                                <span className="text-[9.5px] sm:text-[10px] font-bold text-gray-200 group-hover/kitbtn:text-white truncate">
+                                  {kit.name}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <div className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: kit.primary }} title="Primary" />
+                                <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: kit.gk }} title="GK" />
+                                <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm flex items-center justify-center text-[7px] font-black" style={{ backgroundColor: "#1e293b", color: kit.num }} title="Number">#</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Responsive separation line (divider) */}
                     <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
 
@@ -3074,6 +3265,7 @@ export default function App() {
             setTransitionType={setTransitionType}
             showMovementTrails={showMovementTrails}
             setShowMovementTrails={setShowMovementTrails}
+            onDeleteFrame={handleDeleteFrame}
             lang={lang}
           />
 

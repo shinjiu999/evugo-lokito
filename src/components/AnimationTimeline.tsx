@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimationFrame } from "../types";
-import { Play, Pause, BookmarkPlus, RotateCcw, AlertCircle, Eye, EyeOff, Gauge, Zap, Settings as SettingsIcon } from "lucide-react";
+import { Play, Pause, BookmarkPlus, RotateCcw, AlertCircle, Eye, EyeOff, Gauge, Zap, Settings as SettingsIcon, X } from "lucide-react";
 import { soundManager } from "../utils/sound";
 import Interactive3DCard from "./Interactive3DCard";
 
@@ -11,6 +11,7 @@ interface AnimationTimelineProps {
   onPlayStateChange: (isPlaying: boolean) => void;
   onResetFrames: () => void;
   onSaveCurrentFrameAsNew: () => void;
+  onDeleteFrame?: (idx: number) => void;
   playSpeed: "slow" | "normal" | "fast" | "superfast";
   setPlaySpeed: (speed: "slow" | "normal" | "fast" | "superfast") => void;
   transitionType: "spring" | "linear" | "stealth" | "ease-in-out" | "elastic";
@@ -27,6 +28,7 @@ export default function AnimationTimeline({
   onPlayStateChange,
   onResetFrames,
   onSaveCurrentFrameAsNew,
+  onDeleteFrame,
   playSpeed,
   setPlaySpeed,
   transitionType,
@@ -170,13 +172,29 @@ export default function AnimationTimeline({
             <button
               key={frame.id}
               onClick={() => handleSelectFrame(idx)}
-              className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all shadow-md flex items-center gap-1 whitespace-nowrap shrink-0 border cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all shadow-md flex items-center gap-1.5 whitespace-nowrap shrink-0 border cursor-pointer group ${
                 isActive
                   ? "bg-blue-600 text-white border-blue-400/30 font-bold shadow-[0_0_10px_rgba(37,99,235,0.25)]"
                   : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-gray-300"
               }`}
             >
-              {t.phaseLabel} {idx + 1}
+              <span>{t.phaseLabel} {idx + 1}</span>
+              {frames.length > 1 && onDeleteFrame && (
+                <span
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsPlaying(false);
+                    onDeleteFrame(idx);
+                  }}
+                  className={`p-0.5 rounded-full hover:bg-white/20 transition-all flex items-center justify-center -mr-0.5 ${
+                    isActive ? "text-blue-200 hover:text-white" : "text-gray-500 hover:text-gray-300"
+                  }`}
+                  title={lang === "id" ? "Hapus Fasa" : "Delete Phase"}
+                >
+                  <X className="w-2.5 h-2.5" />
+                </span>
+              )}
             </button>
           );
         })}
