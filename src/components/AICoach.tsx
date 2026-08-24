@@ -300,98 +300,167 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
   };
 
   return (
-    <Interactive3DCard glowColor="rgba(139, 92, 246, 0.45)">
+    <Interactive3DCard glowColor="rgba(16, 185, 129, 0.4)">
       <div className="p-4 flex flex-col gap-4 relative">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg text-white">
-            <BrainCircuit className="w-5 h-5 animate-pulse" />
+        {/* Section 6: Gemini Header & Language Pill */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+              <Sparkles className="w-4.5 h-4.5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 uppercase tracking-wider">
+                  Gemini AI
+                </h3>
+                <span className="text-[8px] bg-emerald-500/15 text-emerald-300 px-1.5 py-0.2 rounded-full border border-emerald-500/30 font-extrabold uppercase">
+                  {lang === "id" ? "✨ Indonesian AI" : "✨ English AI"}
+                </span>
+              </div>
+              <p className="text-[9.5px] text-gray-400 font-medium">{l.hubSubtitle}</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-              {l.hubTitle}
-            </h3>
-            <p className="text-[10px] text-gray-400">{l.hubSubtitle}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 font-mono font-bold uppercase">
-            🤖 {selectedModel}
-          </span>
-          {mcpEnabled && (
-            <span className="text-[9px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 font-mono font-bold uppercase">
-              🔌 MCP
-            </span>
-          )}
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg border border-white/5 transition-all flex items-center justify-center cursor-pointer animate-pulse"
-            title={l.settingsTitle}
-            id="ai-mcp-settings-btn"
-          >
-            <Settings className="w-4 h-4 text-blue-400" />
-          </button>
-        </div>
-      </div>
-
-      {/* Preset selections */}
-      <div className="space-y-1.5">
-        <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block select-none">{l.presetLabel}</span>
-        <div className="grid grid-cols-2 gap-2">
-          {TACTICAL_PRESETS.map((preset) => (
+          <div className="flex items-center gap-1.5">
             <button
-              key={preset.id}
-              onClick={() => handleGenerate(preset.prompt)}
-              disabled={loading}
-              className="text-left bg-white/5 hover:bg-white/10 border border-white/5 hover:border-blue-500/30 rounded-xl p-2 transition-all text-xs text-gray-200 flex flex-col justify-between h-14 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl border border-white/10 transition-all flex items-center justify-center cursor-pointer active:scale-95"
+              title={l.settingsTitle}
+              id="ai-mcp-settings-btn"
             >
-              <span className="font-bold truncate w-full">{preset.label}</span>
-              <span className="text-[8px] text-gray-500 line-clamp-1">{preset.prompt}</span>
+              <Settings className="w-4 h-4 text-emerald-400" />
             </button>
-          ))}
+          </div>
         </div>
-      </div>
 
-      <hr className="border-white/5" aria-hidden="true" />
+        {/* Section 6: AI-Powered Suggestion Highlight Card */}
+        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-950/25 to-[#081812]/70 p-3 flex flex-col gap-2.5 shadow-[0_8px_20px_rgba(16,185,129,0.08)]">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-col">
+              <span className="text-[10.5px] font-black text-white tracking-wide flex items-center gap-1">
+                <span>⚡</span> {lang === "id" ? "Saran Taktis Cerdas" : "AI Tactical Suggestion"}
+              </span>
+              <span className="text-[9px] text-emerald-200/70 font-medium mt-0.5 leading-snug">
+                {lang === "id" 
+                  ? "Analisis formasi dan celah transisi lawan untuk hasil optimal."
+                  : "AI-powered suggestions to improve team structure & counter-press."}
+              </span>
+            </div>
+            <span className="text-[8px] font-black uppercase text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/25 shrink-0">
+              PRO
+            </span>
+          </div>
 
-      {/* Custom prompt entry */}
-      <div className="space-y-2">
-        <label htmlFor="ai-instruction-prompt-input" className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block">{l.instructionLabel}</label>
-        <div className="flex gap-2">
-          <input
-            id="ai-instruction-prompt-input"
-            type="text"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder={l.placeholder}
-            className="flex-1 bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500"
-            disabled={loading}
-          />
           <button
-            onClick={() => handleGenerate("")}
-            disabled={loading || !prompt.trim()}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs px-4 rounded-xl flex items-center gap-1.5 transition-all shadow-lg active:scale-95 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            onClick={() => handleGenerate(lang === "id" ? "Buat animasi taktik menyerang cepat dan efisien dengan rotasi pemain dinamis" : "Create dynamic high-tempo build-up play with fluid player rotation")}
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-[11px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-500/20 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
           >
-            <Sparkles className="w-4 h-4" aria-hidden="true" /> {l.animateBtn}
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{lang === "id" ? "Add AI suggestion" : "Add AI suggestion"}</span>
           </button>
         </div>
-      </div>
 
-      <div className="pt-0.5 grid grid-cols-2 gap-2">
-        <button
-          onClick={handleAnalyzeSynergy}
-          className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 text-indigo-400 font-bold text-[11px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-        >
-          <Activity className="w-4 h-4 animate-pulse text-indigo-400" aria-hidden="true" /> {l.scoutBtn}
-        </button>
-        <button
-          onClick={() => setIsYoutubeModalOpen(true)}
-          className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 font-bold text-[11px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
-        >
-          <span className="text-red-400" aria-hidden="true">📺</span>
-          <span>{lang === "id" ? "Analisis Video" : "Video Analysis"}</span>
-        </button>
-      </div>
+        {/* Preset selections */}
+        <div className="space-y-1.5">
+          <span className="text-[9.5px] uppercase font-black text-[#5e6680] tracking-wider block select-none">
+            {l.presetLabel}
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            {TACTICAL_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => handleGenerate(preset.prompt)}
+                disabled={loading}
+                className="text-left bg-white/5 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/30 rounded-xl p-2 transition-all text-xs text-gray-200 flex flex-col justify-between h-14 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+              >
+                <span className="font-bold truncate w-full text-[11px]">{preset.label}</span>
+                <span className="text-[8px] text-gray-500 line-clamp-1">{preset.prompt}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t border-white/[0.08]" aria-hidden="true" />
+
+        {/* Custom prompt entry */}
+        <div className="space-y-2">
+          <label htmlFor="ai-instruction-prompt-input" className="text-[9.5px] uppercase font-black text-[#5e6680] tracking-wider block">
+            {l.instructionLabel}
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="ai-instruction-prompt-input"
+              type="text"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder={l.placeholder}
+              className="flex-1 bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500 font-medium"
+              disabled={loading}
+            />
+            <button
+              onClick={() => handleGenerate("")}
+              disabled={loading || !prompt.trim()}
+              className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-xs px-3.5 rounded-xl flex items-center gap-1.5 transition-all shadow-lg active:scale-95 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+            >
+              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" /> {l.animateBtn}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={handleAnalyzeSynergy}
+            className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 font-bold text-[10.5px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+          >
+            <Activity className="w-3.5 h-3.5 animate-pulse text-emerald-400" aria-hidden="true" /> {l.scoutBtn}
+          </button>
+          <button
+            onClick={() => setIsYoutubeModalOpen(true)}
+            className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 font-bold text-[10.5px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+          >
+            <span className="text-red-400" aria-hidden="true">📺</span>
+            <span>{lang === "id" ? "Analisis Video" : "Video Analysis"}</span>
+          </button>
+        </div>
+
+        {/* Section 6: Settings & Controls Toggle Section */}
+        <div className="border-t border-white/[0.08] pt-2.5 flex flex-col gap-2">
+          <span className="text-[9px] uppercase font-black text-[#5e6680] tracking-wider block">
+            {lang === "id" ? "PENGATURAN LANJUTAN" : "SETTINGS & ADVANCED"}
+          </span>
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
+              <span className="text-[10px] text-gray-300 font-bold flex items-center gap-1.5">
+                <span>🎛️</span> {lang === "id" ? "Customizer Taktik" : "Tactical Customizer"}
+              </span>
+              <input 
+                type="checkbox" 
+                defaultChecked 
+                className="accent-emerald-500 w-4 h-4 rounded cursor-pointer" 
+              />
+            </label>
+            <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
+              <span className="text-[10px] text-gray-300 font-bold flex items-center gap-1.5">
+                <span>⚙️</span> {lang === "id" ? "Customize Settings" : "Customize Settings"}
+              </span>
+              <input 
+                type="checkbox" 
+                defaultChecked 
+                className="accent-emerald-500 w-4 h-4 rounded cursor-pointer" 
+              />
+            </label>
+            <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
+              <span className="text-[10px] text-gray-300 font-bold flex items-center gap-1.5">
+                <span>📊</span> {lang === "id" ? "Statistik & Heatmap" : "Enable Telemetry & Heatmap"}
+              </span>
+              <input 
+                type="checkbox" 
+                defaultChecked 
+                className="accent-emerald-500 w-4 h-4 rounded cursor-pointer" 
+              />
+            </label>
+          </div>
+        </div>
 
       {/* Loading state indicator */}
       {loading && (

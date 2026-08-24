@@ -103,27 +103,27 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
     <div className="relative group/importer">
       <button
         onClick={() => setIsOpen(true)}
-        className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 border-white/[0.08] hover:border-emerald-500/30 text-gray-500 hover:text-white shadow-xl backdrop-blur-md active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+        className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#071912]/85 hover:bg-[#071912]/95 border-emerald-500/30 hover:border-emerald-400/50 text-gray-300 hover:text-white shadow-xl ring-1 ring-emerald-400/20 backdrop-blur-2xl active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
         aria-label={lang === "id" ? "Impor Skuad" : "Roster Import"}
       >
         <Import className="w-4.5 sm:w-5.5 h-4.5 sm:h-5.5 text-emerald-400 transition-transform group-hover/importer:scale-110" />
       </button>
       
       {/* Tooltip Overlay help */}
-      <div className="absolute right-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/importer:opacity-100 group-hover/importer:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 backdrop-blur-md whitespace-nowrap">
-        <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">ROSTER BULK IMPORT</span>
+      <div className="absolute right-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/importer:opacity-100 group-hover/importer:scale-100 transition-all duration-150 bg-[#071912]/95 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 ring-1 ring-emerald-400/20 backdrop-blur-2xl whitespace-nowrap">
+        <span className="text-[8px] font-black tracking-widest text-emerald-400 uppercase">ROSTER BULK IMPORT</span>
         <span className="text-white font-extrabold text-[9px]">{lang === "id" ? "Tempel draf daftar pemain" : "Paste custom roster list"}</span>
       </div>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn" onClick={() => setIsOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn" onClick={() => setIsOpen(false)}>
           <div 
-            className="w-full max-w-md bg-[#0e111a]/95 border border-white/10 rounded-3xl p-5 shadow-[0_24px_50px_rgba(0,0,0,0.8)] relative text-left"
+            className="w-full max-w-md bg-[#071912]/98 border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-3xl p-5 shadow-[0_24px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl relative text-left"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/[0.08]">
-              <span className="text-xs font-black text-white tracking-wider uppercase flex items-center gap-2">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-emerald-500/20">
+              <span className="text-xs font-black text-emerald-200 tracking-wider uppercase flex items-center gap-2">
                 <Import className="w-4 h-4 text-emerald-400" />
                 {t.title}
               </span>
@@ -136,9 +136,9 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
             </div>
 
             {/* Instruction Banner with Demo Preset Trigger */}
-            <div className="flex justify-between items-center bg-black/40 p-2.5 rounded-xl border border-white/[0.05] mb-4">
+            <div className="flex justify-between items-center bg-emerald-950/20 p-2.5 rounded-xl border border-emerald-500/15 mb-4">
               <div className="flex flex-col gap-0.5">
-                <span className="text-[8px] text-[#5e6680] font-black uppercase tracking-wider">
+                <span className="text-[8px] text-emerald-400 font-black uppercase tracking-wider">
                   {lang === "id" ? "ATURAN FORMAT" : "FORMAT RULES"}
                 </span>
                 <p className="text-[9.5px] text-gray-300 font-medium">
@@ -147,7 +147,7 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
               </div>
               <button
                 onClick={handlePasteDemo}
-                className="text-[9px] font-black text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/20 shrink-0 select-none"
+                className="text-[9px] font-black text-emerald-300 hover:underline flex items-center gap-1 cursor-pointer bg-emerald-500/15 hover:bg-emerald-500/25 px-2.5 py-1 rounded-lg border border-emerald-500/30 shrink-0 select-none"
               >
                 <Clipboard className="w-3 h-3" /> {t.pasteDemo}
               </button>
@@ -159,7 +159,7 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
               onChange={(e) => setText(e.target.value)}
               placeholder={t.placeholder}
               rows={8}
-              className="w-full bg-black/45 border border-white/10 rounded-2xl text-white font-mono text-[10.5px] p-3 focus:outline-none focus:border-emerald-500/75 focus:ring-1 focus:ring-emerald-500/35 placeholder-gray-700 mb-4"
+              className="w-full bg-black/40 border border-emerald-500/20 rounded-2xl text-white font-mono text-[10.5px] p-3 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/40 placeholder-gray-600 mb-4"
             />
 
             {/* Apply Action Trigger Button */}
@@ -174,8 +174,8 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
               disabled={!text.trim()}
               className={`w-full py-3 rounded-2xl text-xs font-black transition-all uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-95 border cursor-pointer ${
                 success
-                  ? "bg-green-600 text-white border-green-500"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/20 disabled:opacity-50"
+                  ? "bg-emerald-500 text-white border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)]"
+                  : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-400/30 shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-50"
               }`}
             >
               {success ? (

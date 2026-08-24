@@ -2203,8 +2203,8 @@ export default function App() {
                       )}
                     </button>
                     {/* Floating descriptive tooltip/overlay */}
-                    <div className="absolute right-0 top-full mt-2.5 opacity-0 scale-90 pointer-events-none group-hover/fullscreen:opacity-100 group-hover/fullscreen:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                      <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">
+                    <div className="absolute right-0 top-full mt-2.5 opacity-0 scale-90 pointer-events-none group-hover/fullscreen:opacity-100 group-hover/fullscreen:scale-100 transition-all duration-150 bg-[#071912]/95 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 ring-1 ring-emerald-400/20 backdrop-blur-2xl">
+                      <span className="text-[8px] font-black tracking-widest text-emerald-400 uppercase">
                         {lang === "id" ? "LAYAR PENUH" : "FULLSCREEN"}
                       </span>
                       <span className="text-white font-extrabold text-[9px] whitespace-nowrap">
@@ -2217,7 +2217,7 @@ export default function App() {
                   </div>
 
                   {showResetConfirm ? (
-                    <div className="flex items-center gap-1 sm:gap-1.5 bg-[#0e0f13]/95 backdrop-blur-md px-1.5 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-2xl border border-red-500/40 shadow-2xl transition-all duration-300 animate-fadeIn text-[8px] sm:text-[10px] whitespace-nowrap">
+                    <div className="flex items-center gap-1 sm:gap-1.5 bg-[#071912]/95 backdrop-blur-2xl px-1.5 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-2xl border border-red-500/40 ring-1 ring-red-400/20 shadow-2xl transition-all duration-300 animate-fadeIn text-[8px] sm:text-[10px] whitespace-nowrap">
                       <span className="text-[7.5px] sm:text-[9px] text-red-400 font-extrabold uppercase tracking-wide">{t.resetConfirm}</span>
                       <button
                         onClick={() => {
@@ -2254,7 +2254,7 @@ export default function App() {
                       </button>
                       <button
                         onClick={() => setShowResetConfirm(false)}
-                        className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-[7.5px] sm:text-[9px] font-black uppercase transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                        className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-[7.5px] sm:text-[9px] font-black uppercase transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
                       >
                         {t.cancel}
                       </button>
@@ -2263,14 +2263,14 @@ export default function App() {
                     <div className="relative group/reset">
                       <button
                         onClick={() => setShowResetConfirm(true)}
-                        className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-red-900/30 text-gray-400 hover:text-red-400 shadow-xl backdrop-blur-md active:scale-95 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                        className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-2xl flex items-center justify-center transition-all cursor-pointer border bg-[#071912]/80 hover:bg-[#071912]/95 border-emerald-500/25 hover:border-red-500/40 text-gray-300 hover:text-red-400 shadow-xl ring-1 ring-emerald-400/10 backdrop-blur-2xl active:scale-95 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                         aria-label={lang === "id" ? "Atur Ulang Papan" : "Reset Board"}
                       >
                         <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-300 group-hover/reset:rotate-45" />
                       </button>
                       {/* Floating descriptive tooltip/overlay */}
-                      <div className="absolute right-0 top-full mt-2.5 opacity-0 scale-90 pointer-events-none group-hover/reset:opacity-100 group-hover/reset:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{lang === "id" ? "SET SEMULA" : "RESET BOARD"}</span>
+                      <div className="absolute right-0 top-full mt-2.5 opacity-0 scale-90 pointer-events-none group-hover/reset:opacity-100 group-hover/reset:scale-100 transition-all duration-150 bg-[#071912]/95 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 ring-1 ring-emerald-400/20 backdrop-blur-2xl">
+                        <span className="text-[8px] font-black tracking-widest text-emerald-400 uppercase">{lang === "id" ? "SET SEMULA" : "RESET BOARD"}</span>
                         <span className="text-white font-extrabold text-[9px] whitespace-nowrap">{t.resetAll}</span>
                       </div>
                     </div>
@@ -2283,7 +2283,7 @@ export default function App() {
                 <div className="absolute top-1/2 -translate-y-1/2 left-2.5 sm:left-4 z-45 flex flex-col items-start group/sportselect">
                   <button
                     onClick={() => setShowSportOverlay(!showSportOverlay)}
-                    className="w-9 h-9 sm:w-11 sm:h-11 bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex flex-col gap-0.5 items-center justify-center shadow-xl border border-white/[0.08] hover:border-indigo-500/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.25)] backdrop-blur-md cursor-pointer select-none active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                    className="w-9 h-9 sm:w-11 sm:h-11 bg-[#071912]/85 hover:bg-[#071912]/95 text-gray-200 hover:text-white rounded-xl sm:rounded-2xl transition-all flex flex-col gap-0.5 items-center justify-center shadow-xl border border-emerald-500/30 hover:border-emerald-400/50 hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] ring-1 ring-emerald-400/20 backdrop-blur-2xl cursor-pointer select-none active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
                     aria-label={lang === "id" ? "Ubah Mode Pertandingan" : "Change Match Sport Mode"}
                     aria-haspopup="true"
                     aria-expanded={showSportOverlay}
@@ -2294,7 +2294,7 @@ export default function App() {
                       {sportMode === "futsal" && "💨"}
                       {sportMode === "custom" && "⚙️"}
                     </span>
-                    <span className="text-[6.5px] font-black uppercase text-indigo-400 tracking-tighter">
+                    <span className="text-[6.5px] font-black uppercase text-emerald-400 tracking-tighter">
                       {sportMode === "soccer" && "11v11"}
                       {sportMode === "minisoccer" && "7v7"}
                       {sportMode === "futsal" && "5v5"}
@@ -2304,8 +2304,8 @@ export default function App() {
 
                   {/* Floating helpful description overlay of what this button does when not open */}
                   {!showSportOverlay && (
-                    <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/sportselect:opacity-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-gray-200 backdrop-blur-md whitespace-nowrap z-50 flex flex-col">
-                      <span className="text-[7.5px] font-black tracking-widest text-[#5e6680] uppercase select-none">
+                    <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/sportselect:opacity-100 transition-all duration-150 bg-[#071912]/95 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-gray-200 ring-1 ring-emerald-400/20 backdrop-blur-2xl whitespace-nowrap z-50 flex flex-col">
+                      <span className="text-[7.5px] font-black tracking-widest text-emerald-400 uppercase select-none">
                         {lang === "id" ? "MODE PERTANDINGAN" : "MATCH SPORT MODE"}
                       </span>
                       <span className="text-white mt-0.5 font-bold">
@@ -2314,16 +2314,16 @@ export default function App() {
                         {sportMode === "futsal" && (lang === "id" ? "Futsal (5 vs 5)" : "Futsal (5 vs 5)")}
                         {sportMode === "custom" && (lang === "id" ? `Kustom (${getSportModeLimit()} Pemain)` : `Custom (${getSportModeLimit()} Players)`)}
                       </span>
-                      <span className="text-[7.5px] text-gray-400 font-medium select-none mt-0.5">{lang === "id" ? "Klik untuk mengubah mode" : "Click to change mode"}</span>
+                      <span className="text-[7.5px] text-gray-300 font-medium select-none mt-0.5">{lang === "id" ? "Klik untuk mengubah mode" : "Click to change mode"}</span>
                     </div>
                   )}
 
                   {/* Full overlay selector dropdown when clicked */}
                   {showSportOverlay && (
-                    <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 w-64 bg-[#0c0d12]/92 border border-white/[0.12] rounded-2xl sm:rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-55 p-3 flex flex-col gap-2.5 animate-fadeIn backdrop-blur-xl">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 w-64 bg-[#071912]/95 border border-emerald-500/30 rounded-2xl sm:rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] ring-1 ring-emerald-400/20 z-55 p-3 flex flex-col gap-2.5 animate-fadeIn backdrop-blur-2xl">
+                      <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
                         <div className="flex flex-col">
-                          <span className="text-[9.5px] font-black tracking-wider text-indigo-400 uppercase select-none">
+                          <span className="text-[9.5px] font-black tracking-wider text-emerald-400 uppercase select-none">
                             {lang === "id" ? "Aturan Tanding" : "Sport Arena Rules"}
                           </span>
                           <span className="text-[11px] font-extrabold text-white">
@@ -2332,7 +2332,7 @@ export default function App() {
                         </div>
                         <button
                           onClick={() => setShowSportOverlay(false)}
-                          className="w-5 h-5 rounded-lg flex items-center justify-center hover:bg-white/10 cursor-pointer text-gray-400 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                          className="w-5 h-5 rounded-lg flex items-center justify-center hover:bg-white/10 cursor-pointer text-gray-400 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
                           aria-label={lang === "id" ? "Tutup Aturan Tanding" : "Close Sport Arena Rules"}
                         >
                           ✕
@@ -2470,31 +2470,31 @@ export default function App() {
                   <div className="relative group/formation">
                     <button
                       onClick={() => setShowFormationMenu(!showFormationMenu)}
-                      className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer border bg-[#0b0c10]/65 hover:bg-[#0b0c10]/85 border-white/[0.08] hover:border-blue-500/30 text-gray-300 hover:text-white shadow-xl backdrop-blur-md active:scale-95 text-[9.5px] sm:text-[11px] font-black tracking-wide focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                      className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer border bg-[#071912]/80 hover:bg-[#071912]/95 border-emerald-500/30 hover:border-emerald-400/50 text-emerald-100 hover:text-white shadow-xl ring-1 ring-emerald-400/20 backdrop-blur-2xl active:scale-95 text-[9.5px] sm:text-[11px] font-black tracking-wide focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
                       aria-label={t.defaultFormation}
                       aria-haspopup="true"
                       aria-expanded={showFormationMenu}
                     >
-                      <LayoutGrid className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-blue-400" />
+                      <LayoutGrid className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-emerald-400" />
                       <span>{formation}</span>
                     </button>
                     
                     {/* Floating helpful description overlay */}
                     {!showFormationMenu && (
-                      <div className="absolute left-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/formation:opacity-100 group-hover/formation:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col gap-0.5 backdrop-blur-md whitespace-nowrap">
-                        <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.defaultFormation}</span>
+                      <div className="absolute left-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/formation:opacity-100 group-hover/formation:scale-100 transition-all duration-150 bg-[#071912]/95 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col gap-0.5 ring-1 ring-emerald-400/20 backdrop-blur-2xl whitespace-nowrap">
+                        <span className="text-[8px] font-black tracking-widest text-emerald-400 uppercase">{t.defaultFormation}</span>
                         <span className="text-white font-extrabold text-[9px]">{lang === "id" ? "Klik ganti formasi" : "Click to change lineup"}</span>
                       </div>
                     )}
 
                     {/* Dropdown list table descending downwards */}
                     {showFormationMenu && (
-                      <div className="absolute top-full mt-1.5 left-0 w-52 bg-[#0e1017]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col divide-y divide-white/[0.06] animate-fadeIn" role="menu">
-                        <div className="px-3 py-2 bg-white/[0.02] flex justify-between items-center select-none">
-                          <span className="text-[8px] font-black tracking-wider text-[#5e6680] uppercase">{lang === "id" ? "PILIHAN FORMASI" : "FORMATIONS LIST"}</span>
-                          <span className="text-[8px] text-blue-400 font-bold uppercase">{lang === "id" ? "Tabel" : "Table"}</span>
+                      <div className="absolute top-full mt-1.5 left-0 w-52 bg-[#071912]/95 backdrop-blur-2xl border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col divide-y divide-emerald-500/15 animate-fadeIn" role="menu">
+                        <div className="px-3 py-2 bg-emerald-500/10 flex justify-between items-center select-none">
+                          <span className="text-[8px] font-black tracking-wider text-emerald-300 uppercase">{lang === "id" ? "PILIHAN FORMASI" : "FORMATIONS LIST"}</span>
+                          <span className="text-[8px] text-emerald-400 font-bold uppercase">{lang === "id" ? "Tabel" : "Table"}</span>
                         </div>
-                        <div className="max-h-56 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                        <div className="max-h-56 overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-500/20 scrollbar-track-transparent">
                           {(() => {
                             const formationsList = 
                               sportMode === "futsal" ? [
@@ -2525,8 +2525,8 @@ export default function App() {
                                     applyPresetFormation(item.key as any);
                                     setShowFormationMenu(false);
                                   }}
-                                  className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer text-xs focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
-                                    isSel ? "bg-blue-600/20 text-blue-400 font-black" : "text-gray-300"
+                                  className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-emerald-500/10 active:bg-emerald-500/20 transition-colors cursor-pointer text-xs focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none ${
+                                    isSel ? "bg-emerald-500/20 text-emerald-300 font-black" : "text-gray-300"
                                   }`}
                                   role="menuitem"
                                   aria-label={item.key}
@@ -2536,11 +2536,11 @@ export default function App() {
                                     <span className="text-xs">{item.icon}</span>
                                     <div className="flex flex-col">
                                       <span className="font-extrabold tracking-wide uppercase text-[10.5px]">{item.key}</span>
-                                      <span className="text-[8px] text-[#5e6680] font-medium leading-none">{item.desc}</span>
+                                      <span className="text-[8px] text-gray-400 font-medium leading-none">{item.desc}</span>
                                     </div>
                                   </div>
                                   {isSel && (
-                                    <span className="text-[7.5px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20 font-black animate-pulse uppercase">
+                                    <span className="text-[7.5px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 font-black animate-pulse uppercase">
                                       {lang === "id" ? "Aktif" : "Active"}
                                     </span>
                                   )}
@@ -2622,11 +2622,11 @@ export default function App() {
                     {isEnemyModeActive && (
                       <button
                         onClick={() => setShowEnemyDropdown(!showEnemyDropdown)}
-                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 border-white/[0.08] text-gray-400 hover:text-white shadow-xl active:scale-95 focus-visible:outline-none`}
+                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#071912]/85 hover:bg-[#071912]/95 border-emerald-500/30 text-gray-300 hover:text-white shadow-xl ring-1 ring-emerald-400/20 backdrop-blur-2xl active:scale-95 focus-visible:outline-none`}
                         aria-label={lang === "id" ? "Pilih Formasi Lawan" : "Choose Opponent Formation"}
                       >
                         <ChevronDown className={`w-4 sm:w-4.5 h-4 sm:h-4.5 transition-transform duration-200 ${
-                          showEnemyDropdown ? "rotate-180 text-red-400" : ""
+                          showEnemyDropdown ? "rotate-180 text-emerald-400" : ""
                         }`} />
                       </button>
                     )}
@@ -2642,22 +2642,22 @@ export default function App() {
                             setShowEnemyDropdown(true);
                           }
                         }}
-                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border shadow-xl backdrop-blur-md active:scale-95 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none ${
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border shadow-xl backdrop-blur-2xl active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none ${
                           isEnemyModeActive 
-                            ? "bg-red-600 border-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.4)]" 
-                            : "bg-[#0b0c10]/85 hover:bg-[#0b0c10]/95 border-white/[0.08] hover:border-white/25 text-gray-500 hover:text-white"
+                            ? "bg-gradient-to-r from-red-600 to-rose-600 border-red-400/50 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]" 
+                            : "bg-[#071912]/85 hover:bg-[#071912]/95 border-emerald-500/30 hover:border-emerald-400/50 text-emerald-400/70 hover:text-emerald-300 ring-1 ring-emerald-400/10"
                         }`}
                         aria-label={lang === "id" ? "Mode Lawan Aktif" : "Toggle Enemy Mode Active"}
                         aria-pressed={isEnemyModeActive}
                       >
                         <Check className={`w-4.5 sm:w-5.5 h-4.5 sm:h-5.5 stroke-[3.5px] transition-all duration-200 ${
-                          isEnemyModeActive ? "scale-100 opacity-100" : "scale-75 opacity-30"
+                          isEnemyModeActive ? "scale-100 opacity-100" : "scale-75 opacity-40"
                         }`} />
                       </button>
                       
                       {/* Floating descriptive tooltip/overlay */}
-                      <div className="absolute right-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/enemyselect:opacity-100 group-hover/enemyselect:scale-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 backdrop-blur-md whitespace-nowrap">
-                        <span className="text-[8px] font-black tracking-widest text-[#5e6680] uppercase">
+                      <div className="absolute right-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/enemyselect:opacity-100 group-hover/enemyselect:scale-100 transition-all duration-150 bg-[#071912]/95 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 ring-1 ring-emerald-400/20 backdrop-blur-2xl whitespace-nowrap">
+                        <span className="text-[8px] font-black tracking-widest text-emerald-400 uppercase">
                           {lang === "id" ? "MODE TIM LAWAN" : "OPPONENT MODE"}
                         </span>
                         <span className="text-white font-extrabold text-[9px]">
@@ -2678,13 +2678,13 @@ export default function App() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.95 }}
                         transition={{ duration: 0.18, ease: "easeOut" }}
-                        className="bg-[#0b0c10]/95 border border-white/[0.08] rounded-xl sm:rounded-2xl p-2 sm:p-2.5 shadow-2xl backdrop-blur-md flex flex-col gap-1.5 min-w-[120px] sm:min-w-[140px] hover:border-red-500/20 transition-colors duration-300"
+                        className="bg-[#071912]/95 border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 shadow-2xl backdrop-blur-2xl flex flex-col gap-1.5 min-w-[120px] sm:min-w-[140px] hover:border-emerald-400/40 transition-colors duration-300"
                       >
-                        <span className="text-[7.5px] sm:text-[8px] font-black text-gray-400 tracking-widest text-center uppercase border-b border-white/5 pb-1 block">
+                        <span className="text-[7.5px] sm:text-[8px] font-black text-emerald-400 tracking-widest text-center uppercase border-b border-emerald-500/20 pb-1 block">
                           {lang === "id" ? "FORMASI LAWAN" : "OPP FORMATION"}
                         </span>
                         
-                        <div className="flex flex-col gap-1 max-h-[160px] overflow-y-auto pr-1">
+                        <div className="flex flex-col gap-1 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-emerald-500/20">
                           {(() => {
                             const availableFormations = SPORT_FORMATIONS[sportMode] ? Object.keys(SPORT_FORMATIONS[sportMode]) : [];
                             if (availableFormations.length > 0) {
@@ -2695,7 +2695,7 @@ export default function App() {
                                     handleSpawnEnemyTeam(formKey);
                                     setShowEnemyDropdown(false);
                                   }}
-                                  className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                                  className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/20 hover:text-red-300 text-white rounded-lg border border-white/5 hover:border-red-500/30 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
                                 >
                                   {formKey === "1-2-1" && sportMode === "futsal" ? "DIAMOND" : 
                                    formKey === "2-2" && sportMode === "futsal" ? "2-2 BOX" : 
@@ -2709,7 +2709,7 @@ export default function App() {
                                     handleSpawnEnemyTeam("custom");
                                     setShowEnemyDropdown(false);
                                   }}
-                                  className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white rounded-lg border border-white/5 hover:border-red-500/20 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                                  className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/20 hover:text-red-300 text-white rounded-lg border border-white/5 hover:border-red-500/30 text-[9px] sm:text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
                                 >
                                   {lang === "id" ? "SEIMBANG" : "BALANCED"}
                                 </button>
@@ -2718,19 +2718,19 @@ export default function App() {
                           })()}
                         </div>
 
-                        <div className="border-t border-white/5 my-0.5" />
+                        <div className="border-t border-emerald-500/20 my-0.5" />
 
                         <button
                           onClick={() => {
                             handleRebalanceEnemies();
                             setShowEnemyDropdown(false);
                           }}
-                          className="w-full px-2 py-1.5 bg-[#10192e]/80 hover:bg-[#162544] text-blue-400 hover:text-blue-300 rounded-lg border border-blue-500/20 text-[8.5px] sm:text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                          className="w-full px-2 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 hover:text-emerald-200 rounded-lg border border-emerald-500/30 text-[8.5px] sm:text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
                         >
                           🔄 {lang === "id" ? "SEIMBANGKAN" : "RE-BALANCE"}
                         </button>
 
-                        <div className="border-t border-white/5 my-0.5" />
+                        <div className="border-t border-emerald-500/20 my-0.5" />
                         
                         <button
                           onClick={() => {

@@ -14,10 +14,10 @@ interface Interactive3DCardProps {
 export default function Interactive3DCard({
   children,
   className = "",
-  maxTilt = 12,
+  maxTilt = 10,
   perspective = 1000,
-  glareOpacity = 0.35,
-  glowColor = "rgba(59, 130, 246, 0.4)", // default blue
+  glareOpacity = 0.25,
+  glowColor = "rgba(16, 185, 129, 0.35)", // default modern emerald mint
   enableHoverScale = true
 }: Interactive3DCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -59,15 +59,12 @@ export default function Interactive3DCard({
     const yPct = (mouseY / height) - 0.5;
 
     // Calculate rotation angles
-    // Tilt X depends on Y mouse offset (movement up/down tilts around X axis)
-    // Tilt Y depends on X mouse offset (movement left/right tilts around Y axis)
     const nextRotateX = yPct * maxTilt;
     const nextRotateY = -xPct * maxTilt;
 
     rotateX.set(nextRotateX);
     rotateY.set(nextRotateY);
 
-    // Map coordinates to percentage [0, 100] for glare placement
     glareX.set((mouseX / width) * 100);
     glareY.set((mouseY / height) * 100);
   };
@@ -78,7 +75,6 @@ export default function Interactive3DCard({
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    // Reset all rotations smoothly back to zero
     rotateX.set(0);
     rotateY.set(0);
     glareX.set(50);
@@ -101,13 +97,13 @@ export default function Interactive3DCard({
         style={{
           rotateX: rotateXSpring,
           rotateY: rotateYSpring,
-          scale: enableHoverScale && isHovered ? 1.025 : 1,
+          scale: enableHoverScale && isHovered ? 1.015 : 1,
           boxShadow: isHovered 
-            ? `0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 15px ${glowColor}`
+            ? `0 20px 45px -12px rgba(0, 0, 0, 0.6), 0 0 20px ${glowColor}`
             : "0 10px 30px -10px rgba(0, 0, 0, 0.4)",
           transformStyle: "preserve-3d"
         }}
-        className="w-full h-full relative overflow-hidden rounded-3xl border border-white/[0.06] bg-[#0c0d12]/90 backdrop-blur-xl transition-all duration-300"
+        className="w-full h-full relative overflow-hidden rounded-3xl border border-emerald-500/15 bg-[#081812]/85 backdrop-blur-xl transition-all duration-300"
       >
         {/* Ambient background lights in card edges on hover */}
         <div 
@@ -130,12 +126,12 @@ export default function Interactive3DCard({
           }}
         />
 
-        {/* Dynamic Holographic Diagonal Color Sheen (adds elite futuristic premium card vibe) */}
+        {/* Dynamic Holographic Mint Sheen */}
         <motion.div
           className="absolute inset-0 pointer-events-none z-10 transition-opacity duration-500"
           style={{
-            opacity: isHovered ? 0.06 : 0,
-            background: "linear-gradient(135deg, #ff007f 0%, #00f0ff 50%, #7f00ff 100%)",
+            opacity: isHovered ? 0.05 : 0,
+            background: "linear-gradient(135deg, #10b981 0%, #06b6d4 50%, #3b82f6 100%)",
             mixBlendMode: "color-dodge"
           }}
         />
@@ -145,7 +141,7 @@ export default function Interactive3DCard({
           className="absolute inset-px rounded-[23px] pointer-events-none z-20 transition-colors duration-300"
           style={{
             boxShadow: isHovered 
-              ? `inset 0 1px 0 0 rgba(255, 255, 255, 0.15), inset 0 -1px 0 0 rgba(255, 255, 255, 0.05), 0 0 0 1px ${glowColor.replace(/[\d.]+\)$/g, "0.2)")}`
+              ? `inset 0 1px 0 0 rgba(255, 255, 255, 0.15), inset 0 -1px 0 0 rgba(255, 255, 255, 0.05), 0 0 0 1px ${glowColor.replace(/[\d.]+\)$/g, "0.25)")}`
               : "inset 0 1px 0 0 rgba(255, 255, 255, 0.05)"
           }}
         />
