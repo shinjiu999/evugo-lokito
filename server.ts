@@ -32,6 +32,15 @@ if (apiKey) {
   console.warn("WARNING: GEMINI_API_KEY is not defined. AI features will run in mock mode.");
 }
 
+// API Health Check
+app.get("/api/health", (_req: Request, res: Response) => {
+  res.json({ 
+    status: "ok", 
+    aiConfigured: Boolean(apiKey), 
+    timestamp: new Date().toISOString() 
+  });
+});
+
 // REST API for Gemini Playmaker
 app.post("/api/tactics/gemini", async (req: Request, res: Response): Promise<void> => {
   const { players, items, prompt, formation, model, mcpEnabled, mcpUrl, mcpTool, customSystemPrompt, temperature, customApiKey } = req.body;
@@ -81,7 +90,7 @@ app.post("/api/tactics/gemini", async (req: Request, res: Response): Promise<voi
     } else if (model === "gpt4") {
       modelToneInstruction = "\nAdopt the style of OpenAI GPT-4o. Your description must be highly structured, crisp, using bulleted actionable steps, segmented coaching cues, and structured SWOT principles of play.";
     } else {
-      modelToneInstruction = "\nAdopt the style of Google Gemini 1.5 Pro. Your explanation should be extremely balanced, focusing on physical spacing, defensive compactness, kinetic sequence, and high-tech tactical wisdom.";
+      modelToneInstruction = "\nAdopt the style of Google Gemini. Your explanation should be extremely balanced, focusing on physical spacing, defensive compactness, kinetic sequence, and high-tech tactical wisdom.";
     }
 
     let systemPrompt = customSystemPrompt || `You are an elite, UEFA Pro License soccer selector/coach and tactical analyst. 
@@ -100,13 +109,13 @@ Your task is to analyze the user's starting lineup, tactical items (ball/cone), 
       y: p.y
     }));
 
-    let activeModel = "gemini-3.5-flash";
+    let activeModel = "gemini-3.8-flash";
     if (model === "gemini-3.1-pro-preview") {
       activeModel = "gemini-3.1-pro-preview";
     } else if (model === "gemini-3.1-flash-lite") {
       activeModel = "gemini-3.1-flash-lite";
-    } else if (model === "gemini-3.5-flash") {
-      activeModel = "gemini-3.5-flash";
+    } else if (model === "gemini-3.8-flash" || model === "gemini-flash-latest") {
+      activeModel = "gemini-3.8-flash";
     }
 
     const response = await activeAi.models.generateContent({
@@ -247,7 +256,7 @@ app.post("/api/tactics/scout", async (req: Request, res: Response): Promise<void
     const substitutes = players.filter((p: any) => !p.isStarting);
 
     const response = await activeAi.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.8-flash",
       contents: `
 Analyze the team lineup chemistry for an elite soccer trainer:
 =========================
@@ -391,7 +400,7 @@ Construct a complete detailed tactical report.
 And generate a master playbook animation sequence (3 keyframes) that represents the team's transition pattern as shown in the video. Reuse the provided player IDs so they map perfectly on the user's pitch.`;
 
     const response = await activeAi.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.8-flash",
       contents: userMessage,
       config: {
         systemInstruction: systemPrompt,

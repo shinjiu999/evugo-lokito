@@ -574,6 +574,46 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Line drawings brush strokes records
+  const [drawHistory, setDrawHistory] = useState<DrawingStroke[]>([]);
+  const [showTacticalGrid, setShowTacticalGrid] = useState<boolean>(false);
+  const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
+
+  // Sequential Playbook Animation Steps
+  const [frames, setFrames] = useState<AnimationFrame[]>([
+    {
+      id: "frame-init",
+      name: "Fasa 1: Posisi Standard",
+      players: DEFAULT_PLAYERS.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
+      items: DEFAULT_ITEMS.map((item) => ({ id: item.id, x: item.x, y: item.y })),
+      instruction: "Lakukan organisasi pemain pada posisi standard dan siapkan pola build up."
+    }
+  ]);
+  const [activeFrameIndex, setActiveFrameIndex] = useState(0);
+  const [isPlayingTactic, setIsPlayingTactic] = useState(false);
+
+  // Detailed Movement Simulation States
+  const [showMovementTrails, setShowMovementTrails] = useState(true);
+  const [playSpeed, setPlaySpeed] = useState<"slow" | "normal" | "fast" | "superfast">("normal");
+  const [transitionType, setTransitionType] = useState<"spring" | "linear" | "stealth" | "ease-in-out" | "elastic">("spring");
+
+  // Selected player for Modal Editor
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
+
+  const getSportModeLimit = (mode: string = sportMode) => {
+    if (mode === "minisoccer") return 7;
+    if (mode === "futsal") return 5;
+    if (mode === "custom") return customCount;
+    return 11;
+  };
+
+  const getDefaultFormationForSport = (mode: string): string => {
+    if (mode === "minisoccer") return "2-3-1";
+    if (mode === "futsal") return "1-2-1";
+    if (mode === "custom") return "custom";
+    return "4-3-3";
+  };
+
   const getBalancedEnemyPositionsForCount = (count: number): { x: number; y: number; role: string }[] => {
     if (count <= 0) return [];
     const coords: { x: number; y: number; role: string }[] = [];
@@ -653,11 +693,116 @@ export default function App() {
     return coords;
   };
 
-  const getDefaultFormationForSport = (mode: string): string => {
-    if (mode === "minisoccer") return "2-3-1";
-    if (mode === "futsal") return "1-2-1";
-    if (mode === "custom") return "custom";
-    return "4-3-3";
+  const handleSpawnEnemyTeam = (formationType: string) => {
+    setOpponentFormation(formationType);
+    setItems((prev) => prev.filter((item) => item.type !== "enemy"));
+
+    let enemyPositions: { x: number; y: number }[] = [];
+
+    const modeFormations = SPORT_FORMATIONS[sportMode];
+    if (modeFormations && modeFormations[formationType]) {
+      // Dynamic mapping by inverting the Y-coordinate from the home team's template
+      enemyPositions = modeFormations[formationType].map((coord) => ({
+        x: coord.x,
+        y: 100 - coord.y
+      }));
+    } else {
+      // Fallback to balanced enemy positioning matching the sport's capacity limit
+      const count = getSportModeLimit();
+      const coords = getBalancedEnemyPositionsForCount(count);
+      enemyPositions = coords.map((pos) => ({ x: pos.x, y: pos.y }));
+    }
+
+    const newEnemies = enemyPositions.map((pos, idx) => {
+      const finalY = isEnemyModeActive 
+        ? parseFloat(((pos.y / 100) * 40 + 6).toFixed(1)) 
+        : pos.y;
+      return {
+        id: `enemy-auto-${idx}-${Date.now()}`,
+        type: "enemy" as const,
+        x: pos.x,
+        y: finalY,
+        number: idx + 1,
+        role: idx === 0 ? "GK" : "FIELD"
+      };
+    });
+
+    setItems((prev) => {
+      const combined = [...prev, ...newEnemies];
+      setFrames((fPrev) => {
+        const fUpdated = [...fPrev];
+        if (fUpdated[activeFrameIndex]) {
+          fUpdated[activeFrameIndex].items = combined.map((i) => ({ id: i.id, x: i.x, y: i.y }));
+        }
+        return fUpdated;
+      });
+      return combined;
+    });
+  };
+
+  const handleRebalanceEnemies = () => {
+    const currentFormation = opponentFormation || getDefaultFormationForSport(sportMode);
+    const existingEnemies = items.filter((item) => item.type === "enemy");
+
+    let enemyPositions: { x: number; y: number }[] = [];
+    const modeFormations = SPORT_FORMATIONS[sportMode];
+
+    const isStandardFormation = modeFormations && modeFormations[currentFormation];
+    const standardCount = isStandardFormation ? modeFormations[currentFormation].length : 0;
+
+    if (isStandardFormation && existingEnemies.length === standardCount) {
+      enemyPositions = modeFormations[currentFormation].map((coord) => ({
+        x: coord.x,
+        y: 100 - coord.y
+      }));
+    } else {
+      const count = existingEnemies.length > 0 ? existingEnemies.length : getSportModeLimit();
+      const coords = getBalancedEnemyPositionsForCount(count);
+      enemyPositions = coords.map((pos) => ({ x: pos.x, y: pos.y }));
+    }
+
+    if (existingEnemies.length === 0) {
+      handleSpawnEnemyTeam(currentFormation);
+    } else {
+      const updatedItems = items.map((item) => {
+        if (item.type !== "enemy") return item;
+        const idx = existingEnemies.findIndex((e) => e.id === item.id);
+        if (idx !== -1 && enemyPositions[idx]) {
+          const pos = enemyPositions[idx];
+          const finalY = isEnemyModeActive 
+            ? parseFloat(((pos.y / 100) * 40 + 6).toFixed(1)) 
+            : pos.y;
+          return {
+            ...item,
+            x: pos.x,
+            y: finalY
+          };
+        }
+        return item;
+      });
+      setItems(updatedItems);
+      setFrames((fPrev) => {
+        const fUpdated = [...fPrev];
+        if (fUpdated[activeFrameIndex]) {
+          fUpdated[activeFrameIndex].items = updatedItems.map((i) => ({ id: i.id, x: i.x, y: i.y }));
+        }
+        return fUpdated;
+      });
+    }
+  };
+
+  const handleClearAllEnemies = () => {
+    setItems((prev) => {
+      const filtered = prev.filter((item) => item.type !== "enemy");
+      setFrames((fPrev) => {
+        const fUpdated = [...fPrev];
+        if (fUpdated[activeFrameIndex]) {
+          fUpdated[activeFrameIndex].items = filtered.map((i) => ({ id: i.id, x: i.x, y: i.y }));
+        }
+        return fUpdated;
+      });
+      return filtered;
+    });
   };
 
   const handleToggleEnemyMode = (active: boolean) => {
@@ -716,32 +861,6 @@ export default function App() {
       handleSpawnEnemyTeam(defaultOpponentFormation);
     }
   }, [sportMode, customCount, isEnemyModeActive]);
-
-  // Line drawings brush strokes records
-  const [drawHistory, setDrawHistory] = useState<DrawingStroke[]>([]);
-  const [showTacticalGrid, setShowTacticalGrid] = useState<boolean>(false);
-  const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
-
-  // Sequential Playbook Animation Steps
-  const [frames, setFrames] = useState<AnimationFrame[]>([
-    {
-      id: "frame-init",
-      name: "Fasa 1: Posisi Standard",
-      players: DEFAULT_PLAYERS.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
-      items: DEFAULT_ITEMS.map((item) => ({ id: item.id, x: item.x, y: item.y })),
-      instruction: "Lakukan organisasi pemain pada posisi standard dan siapkan pola build up."
-    }
-  ]);
-  const [activeFrameIndex, setActiveFrameIndex] = useState(0);
-  const [isPlayingTactic, setIsPlayingTactic] = useState(false);
-
-  // Detailed Movement Simulation States
-  const [showMovementTrails, setShowMovementTrails] = useState(true);
-  const [playSpeed, setPlaySpeed] = useState<"slow" | "normal" | "fast" | "superfast">("normal");
-  const [transitionType, setTransitionType] = useState<"spring" | "linear" | "stealth" | "ease-in-out" | "elastic">("spring");
-
-  // Selected player for Modal Editor
-  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
 
   // Live TV mode overlay full-screen preview toggle
   const [tvModeOpen, setTvModeOpen] = useState(false);
@@ -1146,13 +1265,6 @@ export default function App() {
   };
 
   // --- SQUAD MODIFICATION CODES ---
-  const getSportModeLimit = (mode: string = sportMode) => {
-    if (mode === "minisoccer") return 7;
-    if (mode === "futsal") return 5;
-    if (mode === "custom") return customCount;
-    return 11;
-  };
-
   const handleSetSportMode = (mode: "soccer" | "minisoccer" | "futsal" | "custom", customVal?: number) => {
     setSportMode(mode);
     const activeCount = mode === "custom" ? (customVal !== undefined ? customVal : customCount) : getSportModeLimit(mode);
@@ -1396,123 +1508,6 @@ export default function App() {
         items: frame.items.filter((item) => item.id !== id)
       }))
     );
-  };
-
-  const handleSpawnEnemyTeam = (formationType: string) => {
-    setOpponentFormation(formationType);
-    setItems((prev) => prev.filter((item) => item.type !== "enemy"));
-
-    let enemyPositions: { x: number; y: number }[] = [];
-
-    const modeFormations = SPORT_FORMATIONS[sportMode];
-    if (modeFormations && modeFormations[formationType]) {
-      // Dynamic mapping by inverting the Y-coordinate from the home team's template
-      enemyPositions = modeFormations[formationType].map((coord) => ({
-        x: coord.x,
-        y: 100 - coord.y
-      }));
-    } else {
-      // Fallback to balanced enemy positioning matching the sport's capacity limit
-      const count = getSportModeLimit();
-      const coords = getBalancedEnemyPositionsForCount(count);
-      enemyPositions = coords.map((pos) => ({ x: pos.x, y: pos.y }));
-    }
-
-    const newEnemies = enemyPositions.map((pos, idx) => {
-      const finalY = isEnemyModeActive 
-        ? parseFloat(((pos.y / 100) * 40 + 6).toFixed(1)) 
-        : pos.y;
-      return {
-        id: `enemy-auto-${idx}-${Date.now()}`,
-        type: "enemy" as const,
-        x: pos.x,
-        y: finalY,
-        number: idx + 1,
-        role: idx === 0 ? "GK" : "FIELD"
-      };
-    });
-
-    setItems((prev) => {
-      const combined = [...prev, ...newEnemies];
-      setFrames((fPrev) => {
-        const fUpdated = [...fPrev];
-        if (fUpdated[activeFrameIndex]) {
-          fUpdated[activeFrameIndex].items = combined.map((i) => ({ id: i.id, x: i.x, y: i.y }));
-        }
-        return fUpdated;
-      });
-      return combined;
-    });
-  };
-
-  const handleRebalanceEnemies = () => {
-    const currentFormation = opponentFormation || getDefaultFormationForSport(sportMode);
-    const existingEnemies = items.filter((item) => item.type === "enemy");
-
-    let enemyPositions: { x: number; y: number }[] = [];
-    const modeFormations = SPORT_FORMATIONS[sportMode];
-
-    // Check if the current formation is standard and count matches
-    const isStandardFormation = modeFormations && modeFormations[currentFormation];
-    const standardCount = isStandardFormation ? modeFormations[currentFormation].length : 0;
-
-    if (isStandardFormation && existingEnemies.length === standardCount) {
-      enemyPositions = modeFormations[currentFormation].map((coord) => ({
-        x: coord.x,
-        y: 100 - coord.y
-      }));
-    } else {
-      // Symmetrically balance based on the current number of enemy players
-      const count = existingEnemies.length > 0 ? existingEnemies.length : getSportModeLimit();
-      const coords = getBalancedEnemyPositionsForCount(count);
-      enemyPositions = coords.map((pos) => ({ x: pos.x, y: pos.y }));
-    }
-
-    // Now map the positions to existing enemies to preserve ids/numbers/etc
-    if (existingEnemies.length === 0) {
-      // If there are no enemies, spawn them fresh
-      handleSpawnEnemyTeam(currentFormation);
-    } else {
-      // Map one-by-one
-      const updatedItems = items.map((item) => {
-        if (item.type !== "enemy") return item;
-        const idx = existingEnemies.findIndex((e) => e.id === item.id);
-        if (idx !== -1 && enemyPositions[idx]) {
-          const pos = enemyPositions[idx];
-          const finalY = isEnemyModeActive 
-            ? parseFloat(((pos.y / 100) * 40 + 6).toFixed(1)) 
-            : pos.y;
-          return {
-            ...item,
-            x: pos.x,
-            y: finalY
-          };
-        }
-        return item;
-      });
-      setItems(updatedItems);
-      setFrames((fPrev) => {
-        const fUpdated = [...fPrev];
-        if (fUpdated[activeFrameIndex]) {
-          fUpdated[activeFrameIndex].items = updatedItems.map((i) => ({ id: i.id, x: i.x, y: i.y }));
-        }
-        return fUpdated;
-      });
-    }
-  };
-
-  const handleClearAllEnemies = () => {
-    setItems((prev) => {
-      const filtered = prev.filter((item) => item.type !== "enemy");
-      setFrames((fPrev) => {
-        const fUpdated = [...fPrev];
-        if (fUpdated[activeFrameIndex]) {
-          fUpdated[activeFrameIndex].items = filtered.map((i) => ({ id: i.id, x: i.x, y: i.y }));
-        }
-        return fUpdated;
-      });
-      return filtered;
-    });
   };
 
   const handleSavePlayerEdit = (id: string, updated: Partial<Player>) => {

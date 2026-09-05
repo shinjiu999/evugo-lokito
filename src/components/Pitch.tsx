@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
+import { useEffect, useRef, useState, useCallback, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player, TacticalItem, DrawingStroke, AnimationFrame, PitchTheme } from "../types";
 import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Redo, Maximize2, Minimize2, Layers, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
@@ -696,46 +696,79 @@ export default function Pitch({
     swapTargetPlayerId = activeSwapTargetId;
   }
 
-  // Reset/Resize canvas & trace width using a ResizeObserver to fit exact dimensions of pitch wrapper
-  useEffect(() => {
-    const container = pitchRef.current;
-    if (!container) return;
-
-    const handleResize = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = container.clientWidth * dpr;
-      canvas.height = container.clientHeight * dpr;
-      setPitchWidth(container.clientWidth);
-      drawAllStrokes();
-    };
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setPitchWidth(entry.contentRect.width);
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const dpr = window.devicePixelRatio || 1;
-          canvas.width = entry.contentRect.width * dpr;
-          canvas.height = entry.contentRect.height * dpr;
-          drawAllStrokes();
-        }
+  const drawArrowhead = (
+    ctx: CanvasRenderingContext2D,
+    points: { x: number; y: number }[],
+    color: string,
+    size: number
+  ) => {
+    if (points.length < 2) return;
+    const end = points[points.length - 1];
+    
+    // Find a previous point that is at least 12px away to resolve a stable and smooth direction vector
+    let prev = points[0];
+    for (let i = points.length - 2; i >= 0; i--) {
+      const dx = end.x - points[i].x;
+      const dy = end.y - points[i].y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 12) {
+        prev = points[i];
+        break;
       }
-    });
+    }
+    
+    // If all points are too close, fallback to a standard lookback index
+    if (prev === points[0] && points.length > 4) {
+      prev = points[points.length - 4];
+    }
+    
+    const angle = Math.atan2(end.y - prev.y, end.x - prev.x);
+    // Dynamic arrowhead length tailored to line width/size for professional scaling
+    const arrowLength = Math.max(14, size * 2.8 + 10);
+    const arrowWidthAngle = Math.PI / 6.5; // Slightly narrower, sleeker angle for a modern tactical pointer
 
-    resizeObserver.observe(container);
+    // Calculate left, right, and indented inner-base anchor points for a modern "stealth/boomerang" arrowhead
+    const leftX = end.x - arrowLength * Math.cos(angle - arrowWidthAngle);
+    const leftY = end.y - arrowLength * Math.sin(angle - arrowWidthAngle);
+    
+    const rightX = end.x - arrowLength * Math.cos(angle + arrowWidthAngle);
+    const rightY = end.y - arrowLength * Math.sin(angle + arrowWidthAngle);
+    
+    const indentX = end.x - arrowLength * 0.68 * Math.cos(angle);
+    const indentY = end.y - arrowLength * 0.68 * Math.sin(angle);
 
-    // Initial trigger
-    const timer = setTimeout(handleResize, 100);
+    ctx.save();
+    ctx.setLineDash([]);
+    
+    // 1. Draw an elegant dark drop-shadow for real professional depth on green pitch
+    ctx.beginPath();
+    ctx.fillStyle = "rgba(15, 23, 42, 0.35)";
+    ctx.moveTo(end.x, end.y + 1.5);
+    ctx.lineTo(leftX, leftY + 1.5);
+    ctx.lineTo(indentX, indentY + 1.5);
+    ctx.lineTo(rightX, rightY + 1.5);
+    ctx.closePath();
+    ctx.fill();
 
-    return () => {
-      resizeObserver.disconnect();
-      clearTimeout(timer);
-    };
-  }, [drawHistory, showHeatmap, players]);
+    // 2. Draw the main solid arrowhead base
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.moveTo(end.x, end.y);
+    ctx.lineTo(leftX, leftY);
+    ctx.lineTo(indentX, indentY);
+    ctx.lineTo(rightX, rightY);
+    ctx.closePath();
+    ctx.fill();
 
-  const drawAllStrokes = () => {
+    // 3. Add a thin high-comfort white border to contrast beautifully from grass patterns
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    ctx.restore();
+  };
+
+  const drawAllStrokes = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -869,79 +902,58 @@ export default function Pitch({
     });
 
     ctx.restore();
-  };
+  }, [drawHistory, showHeatmap, starters, layerOrder, visibleLayers, activeLayer]);
 
-  const drawArrowhead = (
-    ctx: CanvasRenderingContext2D,
-    points: { x: number; y: number }[],
-    color: string,
-    size: number
-  ) => {
-    if (points.length < 2) return;
-    const end = points[points.length - 1];
-    
-    // Find a previous point that is at least 12px away to resolve a stable and smooth direction vector
-    let prev = points[0];
-    for (let i = points.length - 2; i >= 0; i--) {
-      const dx = end.x - points[i].x;
-      const dy = end.y - points[i].y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 12) {
-        prev = points[i];
-        break;
+  // Redraw canvas strokes when visual configurations update
+  useEffect(() => {
+    drawAllStrokes();
+  }, [drawAllStrokes]);
+
+  // Resize canvas texture buffer only when container bounding box dimensions change
+  useEffect(() => {
+    const container = pitchRef.current;
+    if (!container) return;
+
+    const handleResize = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
       }
-    }
-    
-    // If all points are too close, fallback to a standard lookback index
-    if (prev === points[0] && points.length > 4) {
-      prev = points[points.length - 4];
-    }
-    
-    const angle = Math.atan2(end.y - prev.y, end.x - prev.x);
-    // Dynamic arrowhead length tailored to line width/size for professional scaling
-    const arrowLength = Math.max(14, size * 2.8 + 10);
-    const arrowWidthAngle = Math.PI / 6.5; // Slightly narrower, sleeker angle for a modern tactical pointer
+      setPitchWidth(w);
+      drawAllStrokes();
+    };
 
-    // Calculate left, right, and indented inner-base anchor points for a modern "stealth/boomerang" arrowhead
-    const leftX = end.x - arrowLength * Math.cos(angle - arrowWidthAngle);
-    const leftY = end.y - arrowLength * Math.sin(angle - arrowWidthAngle);
-    
-    const rightX = end.x - arrowLength * Math.cos(angle + arrowWidthAngle);
-    const rightY = end.y - arrowLength * Math.sin(angle + arrowWidthAngle);
-    
-    const indentX = end.x - arrowLength * 0.68 * Math.cos(angle);
-    const indentY = end.y - arrowLength * 0.68 * Math.sin(angle);
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setPitchWidth(entry.contentRect.width);
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const dpr = window.devicePixelRatio || 1;
+          const w = entry.contentRect.width;
+          const h = entry.contentRect.height;
+          if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+          }
+          drawAllStrokes();
+        }
+      }
+    });
 
-    ctx.save();
-    ctx.setLineDash([]);
-    
-    // 1. Draw a elegant dark drop-shadow for real professional depth on green pitch
-    ctx.beginPath();
-    ctx.fillStyle = "rgba(15, 23, 42, 0.35)";
-    ctx.moveTo(end.x, end.y + 1.5);
-    ctx.lineTo(leftX, leftY + 1.5);
-    ctx.lineTo(indentX, indentY + 1.5);
-    ctx.lineTo(rightX, rightY + 1.5);
-    ctx.closePath();
-    ctx.fill();
+    resizeObserver.observe(container);
 
-    // 2. Draw the main solid arrowhead base
-    ctx.beginPath();
-    ctx.fillStyle = color;
-    ctx.moveTo(end.x, end.y);
-    ctx.lineTo(leftX, leftY);
-    ctx.lineTo(indentX, indentY);
-    ctx.lineTo(rightX, rightY);
-    ctx.closePath();
-    ctx.fill();
+    const timer = setTimeout(handleResize, 100);
 
-    // 3. Add a thin high-comfort white border to contrast beautifully from grass patterns
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    
-    ctx.restore();
-  };
+    return () => {
+      resizeObserver.disconnect();
+      clearTimeout(timer);
+    };
+  }, [drawAllStrokes]);
 
   // Helper to snap a canvas pixel coordinate to the nearest starting player's center if close enough
   const snapToNearestPlayer = (x: number, y: number, canvasWidth: number, canvasHeight: number) => {
