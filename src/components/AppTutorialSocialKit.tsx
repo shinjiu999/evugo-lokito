@@ -69,9 +69,9 @@ const SLIDES = {
       tip: "Tips: Papan ini mendukung hapus coretan satu per satu atau reset total secara instan."
     },
     {
-      title: "🧠 Analisis Omni Hub UEFA Coach",
-      desc: "Butuh saran ahli taktis? Klik 'Analisis Skuad' untuk memanggil kecerdasan buatan Omni. Dapatkan laporan kepanduan lengkap berisi: pola menyerang, kestabilan lini belakang, skor kohesi playbook, serta swot kelemahan skuad langsung dengan rekomendasi solusi.",
-      badge: "Omni AI Intelligence",
+      title: "🧠 Analisis Skuad AI Pro Coach",
+      desc: "Butuh saran ahli taktis? Klik 'Analisis Skuad' untuk memanggil analisis AI taktis. Dapatkan laporan kepanduan lengkap berisi: pola menyerang, kestabilan lini belakang, skor kohesi playbook, serta swot kelemahan skuad langsung dengan rekomendasi solusi.",
+      badge: "AI Tactical Analysis",
       tip: "Tips: Semua detail taktis kini tersusun dalam tombol interaktif yang ringkas dan memikat."
     }
   ],
@@ -97,7 +97,7 @@ const SLIDES = {
     {
       title: "🧠 UEFA Pro AI Coach Analytics Hub",
       desc: "Unleash artificial intelligence expertise. Trigger 'Analyze Squad' to get premium scout reports covering attacking transitions, midfield anchors, defensive compactness, playbook synergy, and dynamic swot counter-measures.",
-      badge: "Omni Pro AI",
+      badge: "Pro AI Coach",
       tip: "Pro Tip: Scout reports are now nested inside modern, interactive mini-cards for quick reads."
     }
   ]
@@ -772,7 +772,7 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
                           <span className="text-xl shrink-0">🧠</span>
                           <div className="space-y-0.5">
                             <span className="text-xs font-bold text-gray-200 block">{isId ? "Analisis Skuad Instan AI" : "Artificial Intelligence Pro"}</span>
-                            <p className="text-[9.5px] text-gray-500 leading-relaxed">{isId ? "Biarkan model Gemini terbaik menimbang sinergi, kelebihan, dan kelemahan barisan pemain." : "Let industry models grade player links, swots & recommend setups."}</p>
+                            <p className="text-[9.5px] text-gray-500 leading-relaxed">{isId ? "Analisis mendalam sinergi, kelebihan, dan kelemahan barisan pemain dengan AI." : "Let tactical models grade player links, swots & recommend setups."}</p>
                           </div>
                         </div>
 
@@ -871,7 +871,7 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
                       </div>
                       <div className="flex justify-between py-1.5 border-b border-white/5">
                         <span className="text-gray-400 font-medium">{isId ? "Model Bahasa AI" : "AI Intelligence"}</span>
-                        <span className="font-mono text-white text-right font-bold">Google Gemini 3.5 / MCP</span>
+                        <span className="font-mono text-white text-right font-bold">Tactical AI Engine / MCP</span>
                       </div>
                       <div className="flex justify-between py-1.5 border-b border-white/5">
                         <span className="text-gray-400 font-medium">{isId ? "Format Ekspor Media" : "Export Graphic Format"}</span>
@@ -906,7 +906,7 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
                     <div className="bg-black/40 border border-white/5 rounded-xl p-3.5 space-y-2.5">
                       <span className="text-[10px] font-mono text-emerald-400 block font-bold">✓ LOCALSTORAGE VARIABLES</span>
                       <ul className="list-disc list-inside text-[10px] text-gray-400 space-y-1.5 font-mono">
-                        <li><span className="text-gray-200">tactigen_custom_key</span>: {isId ? "Kunci API Google Gemini Anda" : "Your Gemini API Key"}</li>
+                        <li><span className="text-gray-200">tactigen_custom_key</span>: {isId ? "Kunci API AI Anda" : "Your AI API Key"}</li>
                         <li><span className="text-gray-200">tactigen_mcp_enabled</span>: {isId ? "Status integrasi MCP lokal" : "Status of local MCP connection"}</li>
                         <li><span className="text-gray-200">tactigen_mcp_url</span>: {isId ? "Alamat endpoint host MCP" : "Host endpoint for MCP"}</li>
                         <li><span className="text-gray-200">tactigen_saved_playbooks</span>: {isId ? "Koleksi formasi & pemain" : "Playbook slots collection"}</li>

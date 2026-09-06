@@ -204,7 +204,7 @@ Formulate a master playbook animation sequence (3-4 sequential frames) showing c
     res.json(parsedData);
   } catch (err: any) {
     console.error("Error communicating with Gemini API:", err);
-    res.status(500).json({ error: "Gagal berinteraksi dengan Google Omni. " + err.message });
+    res.status(500).json({ error: "Gagal memproses permintaan AI Taktis. " + err.message });
   }
 });
 
@@ -312,7 +312,7 @@ Evaluate the chemistry synergy and make professional UEFA Pro License coach note
     res.json(parsedData);
   } catch (err: any) {
     console.error("Failed to generate scouting report:", err);
-    res.status(500).json({ error: "Gagal berinteraksi dengan Google Omni untuk riset tim: " + err.message });
+    res.status(500).json({ error: "Gagal memproses riset tim dengan AI: " + err.message });
   }
 });
 
@@ -492,15 +492,15 @@ And generate a master playbook animation sequence (3 keyframes) that represents 
     
     if (isQuota) {
       if (lang === "id") {
-        simulated.videoSummary = `⚠️ **[Batas Kuota Tercapai]** Google Omni API Key kustom Anda kehabisan kuota atau mengalami limitasi tarif (Rate Limit).\n\nKami telah beralih ke mesin simulasi taktis lokal bermutu tinggi untuk URL Anda:\n\n${simulated.videoSummary}`;
+        simulated.videoSummary = `⚠️ **[Batas Kuota Tercapai]** API Key kustom Anda kehabisan kuota atau mengalami limitasi tarif (Rate Limit).\n\nKami telah beralih ke mesin simulasi taktis lokal bermutu tinggi untuk URL Anda:\n\n${simulated.videoSummary}`;
       } else {
-        simulated.videoSummary = `⚠️ **[Quota Limit Exceeded]** Your custom Google Omni API key has hit its quota limit or rate-limit constraints.\n\nWe have automatically fell back to the high-quality local tactical analysis engine for your URL:\n\n${simulated.videoSummary}`;
+        simulated.videoSummary = `⚠️ **[Quota Limit Exceeded]** Your custom API key has hit its quota limit or rate-limit constraints.\n\nWe have automatically fell back to the high-quality local tactical analysis engine for your URL:\n\n${simulated.videoSummary}`;
       }
     } else {
       if (lang === "id") {
-        simulated.videoSummary = `⚠️ **[Pemberitahuan Sistem]** Terjadi gangguan kecil saat menghubungi server Google Omni dengan API Key kustom Anda (${err?.message || "Koneksi terputus"}). Menggunakan analisis cadangan lokal untuk:\n\n${simulated.videoSummary}`;
+        simulated.videoSummary = `⚠️ **[Pemberitahuan Sistem]** Terjadi gangguan kecil saat menghubungi server AI dengan API Key kustom Anda (${err?.message || "Koneksi terputus"}). Menggunakan analisis cadangan lokal untuk:\n\n${simulated.videoSummary}`;
       } else {
-        simulated.videoSummary = `⚠️ **[System Notice]** A minor disruption occurred while reaching Google Omni with your custom API key (${err?.message || "Connection disconnected"}). Using fallback offline analysis for:\n\n${simulated.videoSummary}`;
+        simulated.videoSummary = `⚠️ **[System Notice]** A minor disruption occurred while reaching the AI server with your custom API key (${err?.message || "Connection disconnected"}). Using fallback offline analysis for:\n\n${simulated.videoSummary}`;
       }
     }
     

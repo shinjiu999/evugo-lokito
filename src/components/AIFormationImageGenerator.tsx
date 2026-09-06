@@ -1620,7 +1620,7 @@ export default function AIFormationImageGenerator({
       } catch (ignored) {}
 
       if (!response.ok) {
-        let errMessage = "Gagal menjana imej menggunakan model Gemini.";
+        let errMessage = "Gagal membuat gambar menggunakan model AI.";
         try {
           const trimmedText = (responseText || "").trim();
           if (trimmedText && trimmedText.toLowerCase() !== "undefined" && trimmedText.toLowerCase() !== "null") {

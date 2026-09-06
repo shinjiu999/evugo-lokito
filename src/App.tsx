@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Player, TacticalItem, DrawingStroke, AnimationFrame, TacticalPlay, PitchTheme } from "./types";
+import { Player, TacticalItem, DrawingStroke, AnimationFrame, TacticalPlay, PitchTheme, TacticalOverlayMode, TacticalPhase } from "./types";
 import Pitch from "./components/Pitch";
+import TacticalTelemetryHUD from "./components/TacticalTelemetryHUD";
+import MatchBriefingSheetModal from "./components/MatchBriefingSheetModal";
 import AICoach from "./components/AICoach";
 import AIFormationImageGenerator from "./components/AIFormationImageGenerator";
-import AdSlotManager from "./components/AdSlotManager";
+import SponsorAcquisitionPortal from "./components/SponsorAcquisitionPortal";
 import AnimationTimeline from "./components/AnimationTimeline";
 import TacticalDrills from "./components/TacticalDrills";
 import { TacticalDrill } from "./data/tacticalDrills";
@@ -59,8 +61,8 @@ import {
 const TRANSLATIONS = {
   id: {
     appTitle: "Tactigen Pro",
-    appSubtitle: "Google Omni Powered Football Board",
-    omniConnected: "Google Omni Terhubung",
+    appSubtitle: "Papan Taktik Sepakbola & Strategi Formasi",
+    omniConnected: "Sistem Taktis Siap",
     help: "Bantuan",
     customPitch: "Lapangan Kustom",
     tvPreview: "TV Preview",
@@ -110,7 +112,7 @@ const TRANSLATIONS = {
     gk: "GK",
     number: "Nomor",
     footerTitle: "⚽ Tactigen Football Playmaker & Lineups Board",
-    footerSubtitle: "Integrasi Kecerdasan AI Google Omni Aktif",
+    footerSubtitle: "Papan Taktik Sepakbola & Formasi Digital",
     standardPhase: "Fasa 1: Posisi Standard",
     standardInstruction: "Lakukan organisasi pemain pada posisi standard dan siapkan pola build up.",
     managerProfile: "👔 Profil Manajer & Staf",
@@ -123,8 +125,8 @@ const TRANSLATIONS = {
   },
   en: {
     appTitle: "Tactigen Pro",
-    appSubtitle: "Google Omni Powered Football Board",
-    omniConnected: "Google Omni Connected",
+    appSubtitle: "Tactical Football Board & Lineup Creator",
+    omniConnected: "Tactical Engine Ready",
     help: "Help",
     customPitch: "Custom Pitch",
     tvPreview: "TV Preview",
@@ -174,7 +176,7 @@ const TRANSLATIONS = {
     gk: "GK",
     number: "Number",
     footerTitle: "⚽ Tactigen Football Playmaker & Lineups Board",
-    footerSubtitle: "Google Omni Intelligence AI Integration Active",
+    footerSubtitle: "Digital Football Tactics & Formation Board",
     standardPhase: "Phase 1: Standard Positions",
     standardInstruction: "Set up players in default formation and plan primary tactical plays.",
     managerProfile: "👔 Manager Profile",
@@ -579,6 +581,12 @@ export default function App() {
   const [showTacticalGrid, setShowTacticalGrid] = useState<boolean>(false);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
 
+  // Professional Tactical Telemetry & UEFA Matchday Sheet States
+  const [tacticalOverlay, setTacticalOverlay] = useState<TacticalOverlayMode>("none");
+  const [tacticalPhase, setTacticalPhase] = useState<TacticalPhase>("build-up");
+  const [isMeasureMode, setIsMeasureMode] = useState<boolean>(false);
+  const [isMatchSheetOpen, setIsMatchSheetOpen] = useState<boolean>(false);
+
   // Sequential Playbook Animation Steps
   const [frames, setFrames] = useState<AnimationFrame[]>([
     {
@@ -874,6 +882,13 @@ export default function App() {
   // Global API Keys & MCP Settings Portal Modal
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsKey, setSettingsKey] = useState(0);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"gemini" | "mcp">("gemini");
+  const [hasConnectedAI, setHasConnectedAI] = useState(() => {
+    return !!(
+      (localStorage.getItem("tactigen_custom_key") || "").trim() ||
+      localStorage.getItem("tactigen_mcp_enabled") === "true"
+    );
+  });
 
   // Save and Load Pitch & Formation slots
   const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
@@ -1092,7 +1107,7 @@ export default function App() {
     soundManager.playClick();
   };
 
-  // Integrate AI responses from Express Google Omni client
+  // Integrate AI responses from tactical engine
   const handleLoadGeneratedPlay = (play: TacticalPlay) => {
     const parsedFrames: AnimationFrame[] = play.frames.map((f, index) => ({
       id: `frame-ai-${index}-${Date.now()}`,
@@ -1603,14 +1618,6 @@ export default function App() {
         {/* Global Toolbar controls */}
         {/* Desktop-only full interactive dashboard toolbar */}
         <div className="hidden md:flex items-center gap-2 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-1 shadow-inner">
-          {/* Connected Badge */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-green-500/10 border border-green-500/20">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-            <span className="text-[10px] font-bold text-green-400 tracking-wide uppercase">{t.omniConnected}</span>
-          </div>
-
-          <div className="hidden lg:block w-px h-4 bg-white/10" />
-
           {/* Language Selector */}
           <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 shrink-0" role="group" aria-label={lang === "id" ? "Pilih Bahasa" : "Choose Language"}>
             <button
@@ -1705,9 +1712,34 @@ export default function App() {
             <span>{t.help}</span>
           </button>
 
+          {/* AI Mode Connection Quick Status Button */}
+          <button
+            onClick={() => {
+              setSettingsInitialTab("gemini");
+              setIsSettingsModalOpen(true);
+              soundManager.playClick();
+            }}
+            className={`px-3 py-1.5 rounded-xl border font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+              hasConnectedAI
+                ? "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-300 shadow-sm"
+                : "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-300 shadow-sm"
+            }`}
+            title={lang === "id" 
+              ? (hasConnectedAI ? "Mode AI Mandiri Aktif (Klik untuk ubah)" : "Disarankan sambungkan API Key atau server MCP pribadi") 
+              : (hasConnectedAI ? "Self-Hosted AI Connected" : "Recommended: Connect API Key or MCP")}
+          >
+            <span className="text-xs">{hasConnectedAI ? "🟢" : "💡"}</span>
+            <span>
+              {hasConnectedAI
+                ? (lang === "id" ? "AI Terhubung" : "AI Connected")
+                : (lang === "id" ? "Mode AI: Sambung API/MCP" : "AI Mode: Connect Key/MCP")}
+            </span>
+          </button>
+
           {/* Global AI Config Settings */}
           <button
             onClick={() => {
+              setSettingsInitialTab("gemini");
               setIsSettingsModalOpen(true);
               soundManager.playClick();
             }}
@@ -1722,9 +1754,28 @@ export default function App() {
 
         {/* Mobile-only compact interactive toolbar */}
         <div className="flex md:hidden items-center gap-1.5 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-1 shadow-inner">
+          {/* AI Connection status pill (mobile) */}
+          <button
+            onClick={() => {
+              setSettingsInitialTab("gemini");
+              setIsSettingsModalOpen(true);
+              soundManager.playClick();
+            }}
+            className={`px-2 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1 cursor-pointer ${
+              hasConnectedAI
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-300"
+            }`}
+            title={lang === "id" ? "Mode AI Mandiri" : "Self-Hosted AI"}
+          >
+            <span>{hasConnectedAI ? "🟢" : "💡"}</span>
+            <span className="hidden sm:inline">{hasConnectedAI ? "AI Aktif" : "Sambung AI"}</span>
+          </button>
+
           {/* Settings */}
           <button
             onClick={() => {
+              setSettingsInitialTab("gemini");
               setIsSettingsModalOpen(true);
               soundManager.playClick();
             }}
@@ -2550,6 +2601,31 @@ export default function App() {
                 </div>
               )}
 
+              {/* Tactical Telemetry HUD Component (Live Real-Pitch Stats, Phase Selector & Grid Controls) */}
+              {!isPitchFullscreen && (
+                <div className="w-full flex justify-center mb-1.5">
+                  <TacticalTelemetryHUD
+                    players={players}
+                    items={items}
+                    sportMode={sportMode}
+                    formation={formation}
+                    opponentFormation={opponentFormation}
+                    tacticalOverlay={tacticalOverlay}
+                    onSetTacticalOverlay={(mode) => {
+                      setTacticalOverlay(mode);
+                      if (mode === "18-zones") setShowTacticalGrid(true);
+                      else setShowTacticalGrid(false);
+                    }}
+                    tacticalPhase={tacticalPhase}
+                    onSetTacticalPhase={setTacticalPhase}
+                    isMeasureMode={isMeasureMode}
+                    onToggleMeasureMode={() => setIsMeasureMode(!isMeasureMode)}
+                    onOpenMatchSheet={() => setIsMatchSheetOpen(true)}
+                    lang={lang}
+                  />
+                </div>
+              )}
+
               <Pitch
                 players={players}
                 items={items}
@@ -2582,6 +2658,8 @@ export default function App() {
                 playSpeed={playSpeed}
                 transitionType={transitionType}
                 showTacticalGrid={showTacticalGrid}
+                tacticalOverlay={tacticalOverlay}
+                isMeasureMode={isMeasureMode}
                 showHeatmap={showHeatmap}
                 lang={lang}
                 sportMode={sportMode}
@@ -3296,14 +3374,18 @@ export default function App() {
             currentFormation={formation}
             onLoadGeneratedPlay={handleLoadGeneratedPlay}
             onApplyFormation={applyPresetFormation}
+            onOpenSettings={(tab) => {
+              setSettingsInitialTab(tab);
+              setIsSettingsModalOpen(true);
+            }}
             lang={lang}
           />
         </div>
       </main>
 
-      {/* Ad Slot Sponsor Banner placed centrally at the very bottom of the page */}
+      {/* Official Automated Sponsor Acquisition & Advertising Portal */}
       <div className="max-w-7xl w-full mx-auto px-3 md:px-6 mb-6 select-none">
-        <AdSlotManager />
+        <SponsorAcquisitionPortal lang={lang} />
       </div>
 
       {/* FOOTER CLUBS CREATER */}
@@ -3384,12 +3466,38 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* PROFESSIONAL UEFA PRO MATCHDAY BRIEFING SHEET MODAL */}
+      <MatchBriefingSheetModal
+        isOpen={isMatchSheetOpen}
+        onClose={() => setIsMatchSheetOpen(false)}
+        teamName={teamName}
+        teamLogo={teamLogo}
+        players={players}
+        formation={formation}
+        opponentFormation={opponentFormation}
+        sportMode={sportMode}
+        tacticalPhase={tacticalPhase}
+        managerName={managerName}
+        primaryColor={primaryColor}
+        lang={lang}
+        onDownloadPitchPng={handleDownloadImage}
+      />
+
       {/* GLOBAL CREDENTIALS SETTINGS MODAL */}
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
-        onSave={() => setSettingsKey((prev) => prev + 1)}
+        onSave={() => {
+          setSettingsKey((prev) => prev + 1);
+          setHasConnectedAI(
+            !!(
+              (localStorage.getItem("tactigen_custom_key") || "").trim() ||
+              localStorage.getItem("tactigen_mcp_enabled") === "true"
+            )
+          );
+        }}
         lang={lang}
+        initialTab={settingsInitialTab}
       />
 
     </div>

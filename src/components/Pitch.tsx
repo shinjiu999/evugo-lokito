@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Player, TacticalItem, DrawingStroke, AnimationFrame, PitchTheme } from "../types";
-import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Redo, Maximize2, Minimize2, Layers, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
+import { Player, TacticalItem, DrawingStroke, AnimationFrame, PitchTheme, TacticalOverlayMode } from "../types";
+import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Redo, Maximize2, Minimize2, Layers, Eye, EyeOff, ChevronUp, ChevronDown, Ruler } from "lucide-react";
 import { soundManager } from "../utils/sound";
 
 interface PitchProps {
@@ -41,6 +41,8 @@ interface PitchProps {
   playSpeed?: "slow" | "normal" | "fast" | "superfast";
   transitionType?: "spring" | "linear" | "stealth" | "ease-in-out" | "elastic";
   showTacticalGrid?: boolean;
+  tacticalOverlay?: TacticalOverlayMode;
+  isMeasureMode?: boolean;
   showHeatmap?: boolean;
   lang?: "id" | "en";
   sportMode?: "soccer" | "minisoccer" | "futsal" | "custom";
@@ -155,6 +157,8 @@ export default function Pitch({
   playSpeed = "normal",
   transitionType = "spring",
   showTacticalGrid = false,
+  tacticalOverlay = "none",
+  isMeasureMode = false,
   showHeatmap = false,
   lang = "id",
   sportMode = "soccer",
@@ -181,6 +185,10 @@ export default function Pitch({
   const [lastPoint, setLastPoint] = useState<{ x: number; y: number } | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<"player" | "item" | null>(null);
+
+  // Laser distance and pass angle measurement states
+  const [measureSourceId, setMeasureSourceId] = useState<string | null>(null);
+  const [measureTargetId, setMeasureTargetId] = useState<string | null>(null);
 
   // RAF throttling refs for ultra-smooth drag-and-drop tracking
   const rafIdRef = useRef<number | null>(null);
@@ -1346,6 +1354,23 @@ export default function Pitch({
   // --- DRAGGING CODES ---
   const handleDragStart = (e: ReactMouseEvent | ReactTouchEvent, id: string, type: "player" | "item") => {
     if (activeTool !== "select") return;
+
+    // Laser measurement mode intercept
+    if (isMeasureMode) {
+      if (!measureSourceId) {
+        setMeasureSourceId(id);
+      } else if (measureSourceId && !measureTargetId) {
+        if (measureSourceId !== id) {
+          setMeasureTargetId(id);
+        }
+      } else {
+        setMeasureSourceId(id);
+        setMeasureTargetId(null);
+      }
+      soundManager.playClick();
+      return;
+    }
+
     setDraggedId(id);
     setDraggedType(type);
 
@@ -1802,6 +1827,68 @@ export default function Pitch({
 
   const isMobileDrawActive = isMobile && activeTool === "draw";
 
+  // --- TACTICAL TELEMETRY CALCULATIONS ---
+  const outfieldStarters = starters.filter((p) => p.role !== "GK");
+  const defPlayers = outfieldStarters.filter((p) => p.role === "DEF");
+  const defYValues = defPlayers.length > 0 ? defPlayers.map((p) => p.y) : outfieldStarters.map((p) => p.y);
+  const defLineY = defYValues.length > 0 ? Math.max(...defYValues) : 80;
+  const fwdYValues = outfieldStarters.map((p) => p.y);
+  const fwdLineY = fwdYValues.length > 0 ? Math.min(...fwdYValues) : 25;
+
+  const pitchLengthM = sportMode === "futsal" ? 40 : sportMode === "minisoccer" ? 70 : 105;
+  const pitchWidthM = sportMode === "futsal" ? 20 : sportMode === "minisoccer" ? 45 : 68;
+
+  // --- PASS & DISTANCE LASER MEASUREMENT DATA ---
+  let measureEntityA: { x: number; y: number; name?: string; role?: string; number?: number } | null = null;
+  let measureEntityB: { x: number; y: number; name?: string; role?: string; number?: number } | null = null;
+
+  if (measureSourceId) {
+    const pA = starters.find((p) => p.id === measureSourceId);
+    if (pA) measureEntityA = { x: pA.x, y: pA.y, name: pA.name, role: pA.role, number: pA.number };
+    else {
+      const itmA = items.find((i) => i.id === measureSourceId);
+      if (itmA) measureEntityA = { x: itmA.x, y: itmA.y, name: itmA.type.toUpperCase(), number: itmA.number };
+    }
+  }
+
+  if (measureTargetId) {
+    const pB = starters.find((p) => p.id === measureTargetId);
+    if (pB) measureEntityB = { x: pB.x, y: pB.y, name: pB.name, role: pB.role, number: pB.number };
+    else {
+      const itmB = items.find((i) => i.id === measureTargetId);
+      if (itmB) measureEntityB = { x: itmB.x, y: itmB.y, name: itmB.type.toUpperCase(), number: itmB.number };
+    }
+  }
+
+  let measureDistMeters = 0;
+  let measureAngleDeg = 0;
+  let measureIsObstructed = false;
+  let measureObstructingEnemy = "";
+
+  if (measureEntityA && measureEntityB) {
+    const dxM = ((measureEntityB.x - measureEntityA.x) / 100) * pitchWidthM;
+    const dyM = ((measureEntityB.y - measureEntityA.y) / 100) * pitchLengthM;
+    measureDistMeters = parseFloat(Math.hypot(dxM, dyM).toFixed(1));
+    measureAngleDeg = Math.round(Math.atan2(measureEntityB.y - measureEntityA.y, measureEntityB.x - measureEntityA.x) * (180 / Math.PI));
+
+    const enemies = items.filter((i) => i.type === "enemy");
+    const l2 = Math.pow(measureEntityB.x - measureEntityA.x, 2) + Math.pow(measureEntityB.y - measureEntityA.y, 2);
+    if (l2 > 0) {
+      for (const enemy of enemies) {
+        let t = ((enemy.x - measureEntityA.x) * (measureEntityB.x - measureEntityA.x) + (enemy.y - measureEntityA.y) * (measureEntityB.y - measureEntityA.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        const projX = measureEntityA.x + t * (measureEntityB.x - measureEntityA.x);
+        const projY = measureEntityA.y + t * (measureEntityB.y - measureEntityA.y);
+        const dist = Math.hypot(enemy.x - projX, enemy.y - projY);
+        if (dist < 4.5) {
+          measureIsObstructed = true;
+          measureObstructingEnemy = enemy.number ? `#${enemy.number}` : "Lawan";
+          break;
+        }
+      }
+    }
+  }
+
   const wrapperClass = isMobileDrawActive
     ? `fixed top-[82px] bottom-[20px] left-3 right-3 m-auto max-w-[580px] max-h-[calc(100vh-112px)] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
     : (isFullscreen && !isMobileOrTablet)
@@ -2168,7 +2255,7 @@ export default function Pitch({
           )}
 
           {/* Tactical 18-Zone Grid Overlay */}
-          {showTacticalGrid && (
+          {(showTacticalGrid || tacticalOverlay === "18-zones") && (
             <g id="tactical-18-grid" style={{ transition: "all 0.3s ease-in-out" }}>
               {/* Vertical outer alignment lines */}
               <line x1="25" y1="3" x2="25" y2="97" stroke={lineStroke} strokeWidth="0.3" strokeDasharray="1, 1.5" opacity="0.35" />
@@ -2181,36 +2268,118 @@ export default function Pitch({
               <line x1="3" y1="64.5" x2="97" y2="64.5" stroke={lineStroke} strokeWidth="0.3" strokeDasharray="1, 1.5" opacity="0.35" />
               <line x1="3" y1="79" x2="97" y2="79" stroke={lineStroke} strokeWidth="0.3" strokeDasharray="1, 1.5" opacity="0.35" />
 
-              {/* Zone Labels for high precision spacing (Malaysia / Malay literal coach layout) */}
-              {/* Row 1 (Bawah / Gawang Sendiri) */}
+              {/* Zone Labels for high precision spacing */}
               <text x="14" y="88" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z1</text>
               <text x="50" y="88" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z2</text>
               <text x="86" y="88" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z3</text>
 
-              {/* Row 2 (Kawasan Bertahan) */}
               <text x="14" y="71.7" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z4</text>
               <text x="50" y="71.7" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z5</text>
               <text x="86" y="71.7" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z6</text>
 
-              {/* Row 3 (Tengah Bertahan) */}
               <text x="14" y="57.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z7</text>
               <text x="50" y="57.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z8</text>
               <text x="86" y="57.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z9</text>
 
-              {/* Row 4 (Tengah Menyerang) */}
               <text x="14" y="42.75" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z10</text>
               <text x="50" y="42.75" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z11</text>
               <text x="86" y="42.75" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z12</text>
 
-              {/* Row 5 (Zon Kreatif / Sepertiga Akhir) */}
               <text x="14" y="28.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z13</text>
               <text x="50" y="28.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z14</text>
               <text x="86" y="28.25" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z15</text>
 
-              {/* Row 6 (Kawasan Kotak Penalti Lawan / Atas) */}
               <text x="14" y="12" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z16</text>
               <text x="50" y="12" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z17</text>
               <text x="86" y="12" textAnchor="middle" dominantBaseline="middle" fill={lineStroke} opacity="0.35" fontSize="3" fontWeight="900" fontFamily="monospace">Z18</text>
+            </g>
+          )}
+
+          {/* Tactical 5-Corridors & Half-Spaces (Pep Guardiola Channel Philosophy) */}
+          {tacticalOverlay === "corridors" && (
+            <g id="tactical-corridors-overlay" style={{ transition: "all 0.3s ease-in-out" }}>
+              {/* Subtle tint for Half-Spaces */}
+              <rect x="18" y="3" width="18" height="94" fill="rgba(16, 185, 129, 0.08)" />
+              <rect x="64" y="3" width="18" height="94" fill="rgba(16, 185, 129, 0.08)" />
+              <rect x="36" y="3" width="28" height="94" fill="rgba(255, 255, 255, 0.02)" />
+
+              {/* Corridor vertical divisions */}
+              <line x1="18" y1="3" x2="18" y2="97" stroke="#34d399" strokeWidth="0.4" strokeDasharray="1.5, 1.5" opacity="0.75" />
+              <line x1="36" y1="3" x2="36" y2="97" stroke="#34d399" strokeWidth="0.5" strokeDasharray="2, 2" opacity="0.85" />
+              <line x1="64" y1="3" x2="64" y2="97" stroke="#34d399" strokeWidth="0.5" strokeDasharray="2, 2" opacity="0.85" />
+              <line x1="82" y1="3" x2="82" y2="97" stroke="#34d399" strokeWidth="0.4" strokeDasharray="1.5, 1.5" opacity="0.75" />
+
+              {/* Zone 14 Golden Highlight (Crucial Playmaker Space) */}
+              <rect x="36" y="21" width="28" height="14.5" fill="rgba(245, 158, 11, 0.15)" stroke="#f59e0b" strokeWidth="0.6" strokeDasharray="1.5, 1.5" />
+              <text x="50" y="28.25" textAnchor="middle" dominantBaseline="middle" fill="#fbbf24" fontSize="2.2" fontWeight="900" letterSpacing="0.05">
+                ★ ZONE 14 (CREATIVE POCKET)
+              </text>
+
+              {/* Top Corridor Titles */}
+              <text x="10.5" y="6" textAnchor="middle" fill="#6ee7b7" fontSize="1.8" fontWeight="900" opacity="0.85">SAYAP KIRI</text>
+              <text x="27" y="6" textAnchor="middle" fill="#34d399" fontSize="1.8" fontWeight="900" opacity="0.95">HALF-SPACE (L)</text>
+              <text x="50" y="6" textAnchor="middle" fill="#ffffff" fontSize="1.8" fontWeight="900" opacity="0.85">KORIDOR TENGAH</text>
+              <text x="73" y="6" textAnchor="middle" fill="#34d399" fontSize="1.8" fontWeight="900" opacity="0.95">HALF-SPACE (R)</text>
+              <text x="89.5" y="6" textAnchor="middle" fill="#6ee7b7" fontSize="1.8" fontWeight="900" opacity="0.85">SAYAP KANAN</text>
+            </g>
+          )}
+
+          {/* Pressing Blocks & Defensive Line Telemetry Overlay */}
+          {tacticalOverlay === "pressing-blocks" && (
+            <g id="tactical-blocks-overlay" style={{ transition: "all 0.3s ease-in-out" }}>
+              {/* Compactness Ribbon (Shaded zone between backline & frontline) */}
+              <rect
+                x="3"
+                y={Math.min(defLineY, fwdLineY)}
+                width="94"
+                height={Math.max(4, Math.abs(defLineY - fwdLineY))}
+                fill="rgba(16, 185, 129, 0.09)"
+                stroke="#10b981"
+                strokeWidth="0.3"
+                strokeDasharray="2, 2"
+                opacity="0.8"
+              />
+              
+              {/* Defensive Line (Offside line) */}
+              <line x1="3" y1={defLineY} x2="97" y2={defLineY} stroke="#38bdf8" strokeWidth="0.6" strokeDasharray="2, 1" />
+              <text x="50" y={Math.min(96, defLineY + 2.8)} textAnchor="middle" fill="#38bdf8" fontSize="2.2" fontWeight="900">
+                GARIS OFFSIDE / BACKLINE ({(((100 - defLineY) / 100) * pitchLengthM).toFixed(1)}m)
+              </text>
+
+              {/* Forward Pressing Line */}
+              <line x1="3" y1={fwdLineY} x2="97" y2={fwdLineY} stroke="#f87171" strokeWidth="0.6" strokeDasharray="2, 1" />
+              <text x="50" y={Math.max(5, fwdLineY - 1.5)} textAnchor="middle" fill="#f87171" fontSize="2.2" fontWeight="900">
+                TRIGGER HIGH PRESS DEPAN
+              </text>
+            </g>
+          )}
+
+          {/* Real-time Laser Pass Measurement Vector in SVG */}
+          {measureEntityA && measureEntityB && (
+            <g id="laser-pass-measurement" style={{ pointerEvents: "none" }}>
+              {/* Pulse beam shadow */}
+              <line
+                x1={measureEntityA.x}
+                y1={measureEntityA.y}
+                x2={measureEntityB.x}
+                y2={measureEntityB.y}
+                stroke={measureIsObstructed ? "rgba(239, 68, 68, 0.4)" : "rgba(16, 185, 129, 0.4)"}
+                strokeWidth="2.5"
+              />
+              {/* Primary laser stroke */}
+              <line
+                x1={measureEntityA.x}
+                y1={measureEntityA.y}
+                x2={measureEntityB.x}
+                y2={measureEntityB.y}
+                stroke={measureIsObstructed ? "#ef4444" : "#34d399"}
+                strokeWidth="0.8"
+                strokeDasharray="1.5, 1"
+              />
+              {/* Glowing start ring */}
+              <circle cx={measureEntityA.x} cy={measureEntityA.y} r="2.2" fill="none" stroke="#f59e0b" strokeWidth="0.5" />
+              {/* Glowing end target ring */}
+              <circle cx={measureEntityB.x} cy={measureEntityB.y} r="2.2" fill="none" stroke={measureIsObstructed ? "#ef4444" : "#10b981"} strokeWidth="0.5" />
             </g>
           )}
         </svg>
@@ -2437,6 +2606,56 @@ export default function Pitch({
                 return null;
               })}
           </svg>
+        )}
+
+        {/* Floating Laser Pass Measurement HUD Banner */}
+        {isMeasureMode && (
+          <div className="absolute top-2 left-2 right-2 z-40 flex items-center justify-between p-2 rounded-2xl bg-black/85 backdrop-blur-md border border-amber-400/40 shadow-[0_4px_20px_rgba(0,0,0,0.6)] animate-fadeIn">
+            <div className="flex items-center gap-2 text-xs">
+              <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <Ruler className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-[11px] sm:text-xs">
+                {!measureEntityA ? (
+                  <span className="text-amber-200 font-bold">
+                    {lang === "id" ? "Pilih atlet/item pertama untuk mengukur jarak..." : "Click first player/item to measure..."}
+                  </span>
+                ) : !measureEntityB ? (
+                  <span className="text-white font-bold">
+                    {lang === "id" ? `Terpilih: #${measureEntityA.number || ""} ${measureEntityA.name} ➔ Klik atlet kedua` : `Selected: #${measureEntityA.number || ""} ${measureEntityA.name} ➔ Click second player`}
+                  </span>
+                ) : (
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    <span className="font-extrabold text-white">
+                      #{measureEntityA.number || ""} {measureEntityA.name} ➔ #{measureEntityB.number || ""} {measureEntityB.name}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">
+                      {measureDistMeters}m
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                      {measureAngleDeg > 0 ? `+${measureAngleDeg}` : measureAngleDeg}°
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded font-black border ${measureIsObstructed ? "bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse" : "bg-teal-500/20 text-teal-300 border-teal-500/40"}`}>
+                      {measureIsObstructed ? (lang === "id" ? `⚠️ Terhalang (${measureObstructingEnemy})` : `⚠️ Intercepted (${measureObstructingEnemy})`) : (lang === "id" ? "✓ Jalur Bebas" : "✓ Open Lane")}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {measureEntityA && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMeasureSourceId(null);
+                  setMeasureTargetId(null);
+                }}
+                className="px-2 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold transition-all cursor-pointer shrink-0 ml-2"
+              >
+                {lang === "id" ? "Reset" : "Clear"}
+              </button>
+            )}
+          </div>
         )}
 
         {/* INTERACTIVE PLAYERS AND DRAGGABLE BALLS & CONES */}

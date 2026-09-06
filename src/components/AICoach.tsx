@@ -11,10 +11,11 @@ interface AICoachProps {
   currentFormation: string;
   onLoadGeneratedPlay: (play: TacticalPlay) => void;
   onApplyFormation?: (formation: string) => void;
+  onOpenSettings?: (tab: "gemini" | "mcp") => void;
   lang?: "id" | "en";
 }
 
-export default function AICoach({ players, items, currentFormation, onLoadGeneratedPlay, onApplyFormation, lang = "id" }: AICoachProps) {
+export default function AICoach({ players, items, currentFormation, onLoadGeneratedPlay, onApplyFormation, onOpenSettings, lang = "id" }: AICoachProps) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +146,7 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
       } catch (ignored) {}
 
       if (!response.ok) {
-        throw new Error("Gagal mengambil data dari Google Omni.");
+        throw new Error("Gagal mengambil data analisis skuad AI.");
       }
 
       const decoded = JSON.parse(rawText);
@@ -154,7 +155,7 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
       }
       setScoutReport(decoded);
     } catch (err: any) {
-      setScoutError(err?.message || "Koneksi terputus ke Google Scout.");
+      setScoutError(err?.message || "Koneksi ke sistem analisis AI terputus.");
     } finally {
       setScoutLoading(false);
     }
@@ -278,21 +279,21 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
         setPrompt("");
       }
     } catch (err: any) {
-      setError(err?.message || "Koneksi terputus ke Google Omni.");
+      setError(err?.message || "Koneksi ke sistem AI terputus.");
     } finally {
       setLoading(false);
     }
   };
 
   const l = {
-    hubTitle: "Omni Intelligence Hub",
+    hubTitle: "Tactical AI Coach",
     hubSubtitle: lang === "id" ? "Rancang & konversi playbook taktis otomatis" : "Design & convert automatic tactical playbooks seamlessly",
     presetLabel: lang === "id" ? "Pola Strategi Cepat" : "Quick Tactical Strategies",
-    instructionLabel: lang === "id" ? "Instruksi Khusus untuk Google Omni" : "Custom Instructions for Google Omni",
+    instructionLabel: lang === "id" ? "Instruksi Taktikal Khusus AI" : "Custom Tactical Instructions for AI",
     placeholder: lang === "id" ? "Instruksikan pola gerakan, e.g., 'striker pivot oper sayap kanan...'" : "Describe players movement, e.g., 'striker pivot pass left wing...'",
     animateBtn: lang === "id" ? "Animasikan" : "Animate",
     scoutBtn: lang === "id" ? "Riset Skuad & Sinergi Kimia (Scout AI)" : "Squad Synergy & Chemistry Report (Scout AI)",
-    loadingText1: lang === "id" ? "Google Omni merakit visual koordinat..." : "Google Omni projecting tactical coordinates...",
+    loadingText1: lang === "id" ? "AI merakit visual koordinat..." : "AI projecting tactical coordinates...",
     loadingText2: lang === "id" ? "Menyusun layout taktik keyframes gerakan & analisis playbook" : "Compiling dynamic player movement keyframes & playbook analysis",
     errorTitle: lang === "id" ? "Gagal Generasi Taktik" : "Tactics Generation Failed",
     analysisLabel: lang === "id" ? "Analisis Strategi" : "Strategy Analysis",
@@ -302,7 +303,7 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
   return (
     <Interactive3DCard glowColor="rgba(16, 185, 129, 0.4)">
       <div className="p-4 flex flex-col gap-4 relative">
-        {/* Section 6: Gemini Header & Language Pill */}
+        {/* Section 6: Tactical AI Header & Language Pill */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
@@ -311,7 +312,7 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 uppercase tracking-wider">
-                  Gemini AI
+                  Tactical AI Coach
                 </h3>
                 <span className="text-[8px] bg-emerald-500/15 text-emerald-300 px-1.5 py-0.2 rounded-full border border-emerald-500/30 font-extrabold uppercase">
                   {lang === "id" ? "✨ Indonesian AI" : "✨ English AI"}
@@ -322,7 +323,13 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
           </div>
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={() => {
+                if (onOpenSettings) {
+                  onOpenSettings("gemini");
+                } else {
+                  setIsSettingsOpen(true);
+                }
+              }}
               className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl border border-white/10 transition-all flex items-center justify-center cursor-pointer active:scale-95"
               title={l.settingsTitle}
               id="ai-mcp-settings-btn"
@@ -332,7 +339,92 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
           </div>
         </div>
 
-        {/* Section 6: AI-Powered Suggestion Highlight Card */}
+        {/* AI Mode Connection Recommendation & Status Banner */}
+        {(!customApiKey.trim() && !mcpEnabled) ? (
+          <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/25 via-[#18140a]/70 to-[#0c1612]/70 p-3 flex flex-col gap-2 shadow-[0_4px_16px_rgba(245,158,11,0.08)]">
+            <div className="flex items-start gap-2">
+              <span className="text-base leading-none mt-0.5 shrink-0">💡</span>
+              <div className="space-y-0.5 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[10.5px] font-black text-amber-300 uppercase tracking-wide">
+                    {lang === "id" ? "Disarankan: Sambungkan AI / MCP Anda" : "Recommended: Connect Your AI or MCP"}
+                  </span>
+                  <span className="text-[8px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">
+                    REKOMENDASI
+                  </span>
+                </div>
+                <p className="text-[9.5px] text-gray-300 leading-relaxed">
+                  {lang === "id"
+                    ? "Untuk mengaktifkan seluruh mode AI taktis secara maksimal, bebas batasan kuota publik, dan menjaga privasi strategi tim Anda, disarankan mengkoneksikan Kunci API AI atau server Model Context Protocol (MCP) pribadi Anda."
+                    : "For full AI tactical capabilities, rate-limit-free speed, and private club tactics protection, we recommend connecting your personal AI API Key or your own MCP server."}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenSettings) {
+                    onOpenSettings("gemini");
+                  } else {
+                    setActiveTab("ai");
+                    setIsSettingsOpen(true);
+                  }
+                }}
+                className="py-1.5 px-2 bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
+              >
+                <span>🔑</span>
+                <span>{lang === "id" ? "Sambung API Key" : "Connect API Key"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenSettings) {
+                    onOpenSettings("mcp");
+                  } else {
+                    setActiveTab("mcp");
+                    setIsSettingsOpen(true);
+                  }
+                }}
+                className="py-1.5 px-2 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
+              >
+                <span>🌐</span>
+                <span>{lang === "id" ? "Sambung Server MCP" : "Connect MCP Server"}</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/20 px-3 py-2 flex items-center justify-between gap-2 shadow-sm">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <div className="truncate">
+                <span className="text-[10px] font-bold text-white block truncate">
+                  {lang === "id" ? "🟢 Mode AI Mandiri Aktif: " : "🟢 Self-Hosted AI Active: "}
+                  {customApiKey.trim() ? (lang === "id" ? "Kunci API AI Pribadi" : "Personal AI API Key") : `Server MCP (${mcpUrl})`}
+                </span>
+                <span className="text-[8.5px] text-emerald-400/80 font-mono block truncate">
+                  {customApiKey.trim() ? "Bebas batasan kuota publik • Respons instan" : `Tool: ${mcpTool}`}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (onOpenSettings) {
+                  onOpenSettings(customApiKey.trim() ? "gemini" : "mcp");
+                } else {
+                  setIsSettingsOpen(true);
+                }
+              }}
+              className="text-[9px] text-emerald-300 hover:text-white bg-emerald-500/15 hover:bg-emerald-500/30 px-2 py-1 rounded-lg border border-emerald-500/25 font-bold shrink-0 transition-all cursor-pointer"
+            >
+              {lang === "id" ? "Kelola" : "Manage"}
+            </button>
+          </div>
+        )}
+
+        {/* Section 6: Tactical Suggestion Highlight Card */}
         <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-950/25 to-[#081812]/70 p-3 flex flex-col gap-2.5 shadow-[0_8px_20px_rgba(16,185,129,0.08)]">
           <div className="flex items-start justify-between gap-2">
             <div className="flex flex-col">
@@ -342,7 +434,7 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
               <span className="text-[9px] text-emerald-200/70 font-medium mt-0.5 leading-snug">
                 {lang === "id" 
                   ? "Analisis formasi dan celah transisi lawan untuk hasil optimal."
-                  : "AI-powered suggestions to improve team structure & counter-press."}
+                  : "Tactical recommendations to optimize team structure & counter-press."}
               </span>
             </div>
             <span className="text-[8px] font-black uppercase text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/25 shrink-0">
@@ -623,17 +715,17 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
                         onChange={(e) => setSelectedModel(e.target.value as any)}
                         className="w-full bg-black/80 border border-white/10 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 font-bold"
                       >
-                        <option value="gemini-3.5-flash">⚽ Google Gemini 3.5 Flash (Generalist & Fast)</option>
-                        <option value="gemini-3.1-pro-preview">🧠 Google Gemini 3.1 Pro (Complex Reasoning)</option>
-                        <option value="gemini-3.1-flash-lite">🚀 Google Gemini 3.1 Flash Lite (Ultra-Low Latency)</option>
+                        <option value="gemini-3.5-flash">⚽ Gemini 3.5 Flash (Generalist & Fast)</option>
+                        <option value="gemini-3.1-pro-preview">🧠 Gemini 3.1 Pro (Complex Reasoning)</option>
+                        <option value="gemini-3.1-flash-lite">🚀 Gemini 3.1 Flash Lite (Ultra-Low Latency)</option>
                         <option value="claude">🎭 Claude 3.5 Sonnet (Simulated Style)</option>
                         <option value="gpt4">📋 OpenAI GPT-4o (Simulated Style)</option>
                         <option value="deepseek">🧪 DeepSeek R1 (Simulated Style)</option>
                       </select>
                       <p className="text-[9px] text-blue-400 mt-1 leading-relaxed font-semibold">
-                        {selectedModel === "gemini-3.5-flash" && "⚽ Google Gemini 3.5 Flash memberikan respons taktis yang seimbang secara cepat."}
-                        {selectedModel === "gemini-3.1-pro-preview" && "🧠 Google Gemini 3.1 Pro unggul dalam analisis posisi spasial geometris yang sangat kompleks."}
-                        {selectedModel === "gemini-3.1-flash-lite" && "🚀 Google Gemini 3.1 Flash Lite dirancang untuk generasi instan dengan latensi minimal luar biasa."}
+                        {selectedModel === "gemini-3.5-flash" && "⚽ Memberikan respons taktis yang seimbang secara cepat."}
+                        {selectedModel === "gemini-3.1-pro-preview" && "🧠 Unggul dalam analisis posisi spasial geometris yang sangat kompleks."}
+                        {selectedModel === "gemini-3.1-flash-lite" && "🚀 Dirancang untuk generasi instan dengan latensi minimal luar biasa."}
                         {selectedModel === "claude" && "🎭 Format ala Claude 3.5 Sonnet menulis ulasan dengan terminologi UEFA pelatih profesional & rigid."}
                         {selectedModel === "gpt4" && "📋 Format ala OpenAI GPT-4o memberikan SWOT analisis & langkah taktis berpoin ringkas."}
                         {selectedModel === "deepseek" && "🧪 Format ala DeepSeek R1 mendalam dengan rincian proses berpikir kalkulasi geometris lapangan."}
@@ -838,7 +930,7 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
                   <div className="py-12 flex flex-col items-center justify-center text-center gap-3">
                     <div className="w-10 h-10 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
                     <div className="space-y-1">
-                      <p className="text-gray-200 font-bold">Google Omni sedang menghitung chemistry skuad...</p>
+                      <p className="text-gray-200 font-bold">{lang === "id" ? "AI sedang menghitung chemistry skuad..." : "AI is calculating squad chemistry..."}</p>
                       <p className="text-[10px] text-gray-500">Mengkalkulasikan radius spasial, kesesuaian peran, serta sinergi taktis</p>
                     </div>
                   </div>
@@ -1231,7 +1323,7 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
                     </div>
                     <div>
                       <span className="text-xs font-bold text-red-400 block">
-                        {lang === "id" ? "Google Omni sedang memindai video taktis..." : "Google Omni is scanning tactical footage..."}
+                        {lang === "id" ? "AI sedang memindai video taktis..." : "AI is scanning tactical footage..."}
                       </span>
                       <span className="text-[10px] text-gray-500 mt-1 block">
                         {lang === "id" 

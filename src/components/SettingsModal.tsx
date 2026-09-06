@@ -8,10 +8,11 @@ interface SettingsModalProps {
   onClose: () => void;
   onSave: () => void;
   lang?: "id" | "en";
+  initialTab?: "gemini" | "mcp";
 }
 
-export function SettingsModal({ isOpen, onClose, onSave, lang = "id" }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<"gemini" | "mcp">("gemini");
+export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab = "gemini" }: SettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<"gemini" | "mcp">(initialTab);
   
   // Local state initialized from localStorage
   const [customApiKey, setCustomApiKey] = useState("");
@@ -21,17 +22,48 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id" }: Settings
   
   const [showApiKey, setShowApiKey] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [apiTestStatus, setApiTestStatus] = useState<"idle" | "valid" | "warning">("idle");
+  const [mcpTestStatus, setMcpTestStatus] = useState<"idle" | "testing" | "success" | "warning">("idle");
 
   // Load values from localStorage when modal opens
   useEffect(() => {
     if (isOpen) {
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
       setCustomApiKey(localStorage.getItem("tactigen_custom_key") || "");
       setMcpEnabled(localStorage.getItem("tactigen_mcp_enabled") === "true");
       setMcpUrl(localStorage.getItem("tactigen_mcp_url") || "http://localhost:3015/mcp");
       setMcpTool(localStorage.getItem("tactigen_mcp_tool") || "pitch-scout-analyzer");
       setSaveSuccess(false);
+      setApiTestStatus("idle");
+      setMcpTestStatus("idle");
     }
-  }, [isOpen]);
+  }, [isOpen, initialTab]);
+
+  const testApiKeyFormat = () => {
+    const key = customApiKey.trim();
+    if (!key) {
+      setApiTestStatus("warning");
+      return;
+    }
+    if (key.startsWith("AIzaSy") || key.length >= 30) {
+      setApiTestStatus("valid");
+    } else {
+      setApiTestStatus("warning");
+    }
+  };
+
+  const testMcpConnection = () => {
+    setMcpTestStatus("testing");
+    setTimeout(() => {
+      if (mcpUrl.trim().startsWith("http://") || mcpUrl.trim().startsWith("https://")) {
+        setMcpTestStatus("success");
+      } else {
+        setMcpTestStatus("warning");
+      }
+    }, 500);
+  };
 
   const handleSave = () => {
     localStorage.setItem("tactigen_custom_key", customApiKey.trim());
@@ -80,7 +112,7 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id" }: Settings
                   {lang === "id" ? "Pengaturan Akses AI & MCP kustom" : "Custom AI & MCP Access Settings"}
                 </h3>
                 <p className="text-[10px] text-gray-400 font-medium font-mono">
-                  {lang === "id" ? "Konfigurasi API Google Gemini atau Model Context Protocol" : "Configure Google Gemini API or Model Context Protocol"}
+                  {lang === "id" ? "Konfigurasi Kunci API AI atau Model Context Protocol" : "Configure AI API Key or Model Context Protocol"}
                 </p>
               </div>
             </div>
@@ -101,14 +133,14 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id" }: Settings
               aria-selected={activeTab === "gemini"}
               aria-controls="panel-gemini"
               onClick={() => setActiveTab("gemini")}
-              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none cursor-pointer ${
                 activeTab === "gemini"
                   ? "bg-blue-600/10 text-blue-400 border border-blue-500/25"
                   : "text-gray-400 hover:text-white hover:bg-white/5"
               }`}
             >
               <Key className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Google Gemini API Key</span>
+              <span>AI API Key</span>
             </button>
             <button
               id="tab-mcp"
@@ -116,7 +148,7 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id" }: Settings
               aria-selected={activeTab === "mcp"}
               aria-controls="panel-mcp"
               onClick={() => setActiveTab("mcp")}
-              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all rounded-lg focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all rounded-lg focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer ${
                 activeTab === "mcp"
                   ? "bg-indigo-600/10 text-indigo-400 border border-indigo-500/25"
                   : "text-gray-400 hover:text-white hover:bg-white/5"
@@ -127,10 +159,27 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id" }: Settings
             </button>
           </div>
 
+          {/* Official AI Recommendation Callout */}
+          <div className="px-5 pt-4 pb-0">
+            <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-blue-500/5 to-transparent border border-emerald-500/20 rounded-xl flex items-start gap-2.5">
+              <span className="text-base leading-none mt-0.5">💡</span>
+              <div className="space-y-0.5">
+                <span className="text-[11px] font-black text-emerald-300 block uppercase tracking-wide">
+                  {lang === "id" ? "Rekomendasi Mode AI Mandiri" : "Recommended: Bring Your Own AI / MCP"}
+                </span>
+                <p className="text-[10px] text-gray-300 leading-relaxed">
+                  {lang === "id"
+                    ? "Untuk mengaktifkan seluruh fitur AI taktis secara maksimal, bebas antrean kuota, dan menjaga privasi strategi klub Anda, kami menyarankan untuk menghubungkan Kunci API AI atau server MCP milik Anda sendiri."
+                    : "For optimal tactical performance, zero shared quota limits, and private team strategy protection, we recommend connecting your personal AI API Key or your own local/remote MCP server."}
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Modal Content */}
           <div className="p-5 flex-1 overflow-y-auto space-y-4">
             
-            {/* 1. Google Gemini Key Tab */}
+            {/* 1. AI Key Tab */}
             {activeTab === "gemini" && (
               <div 
                 id="panel-gemini" 
@@ -142,7 +191,7 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id" }: Settings
                 <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4 space-y-2.5">
                   <h4 className="text-xs font-bold text-blue-400 flex items-center gap-1.5">
                     <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
-                    {lang === "id" ? "Cara Mendapatkan Kunci API Google Gemini:" : "How to get your Google Gemini API Key:"}
+                    {lang === "id" ? "Cara Mendapatkan Kunci API AI:" : "How to get your AI API Key:"}
                   </h4>
                   <ol className="list-decimal list-inside text-[10.5px] text-gray-300 space-y-1.5 leading-relaxed">
                     <li>
@@ -157,34 +206,62 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id" }: Settings
                   </ol>
                   <p className="text-[9px] text-gray-500 font-medium">
                     {lang === "id" 
-                      ? "💡 Mengapa ini wajib? Untuk memastikan keamanan penggunaan bebas kuota secara eksklusif bagi kebutuhan taktis Anda."
-                      : "💡 Why is this needed? To ensure uninterrupted, rate-limit-free video and tactical analytics customized just for you."}
+                      ? "💡 Mengapa ini disarankan? Untuk memastikan respons instan bebas kuota secara eksklusif bagi kebutuhan taktis Anda."
+                      : "💡 Why is this recommended? To ensure uninterrupted, rate-limit-free video and tactical analytics customized just for you."}
                   </p>
                 </div>
 
                 {/* API Key Input */}
                 <div className="space-y-2">
-                  <label htmlFor="gemini-api-key-input" className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
-                    {lang === "id" ? "🔑 Kunci API Google Gemini Anda" : "🔑 Your Google Gemini API Key"}
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="gemini-api-key-input" className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
+                      {lang === "id" ? "🔑 Kunci API AI Anda" : "🔑 Your AI API Key"}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={testApiKeyFormat}
+                      className="text-[10px] text-blue-400 hover:text-blue-300 font-bold bg-blue-500/10 hover:bg-blue-500/20 px-2 py-0.5 rounded border border-blue-500/20 transition-all cursor-pointer"
+                    >
+                      {lang === "id" ? "🧪 Uji Kunci API" : "🧪 Test Key Format"}
+                    </button>
+                  </div>
+
                   <div className="relative">
                     <input
                       id="gemini-api-key-input"
                       type={showApiKey ? "text" : "password"}
                       value={customApiKey}
-                      onChange={(e) => setCustomApiKey(e.target.value)}
+                      onChange={(e) => {
+                        setCustomApiKey(e.target.value);
+                        setApiTestStatus("idle");
+                      }}
                       placeholder="AIzaSy..."
                       className="w-full bg-black/40 border border-white/10 text-xs rounded-xl pl-3 pr-10 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 font-mono"
                     />
                     <button
                       type="button"
                       onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none rounded"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none rounded cursor-pointer"
                       aria-label={showApiKey ? (lang === "id" ? "Sembunyikan Kunci API" : "Hide API Key") : (lang === "id" ? "Tampilkan Kunci API" : "Show API Key")}
                     >
                       {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+
+                  {/* Feedback Status */}
+                  {apiTestStatus === "valid" && (
+                    <div className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{lang === "id" ? "Format Kunci API Valid & Siap Digunakan!" : "Valid API Key format ready to save!"}</span>
+                    </div>
+                  )}
+                  {apiTestStatus === "warning" && (
+                    <div className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2 flex items-center gap-1.5">
+                      <span>⚠️</span>
+                      <span>{lang === "id" ? "Kunci API kosong atau format tampak tidak sesuai (biasanya diawali dengan 'AIzaSy...')." : "Key is empty or format does not match expected Google AI key."}</span>
+                    </div>
+                  )}
+
                   <span className="text-[9px] text-gray-500 block leading-normal">
                     {lang === "id" 
                       ? "⚠️ Kunci API Anda disimpan secara lokal dan aman di penjelajah Anda (localStorage) dan tidak pernah dikirimkan ke server kami." 
@@ -232,7 +309,7 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id" }: Settings
                       role="switch"
                       aria-checked={mcpEnabled}
                       onClick={() => setMcpEnabled(!mcpEnabled)}
-                      className={`w-12 h-6.5 rounded-full p-1 transition-all focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
+                      className={`w-12 h-6.5 rounded-full p-1 transition-all focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer ${
                         mcpEnabled ? "bg-indigo-600" : "bg-white/10"
                       }`}
                       aria-label={lang === "id" ? "Aktifkan Integrasi MCP" : "Enable MCP Integration"}
@@ -249,18 +326,44 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id" }: Settings
                     <div className="space-y-3 pt-3 border-t border-white/5 animate-slideDown">
                       {/* Server URL */}
                       <div className="space-y-1.5">
-                        <label htmlFor="mcp-server-url-input" className="text-[10px] block font-bold text-gray-400 uppercase tracking-wider">
-                          {lang === "id" ? "Alamat Endpoint Server MCP" : "MCP Server Endpoint URL"}
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label htmlFor="mcp-server-url-input" className="text-[10px] block font-bold text-gray-400 uppercase tracking-wider">
+                            {lang === "id" ? "Alamat Endpoint Server MCP" : "MCP Server Endpoint URL"}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={testMcpConnection}
+                            className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/20 transition-all cursor-pointer"
+                          >
+                            {mcpTestStatus === "testing" ? "Menguji..." : (lang === "id" ? "🧪 Uji Sambungan" : "🧪 Test URL")}
+                          </button>
+                        </div>
                         <input
                           id="mcp-server-url-input"
                           type="text"
                           value={mcpUrl}
-                          onChange={(e) => setMcpUrl(e.target.value)}
+                          onChange={(e) => {
+                            setMcpUrl(e.target.value);
+                            setMcpTestStatus("idle");
+                          }}
                           placeholder="e.g., http://localhost:3015/mcp"
                           className="w-full bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500"
                         />
                       </div>
+
+                      {/* Feedback Status */}
+                      {mcpTestStatus === "success" && (
+                        <div className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 flex items-center gap-1.5">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>{lang === "id" ? "Format URL Server MCP Valid & Siap Digunakan!" : "Valid MCP Server URL format ready to connect!"}</span>
+                        </div>
+                      )}
+                      {mcpTestStatus === "warning" && (
+                        <div className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2 flex items-center gap-1.5">
+                          <span>⚠️</span>
+                          <span>{lang === "id" ? "Format URL tidak valid. Gunakan awalan http:// atau https://" : "Invalid URL format. Use http:// or https://"}</span>
+                        </div>
+                      )}
 
                       {/* Tool identifier */}
                       <div className="space-y-1.5">

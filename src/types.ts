@@ -62,3 +62,26 @@ export interface TacticalPlay {
     items: { id: string; x: number; y: number }[];
   }[];
 }
+
+export type TacticalOverlayMode = "none" | "18-zones" | "corridors" | "pressing-blocks";
+
+export type TacticalPhase =
+  | "build-up"
+  | "progression"
+  | "final-third"
+  | "high-press"
+  | "mid-block"
+  | "low-block"
+  | "counter-attack"
+  | "set-piece";
+
+export interface PassMeasurement {
+  sourceId: string;
+  targetId: string;
+  sourceType: "player" | "item";
+  targetType: "player" | "item";
+  distanceMeters: number;
+  angleDegrees: number;
+  isObstructed: boolean;
+  obstructingEnemyId?: string;
+}
