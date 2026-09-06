@@ -1112,7 +1112,7 @@ export default function PlayerEditorModal({ player, allPlayers = [], onSave, onC
                   type="text" 
                   value={name} 
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Nando"
+                  placeholder={lang === "id" ? "Nama Pemain (e.g. Player 1)" : "Player Name (e.g. Player 1)"}
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500"
                 />
               </div>

@@ -120,7 +120,7 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
   const [activeTab, setActiveTab] = useState<"tutorial" | "datasheet" | "instagram">("tutorial");
   
   // States for Instagram Graphic Customization
-  const [coachName, setCoachName] = useState(initialManagerName || (lang === "id" ? "Coach Budi" : "Manager Alex"));
+  const [coachName, setCoachName] = useState(initialManagerName && initialManagerName !== "Budi Santoso" ? initialManagerName : "Coach");
   const [managerRole, setManagerRole] = useState(lang === "id" ? "PELATIH KEPALA" : "HEAD COACH");
   const [matchTitle, setMatchTitle] = useState(lang === "id" ? "INDONESIA SUPER MATCHDAY" : "CHAMPIONS GRAND SHIFT");
   const [stadiumTheme, setStadiumTheme] = useState<"cyber-stadium" | "legend-grass" | "dark-velvet" | "red-arena" | "sunny-stadium" | "custom">("cyber-stadium");
@@ -245,7 +245,7 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
       // Dynamic Team Identity
       ctx.fillStyle = "#ffffff";
       ctx.font = "900 48px sans-serif";
-      ctx.fillText((teamName || "GARUDA FC").toUpperCase(), 180, 148);
+      ctx.fillText((teamName || "TEAM A").toUpperCase(), 180, 148);
 
       // Formation Badge in Header
       ctx.fillStyle = primaryColor || "#3b82f6";
@@ -949,7 +949,7 @@ export const AppTutorialSocialKit: React.FC<AppTutorialSocialKitProps> = ({
                           type="text"
                           value={coachName}
                           onChange={(e) => setCoachName(e.target.value)}
-                          placeholder="e.g. Coach Budi Santoso"
+                          placeholder={isId ? "e.g. Coach 1" : "e.g. Coach 1"}
                           className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-bold font-mono"
                         />
                       </div>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player, TacticalItem, DrawingStroke, AnimationFrame, PitchTheme, TacticalOverlayMode } from "../types";
-import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Redo, Maximize2, Minimize2, Layers, Eye, EyeOff, ChevronUp, ChevronDown, Ruler } from "lucide-react";
+import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Redo, Maximize2, Minimize2, Layers, Eye, EyeOff, ChevronUp, ChevronDown, Ruler, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { soundManager } from "../utils/sound";
 
 interface PitchProps {
@@ -61,6 +61,11 @@ interface PitchProps {
   managerPhoto?: string | null;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  onSortPlayers?: (
+    sortBy: "role" | "number" | "name",
+    order?: "asc" | "desc",
+    target?: "all" | "starters" | "bench"
+  ) => void;
 }
 
 // Catmull-Rom spline interpolation helpers for elegant, smooth drawing curves
@@ -173,10 +178,11 @@ export default function Pitch({
   setBrushColor,
   setBrushSize,
   setBrushStyle,
-  managerName = "Budi Santoso",
+  managerName = "Coach",
   managerPhoto = null,
   isFullscreen = false,
-  onToggleFullscreen
+  onToggleFullscreen,
+  onSortPlayers
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -526,6 +532,22 @@ export default function Pitch({
   const [subNum, setSubNum] = useState("");
   const [subRole, setSubRole] = useState<"GK" | "DEF" | "MID" | "FWD">("MID");
 
+  // Dugout bench sorting state
+  const [benchSortBy, setBenchSortBy] = useState<"none" | "role" | "number" | "name">("none");
+  const [benchSortOrder, setBenchSortOrder] = useState<"asc" | "desc">("asc");
+
+  const handleBenchSort = (mode: "role" | "number" | "name") => {
+    let nextOrder: "asc" | "desc" = "asc";
+    if (benchSortBy === mode) {
+      nextOrder = benchSortOrder === "asc" ? "desc" : "asc";
+    }
+    setBenchSortBy(mode);
+    setBenchSortOrder(nextOrder);
+    if (onSortPlayers) {
+      onSortPlayers(mode, nextOrder, "bench");
+    }
+  };
+
   // Click-to-Substitute state variables
   const [selectedSubPlayerId, setSelectedSubPlayerId] = useState<string | null>(null);
   const [clickStartInfo, setClickStartInfo] = useState<{ id: string; time: number; x: number; y: number } | null>(null);
@@ -634,46 +656,56 @@ export default function Pitch({
   // Active starting XI vs substitutes
   const starters = players.filter((p) => p.isStarting);
 
-  // Set transition dynamically based on playSpeed and transitionType
-  let dynamicTransition: any = { type: "spring", stiffness: 180, damping: 24 };
+  // Active frame timing: respect the specific time-to-complete value for this frame if provided
+  const activeFrame = frames && frames[activeFrameIndex];
+  const frameTimeToComplete = activeFrame?.duration;
+
+  const speedMultiplier =
+    playSpeed === "slow" ? 1.5 :
+    playSpeed === "fast" ? 0.6 :
+    playSpeed === "superfast" ? 0.3 : 1.0;
+
+  const defaultDuration =
+    playSpeed === "slow" ? 2.5 :
+    playSpeed === "fast" ? 0.8 :
+    playSpeed === "superfast" ? 0.4 : 1.6;
+
+  const effectiveDuration = frameTimeToComplete != null && frameTimeToComplete > 0
+    ? Math.max(0.1, Number((frameTimeToComplete * speedMultiplier).toFixed(2)))
+    : defaultDuration;
+
+  // Set transition dynamically based on effective duration, playSpeed and transitionType
+  let dynamicTransition: any = { type: "spring", duration: effectiveDuration, bounce: 0.15 };
   if (transitionType === "linear") {
-    const duration = playSpeed === "slow" ? 2.5 : playSpeed === "fast" ? 0.8 : playSpeed === "superfast" ? 0.4 : 1.6;
     dynamicTransition = {
       type: "tween",
       ease: "linear",
-      duration: duration
+      duration: effectiveDuration
     };
   } else if (transitionType === "stealth") {
-    const duration = playSpeed === "slow" ? 2.5 : playSpeed === "fast" ? 0.8 : playSpeed === "superfast" ? 0.4 : 1.6;
     dynamicTransition = {
       type: "tween",
       ease: "anticipate",
-      duration: duration
+      duration: effectiveDuration
     };
   } else if (transitionType === "ease-in-out") {
-    const duration = playSpeed === "slow" ? 2.5 : playSpeed === "fast" ? 0.8 : playSpeed === "superfast" ? 0.4 : 1.6;
     dynamicTransition = {
       type: "tween",
       ease: "easeInOut",
-      duration: duration
+      duration: effectiveDuration
     };
   } else if (transitionType === "elastic") {
-    const stiffness = playSpeed === "slow" ? 60 : playSpeed === "fast" ? 250 : playSpeed === "superfast" ? 400 : 150;
-    const damping = playSpeed === "slow" ? 7 : playSpeed === "fast" ? 11 : playSpeed === "superfast" ? 13 : 9;
     dynamicTransition = {
       type: "spring",
-      stiffness,
-      damping,
-      mass: 0.85
+      duration: effectiveDuration,
+      bounce: 0.55
     };
   } else {
     // spring
-    const stiffness = playSpeed === "slow" ? 50 : playSpeed === "fast" ? 245 : playSpeed === "superfast" ? 420 : 130;
-    const damping = playSpeed === "slow" ? 16 : playSpeed === "fast" ? 22 : playSpeed === "superfast" ? 28 : 19;
     dynamicTransition = {
       type: "spring",
-      stiffness,
-      damping
+      duration: effectiveDuration,
+      bounce: 0.15
     };
   }
 
@@ -3142,11 +3174,76 @@ export default function Pitch({
 
         {/* BOTTOM SECTION: DETACH RECTANGLE ZONE AS THE SQUAD BENCH (28% HEIGHT ON MOBILE, 16% ON LAPTOPS) */}
         <div className="absolute bottom-0 left-0 right-0 h-[28%] sm:h-[16%] bg-[#06140e]/95 backdrop-blur-xl border-t border-emerald-500/20 flex flex-col justify-start p-1.5 sm:p-2.5 z-40">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-0.5 sm:gap-1.5 mb-1.5 select-none shrink-0">
-            <span className="text-[8px] sm:text-[9.5px] font-black text-emerald-400 tracking-wider uppercase flex items-center gap-1.5 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              👥 {lang === "id" ? "Bangku Cadangan (Dugout)" : "Squad Bench (Dugout)"}
-            </span>
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-1 sm:gap-2 mb-1.5 select-none shrink-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[8px] sm:text-[9.5px] font-black text-emerald-400 tracking-wider uppercase flex items-center gap-1.5 select-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                👥 {lang === "id" ? "Bangku Cadangan (Dugout)" : "Squad Bench (Dugout)"}
+                <span className="px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-300 text-[8px] font-mono">
+                  {players.filter((p) => !p.isStarting).length}
+                </span>
+              </span>
+
+              {/* Automatic Bench Sorting Controls */}
+              <div className="flex items-center gap-1 bg-black/40 border border-emerald-500/25 rounded-lg p-0.5">
+                <span className="text-[7.5px] font-extrabold text-gray-400 px-1 uppercase tracking-wider flex items-center gap-0.5">
+                  <ArrowUpDown className="w-2.5 h-2.5 text-emerald-400" />
+                  {lang === "id" ? "Urutkan:" : "Sort:"}
+                </span>
+
+                {/* Sort by Role */}
+                <button
+                  type="button"
+                  onClick={() => handleBenchSort("role")}
+                  title={lang === "id" ? "Urutkan cadangan menurut posisi: GK → DEF → MID → FWD" : "Sort bench by role: GK → DEF → MID → FWD"}
+                  className={`px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase transition-all flex items-center gap-0.5 cursor-pointer active:scale-95 ${
+                    benchSortBy === "role"
+                      ? "bg-emerald-500 text-black shadow-sm"
+                      : "text-emerald-400 hover:bg-emerald-500/20"
+                  }`}
+                >
+                  <span>{lang === "id" ? "Posisi" : "Role"}</span>
+                  {benchSortBy === "role" && (
+                    benchSortOrder === "asc" ? <ArrowUp className="w-2 h-2 stroke-[3]" /> : <ArrowDown className="w-2 h-2 stroke-[3]" />
+                  )}
+                </button>
+
+                {/* Sort by Shirt Number */}
+                <button
+                  type="button"
+                  onClick={() => handleBenchSort("number")}
+                  title={lang === "id" ? "Urutkan cadangan menurut nomor punggung: 1 → 99" : "Sort bench by shirt number: 1 → 99"}
+                  className={`px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase transition-all flex items-center gap-0.5 cursor-pointer active:scale-95 ${
+                    benchSortBy === "number"
+                      ? "bg-emerald-500 text-black shadow-sm"
+                      : "text-emerald-400 hover:bg-emerald-500/20"
+                  }`}
+                >
+                  <span># No</span>
+                  {benchSortBy === "number" && (
+                    benchSortOrder === "asc" ? <ArrowUp className="w-2 h-2 stroke-[3]" /> : <ArrowDown className="w-2 h-2 stroke-[3]" />
+                  )}
+                </button>
+
+                {/* Sort by Name */}
+                <button
+                  type="button"
+                  onClick={() => handleBenchSort("name")}
+                  title={lang === "id" ? "Urutkan cadangan menurut alfabetis nama: A → Z" : "Sort bench alphabetically: A → Z"}
+                  className={`px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase transition-all flex items-center gap-0.5 cursor-pointer active:scale-95 ${
+                    benchSortBy === "name"
+                      ? "bg-emerald-500 text-black shadow-sm"
+                      : "text-emerald-400 hover:bg-emerald-500/20"
+                  }`}
+                >
+                  <span>A-Z</span>
+                  {benchSortBy === "name" && (
+                    benchSortOrder === "asc" ? <ArrowUp className="w-2 h-2 stroke-[3]" /> : <ArrowDown className="w-2 h-2 stroke-[3]" />
+                  )}
+                </button>
+              </div>
+            </div>
+
             <span className="text-gray-400 italic text-[7.2px] sm:text-[8px] leading-none shrink-0 font-medium">
               {lang === "id" ? "Klik sekali atau seret pemain ke lapangan" : "Click once or drag players onto field"}
             </span>
@@ -3155,7 +3252,26 @@ export default function Pitch({
           <div className="flex flex-wrap gap-1.5 overflow-y-auto max-h-[85%] w-full items-center scrollbar-none pb-0.5">
             <AnimatePresence>
               {(() => {
-                const subs = players.filter((p) => !p.isStarting);
+                let subs = players.filter((p) => !p.isStarting);
+
+                // Local sort fallback if onSortPlayers was not supplied
+                if (benchSortBy !== "none" && !onSortPlayers) {
+                  const roleOrder: Record<string, number> = { GK: 1, DEF: 2, MID: 3, FWD: 4 };
+                  subs = [...subs].sort((a, b) => {
+                    if (benchSortBy === "role") {
+                      const ordA = roleOrder[a.role] || 99;
+                      const ordB = roleOrder[b.role] || 99;
+                      if (ordA !== ordB) return benchSortOrder === "asc" ? ordA - ordB : ordB - ordA;
+                      return (a.number || 0) - (b.number || 0);
+                    } else if (benchSortBy === "number") {
+                      const diff = (a.number || 0) - (b.number || 0);
+                      return benchSortOrder === "asc" ? diff : -diff;
+                    } else {
+                      return benchSortOrder === "asc" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+                    }
+                  });
+                }
+
                 const numSubs = subs.length;
 
                 // Continuously scale substitute indicators based on active headcount to make them fit perfectly
@@ -3226,7 +3342,9 @@ export default function Pitch({
                   return (
                     <motion.div
                       key={sub.id}
+                      layout
                       layoutId={`player-node-${sub.id}`}
+                      transition={{ type: "spring", stiffness: 350, damping: 25 }}
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
@@ -3392,7 +3510,7 @@ export default function Pitch({
                     <label className="text-[10px] uppercase font-bold text-gray-400 block">Nama Pemain</label>
                     <input
                       type="text"
-                      placeholder="e.g., A. Santoso"
+                      placeholder="e.g., Player 16"
                       value={subName}
                       onChange={(e) => setSubName(e.target.value)}
                       className="w-full bg-black/40 border border-emerald-500/20 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"

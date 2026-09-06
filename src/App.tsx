@@ -12,6 +12,7 @@ import TacticalDrills from "./components/TacticalDrills";
 import { TacticalDrill } from "./data/tacticalDrills";
 import PlayerEditorModal from "./components/PlayerEditorModal";
 import SquadImport from "./components/SquadImport";
+import SquadManagement from "./components/SquadManagement";
 import BroadcastTV from "./components/BroadcastTV";
 import { AppTutorialSocialKit } from "./components/AppTutorialSocialKit";
 import { PlaybookSaveLoadModal } from "./components/PlaybookSaveLoadModal";
@@ -55,7 +56,10 @@ import {
   VolumeX,
   Maximize2,
   Minimize2,
-  Magnet
+  Magnet,
+  Users,
+  ArrowUpDown,
+  Import
 } from "lucide-react";
 
 const TRANSLATIONS = {
@@ -191,22 +195,22 @@ const TRANSLATIONS = {
 
 const DEFAULT_PLAYERS: Player[] = [
   // Starting XI
-  { id: "p1", name: "M. Nando", number: 1, role: "GK", x: 50, y: 88, isStarting: true, photo: null },
-  { id: "p2", name: "R. Ridho", number: 5, role: "DEF", x: 38, y: 74, isStarting: true, photo: null },
-  { id: "p3", name: "J. Idzes", number: 4, role: "DEF", x: 62, y: 74, isStarting: true, photo: null },
-  { id: "p4", name: "N. Walsh", number: 6, role: "DEF", x: 82, y: 68, isStarting: true, photo: null },
-  { id: "p5", name: "Pratama A.", number: 12, role: "DEF", x: 18, y: 68, isStarting: true, photo: null },
-  { id: "p6", name: "Thom Haye", number: 19, role: "MID", x: 50, y: 58, isStarting: true, photo: null },
-  { id: "p7", name: "Ivar Jenner", number: 18, role: "MID", x: 34, y: 46, isStarting: true, photo: null },
-  { id: "p8", name: "J. Hubner", number: 10, role: "MID", x: 66, y: 46, isStarting: true, photo: null },
-  { id: "p9", name: "R. Struick", number: 9, role: "FWD", x: 50, y: 22, isStarting: true, photo: null },
-  { id: "p10", name: "R. Oratmangoen", number: 11, role: "FWD", x: 20, y: 28, isStarting: true, photo: null },
-  { id: "p11", name: "Witan S.", number: 8, role: "FWD", x: 80, y: 28, isStarting: true, photo: null },
+  { id: "p1", name: "Player 1", number: 1, role: "GK", x: 50, y: 88, isStarting: true, photo: null },
+  { id: "p2", name: "Player 2", number: 2, role: "DEF", x: 38, y: 74, isStarting: true, photo: null },
+  { id: "p3", name: "Player 3", number: 3, role: "DEF", x: 62, y: 74, isStarting: true, photo: null },
+  { id: "p4", name: "Player 4", number: 4, role: "DEF", x: 82, y: 68, isStarting: true, photo: null },
+  { id: "p5", name: "Player 5", number: 5, role: "DEF", x: 18, y: 68, isStarting: true, photo: null },
+  { id: "p6", name: "Player 6", number: 6, role: "MID", x: 50, y: 58, isStarting: true, photo: null },
+  { id: "p7", name: "Player 7", number: 7, role: "MID", x: 34, y: 46, isStarting: true, photo: null },
+  { id: "p8", name: "Player 8", number: 8, role: "MID", x: 66, y: 46, isStarting: true, photo: null },
+  { id: "p9", name: "Player 9", number: 9, role: "FWD", x: 50, y: 22, isStarting: true, photo: null },
+  { id: "p10", name: "Player 10", number: 10, role: "FWD", x: 20, y: 28, isStarting: true, photo: null },
+  { id: "p11", name: "Player 11", number: 11, role: "FWD", x: 80, y: 28, isStarting: true, photo: null },
   // Substitutes
-  { id: "p12", name: "Marselino F.", number: 7, role: "MID", x: 0, y: 0, isStarting: false, photo: null },
-  { id: "p13", name: "Asnawi M.", number: 14, role: "DEF", x: 0, y: 0, isStarting: false, photo: null },
-  { id: "p14", name: "Y. Sayuri", number: 22, role: "FWD", x: 0, y: 0, isStarting: false, photo: null },
-  { id: "p15", name: "R. Sananta", number: 21, role: "FWD", x: 0, y: 0, isStarting: false, photo: null }
+  { id: "p12", name: "Player 12", number: 12, role: "MID", x: 0, y: 0, isStarting: false, photo: null },
+  { id: "p13", name: "Player 13", number: 13, role: "DEF", x: 0, y: 0, isStarting: false, photo: null },
+  { id: "p14", name: "Player 14", number: 14, role: "FWD", x: 0, y: 0, isStarting: false, photo: null },
+  { id: "p15", name: "Player 15", number: 15, role: "FWD", x: 0, y: 0, isStarting: false, photo: null }
 ];
 
 const DEFAULT_ITEMS: TacticalItem[] = [
@@ -453,7 +457,25 @@ export default function App() {
 
   const t = TRANSLATIONS[lang];
 
-  const [teamName, setTeamName] = useState("GARUDA FC");
+  const [teamName, setTeamName] = useState(() => {
+    try {
+      const saved = localStorage.getItem("tactigen_team_name");
+      if (saved && saved !== "GARUDA FC") return saved;
+      return "Team A";
+    } catch {
+      return "Team A";
+    }
+  });
+
+  const handleUpdateTeamName = (name: string) => {
+    setTeamName(name);
+    try {
+      localStorage.setItem("tactigen_team_name", name);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
   const [teamLogo, setTeamLogo] = useState<string | null>(null);
   const [teamJersey, setTeamJersey] = useState<string | null>(() => {
     try {
@@ -478,9 +500,11 @@ export default function App() {
 
   const [managerName, setManagerName] = useState(() => {
     try {
-      return localStorage.getItem("tactigen_manager_name") || "Budi Santoso";
+      const saved = localStorage.getItem("tactigen_manager_name");
+      if (saved && saved !== "Budi Santoso") return saved;
+      return "Coach";
     } catch {
-      return "Budi Santoso";
+      return "Coach";
     }
   });
   const [managerPhoto, setManagerPhoto] = useState<string | null>(() => {
@@ -594,7 +618,8 @@ export default function App() {
       name: "Fasa 1: Posisi Standard",
       players: DEFAULT_PLAYERS.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
       items: DEFAULT_ITEMS.map((item) => ({ id: item.id, x: item.x, y: item.y })),
-      instruction: "Lakukan organisasi pemain pada posisi standard dan siapkan pola build up."
+      instruction: "Lakukan organisasi pemain pada posisi standard dan siapkan pola build up.",
+      duration: 2.0
     }
   ]);
   const [activeFrameIndex, setActiveFrameIndex] = useState(0);
@@ -879,6 +904,10 @@ export default function App() {
   // Mobile utility dropdown toggle
   const [showMobileUtils, setShowMobileUtils] = useState(false);
 
+  // Squad Management & Sorting Modal
+  const [isSquadManagementOpen, setIsSquadManagementOpen] = useState(false);
+  const [isSquadImportModalOpen, setIsSquadImportModalOpen] = useState(false);
+
   // Global API Keys & MCP Settings Portal Modal
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsKey, setSettingsKey] = useState(0);
@@ -1060,7 +1089,8 @@ export default function App() {
         name: "Fasa 1: Posisi Standard",
         players: players.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
         items: items.map((item) => ({ id: item.id, x: item.x, y: item.y })),
-        instruction: "Kembali ke setelan standard awal."
+        instruction: "Kembali ke setelan standard awal.",
+        duration: 2.0
       }
     ]);
     setActiveFrameIndex(0);
@@ -1070,15 +1100,32 @@ export default function App() {
   const handleSaveCurrentAsNewFrame = () => {
     const newFrameId = `frame-${Date.now()}`;
     const nextIndex = frames.length + 1;
+    const inheritedDuration = frames[activeFrameIndex]?.duration ?? 2.0;
     const newFrame: AnimationFrame = {
       id: newFrameId,
       name: `Fasa ${nextIndex}: Gerakan Lanjutan`,
       players: players.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
       items: items.map((i) => ({ id: i.id, x: i.x, y: i.y })),
-      instruction: "Tentukan gerak sirkulasi baru pada fasa taktis lanjutan ini."
+      instruction: "Tentukan gerak sirkulasi baru pada fasa taktis lanjutan ini.",
+      duration: inheritedDuration
     };
     setFrames((prev) => [...prev, newFrame]);
     setActiveFrameIndex(frames.length);
+  };
+
+  const handleUpdateFrameDuration = (idx: number, duration: number) => {
+    const clamped = Math.max(0.2, Math.min(10.0, Number(duration.toFixed(1))));
+    setFrames((prev) =>
+      prev.map((f, i) => (i === idx ? { ...f, duration: clamped } : f))
+    );
+  };
+
+  const handleUpdateAllFramesDuration = (duration: number) => {
+    soundManager.playChime();
+    const clamped = Math.max(0.2, Math.min(10.0, Number(duration.toFixed(1))));
+    setFrames((prev) =>
+      prev.map((f) => ({ ...f, duration: clamped }))
+    );
   };
 
   const handleDeleteFrame = (idx: number) => {
@@ -1114,7 +1161,8 @@ export default function App() {
       name: f.name,
       players: f.players,
       items: f.items,
-      instruction: f.instruction
+      instruction: f.instruction,
+      duration: f.duration || 2.0
     }));
 
     setFrames(parsedFrames);
@@ -1436,6 +1484,79 @@ export default function App() {
     setPlayers(newPlayers);
   };
 
+  const handleSortPlayers = (
+    sortBy: "role" | "number" | "name",
+    order: "asc" | "desc" = "asc",
+    target: "all" | "starters" | "bench" = "all"
+  ) => {
+    soundManager.playClick();
+    setPlayers((prev) => {
+      const roleOrder: Record<string, number> = { GK: 1, DEF: 2, MID: 3, FWD: 4 };
+
+      const sortFn = (a: Player, b: Player) => {
+        if (sortBy === "role") {
+          const ordA = roleOrder[a.role] || 99;
+          const ordB = roleOrder[b.role] || 99;
+          if (ordA !== ordB) {
+            return order === "asc" ? ordA - ordB : ordB - ordA;
+          }
+          // Secondary sort: ascending jersey number
+          return (a.number || 0) - (b.number || 0);
+        } else if (sortBy === "number") {
+          const diff = (a.number || 0) - (b.number || 0);
+          return order === "asc" ? diff : -diff;
+        } else {
+          const comp = a.name.localeCompare(b.name);
+          return order === "asc" ? comp : -comp;
+        }
+      };
+
+      if (target === "all") {
+        return [...prev].sort(sortFn);
+      } else if (target === "starters") {
+        const starters = prev.filter((p) => p.isStarting).sort(sortFn);
+        const bench = prev.filter((p) => !p.isStarting);
+        return [...starters, ...bench];
+      } else {
+        // bench only
+        const starters = prev.filter((p) => p.isStarting);
+        const bench = prev.filter((p) => !p.isStarting).sort(sortFn);
+        return [...starters, ...bench];
+      }
+    });
+  };
+
+  const handleToggleStarter = (id: string) => {
+    soundManager.playClick();
+    setPlayers((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        if (p.isStarting) {
+          return { ...p, isStarting: false };
+        } else {
+          return { ...p, isStarting: true, x: 50, y: 50 };
+        }
+      })
+    );
+  };
+
+  const handleBulkUpdatePlayers = (updates: { id: string; changes: Partial<Player> }[]) => {
+    soundManager.playClick();
+    setPlayers((prev) => {
+      const updateMap = new Map(updates.map((u) => [u.id, u.changes]));
+      return prev.map((p) => {
+        const changes = updateMap.get(p.id);
+        return changes ? { ...p, ...changes } : p;
+      });
+    });
+  };
+
+  const handleBulkDeletePlayers = (playerIds: string[]) => {
+    soundManager.playClick();
+    const idSet = new Set(playerIds);
+    setPlayers((prev) => prev.filter((p) => !idSet.has(p.id)));
+  };
+
   const getBalancedEnemyPosition = (count: number, sport: string): { x: number; y: number; role: string; number: number } => {
     const isFutsal = sport === "futsal";
     if (isFutsal) {
@@ -1712,6 +1833,20 @@ export default function App() {
             <span>{t.help}</span>
           </button>
 
+          {/* Squad Management & Auto-Sort Portal Button */}
+          <button
+            onClick={() => {
+              setIsSquadManagementOpen(true);
+              soundManager.playClick();
+            }}
+            className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 hover:border-emerald-400/50 text-emerald-300 px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+            aria-label={lang === "id" ? "Manajemen Skuad & Urutkan" : "Squad Management & Sorting"}
+            title={lang === "id" ? "Buka Pengelolaan Skuad & Pengurutan Otomatis" : "Open Squad Management & Automatic Sorting"}
+          >
+            <Users className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{lang === "id" ? "Kelola Skuad" : "Squad"}</span>
+          </button>
+
           {/* AI Mode Connection Quick Status Button */}
           <button
             onClick={() => {
@@ -1770,6 +1905,19 @@ export default function App() {
           >
             <span>{hasConnectedAI ? "🟢" : "💡"}</span>
             <span className="hidden sm:inline">{hasConnectedAI ? "AI Aktif" : "Sambung AI"}</span>
+          </button>
+
+          {/* Squad Management (mobile) */}
+          <button
+            onClick={() => {
+              setIsSquadManagementOpen(true);
+              soundManager.playClick();
+            }}
+            className="p-2 hover:bg-white/10 text-emerald-400 hover:text-emerald-300 rounded-xl transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+            aria-label={lang === "id" ? "Manajemen Skuad & Urutan" : "Squad Management & Sorting"}
+            title={lang === "id" ? "Manajemen Skuad & Urutan" : "Squad Management & Sorting"}
+          >
+            <Users className="w-4 h-4 text-emerald-400" />
           </button>
 
           {/* Settings */}
@@ -1919,8 +2067,8 @@ export default function App() {
                   <input
                     type="text"
                     value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
-                    placeholder="GARUDA FC"
+                    onChange={(e) => handleUpdateTeamName(e.target.value)}
+                    placeholder="Team A"
                     aria-label={t.clubIdentity}
                     className="w-full bg-black/45 border border-white/10 rounded-2xl px-3.5 py-2.5 text-xs text-white uppercase focus:outline-none focus:border-blue-500/70 focus:ring-1 focus:ring-blue-500/35 transition-all font-bold tracking-wide focus-visible:ring-2 focus-visible:ring-blue-500"
                   />
@@ -2135,7 +2283,7 @@ export default function App() {
                       />
                     )}
                     <span className="font-extrabold tracking-wider text-white text-[9.5px] sm:text-[11.5px] uppercase bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                      {teamName || "GARUDA FC"}
+                      {teamName || "Team A"}
                     </span>
                   </div>
                   
@@ -2268,7 +2416,8 @@ export default function App() {
                       <button
                         onClick={() => {
                           // Execute full reset
-                          setTeamName("GARUDA FC");
+                          handleUpdateTeamName("Team A");
+                          handleUpdateManagerName("Coach");
                           setFormation("4-3-3");
                           setPlayers(DEFAULT_PLAYERS);
                           setItems(DEFAULT_ITEMS);
@@ -2678,12 +2827,31 @@ export default function App() {
                 managerPhoto={managerPhoto}
                 isFullscreen={isPitchFullscreen}
                 onToggleFullscreen={() => setIsPitchFullscreen(!isPitchFullscreen)}
+                onSortPlayers={handleSortPlayers}
               />
 
-              {/* Floating thin overlay for Smart Squad Importer at the bottom-right inside the pitch */}
+              {/* Floating thin overlay for Smart Squad Importer and Squad Management at the bottom-right inside the pitch */}
               {activeTool !== "draw" && !isPitchFullscreen && (
-                <div className="absolute bottom-[29%] sm:bottom-[18.5%] right-2.5 sm:right-4 z-45">
-                  <SquadImport onImport={handleImportSquad} lang={lang} />
+                <div className="absolute bottom-[29%] sm:bottom-[18.5%] right-2.5 sm:right-4 z-45 flex items-center gap-1.5 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSquadManagementOpen(true);
+                      soundManager.playClick();
+                    }}
+                    className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-lg sm:rounded-xl flex items-center gap-1.5 transition-all cursor-pointer border bg-[#071912]/85 hover:bg-[#071912]/95 border-emerald-500/30 hover:border-emerald-400/50 text-emerald-300 hover:text-white shadow-xl ring-1 ring-emerald-400/20 backdrop-blur-2xl active:scale-95 text-[10px] sm:text-[11px] font-black tracking-wider focus-visible:outline-none"
+                    aria-label={lang === "id" ? "Manajemen Skuad & Urutkan" : "Squad Management & Sorting"}
+                    title={lang === "id" ? "Kelola Skuad & Urutkan Otomatis" : "Manage Squad & Automatic Sorting"}
+                  >
+                    <Users className="w-4 sm:w-4.5 h-4 sm:h-4.5 text-emerald-400" />
+                    <span className="hidden xs:inline uppercase">{lang === "id" ? "Skuad" : "Squad"}</span>
+                  </button>
+                  <SquadImport
+                    onImport={handleImportSquad}
+                    lang={lang}
+                    isOpen={isSquadImportModalOpen}
+                    onOpenChange={setIsSquadImportModalOpen}
+                  />
                 </div>
               )}
 
@@ -3162,7 +3330,7 @@ export default function App() {
                         {/* Presets List */}
                         <div className="flex flex-col gap-1 max-h-52 overflow-y-auto pr-0.5">
                           {[
-                            { name: "Garuda Indonesia", primary: "#dc2626", gk: "#eab308", num: "#ffffff", flag: "🇮🇩" },
+                            { name: "Classic Red & White", primary: "#dc2626", gk: "#eab308", num: "#ffffff", flag: "🔴" },
                             { name: "Royal Madrid", primary: "#f8fafc", gk: "#eab308", num: "#0f172a", flag: "⚪" },
                             { name: "FC Blaugrana", primary: "#1d4ed8", gk: "#10b981", num: "#facc15", flag: "🔵" },
                             { name: "Sky Citizens", primary: "#38bdf8", gk: "#f97316", num: "#ffffff", flag: "🩵" },
@@ -3332,6 +3500,8 @@ export default function App() {
             onPlayStateChange={setIsPlayingTactic}
             onResetFrames={handleResetFrames}
             onSaveCurrentFrameAsNew={handleSaveCurrentAsNewFrame}
+            onUpdateFrameDuration={handleUpdateFrameDuration}
+            onUpdateAllFramesDuration={handleUpdateAllFramesDuration}
             playSpeed={playSpeed}
             setPlaySpeed={setPlaySpeed}
             transitionType={transitionType}
@@ -3499,6 +3669,89 @@ export default function App() {
         lang={lang}
         initialTab={settingsInitialTab}
       />
+
+      {/* PROFESSIONAL SQUAD MANAGEMENT & AUTO-SORTING MODAL */}
+      <AnimatePresence>
+        {isSquadManagementOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fadeIn"
+            onClick={() => setIsSquadManagementOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+              className="w-full max-w-4xl max-h-[92vh] bg-[#071912]/98 border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-3xl p-4 sm:p-6 shadow-[0_25px_60px_rgba(0,0,0,0.85)] backdrop-blur-2xl flex flex-col relative text-left overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-emerald-500/20 mb-3 sm:mb-4 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-inner">
+                    <Users className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-black text-white tracking-wide flex items-center gap-2">
+                      {lang === "id" ? "Pengelolaan & Urutan Skuad" : "Squad Management & Sorting"}
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">
+                        {players.length} {lang === "id" ? "Pemain" : "Players"}
+                      </span>
+                    </h2>
+                    <p className="text-[10.5px] sm:text-xs text-gray-400">
+                      {lang === "id"
+                        ? "Atur urutan pemain otomatis berdasarkan posisi (GK, DEF, MID, FWD) atau nomor punggung"
+                        : "Sort players automatically by tactical position (GK, DEF, MID, FWD) or jersey number"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setIsSquadImportModalOpen(true);
+                      setIsSquadManagementOpen(false);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <Import className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{lang === "id" ? "Impor Teks" : "Import Text"}</span>
+                  </button>
+                  <button
+                    onClick={() => setIsSquadManagementOpen(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer flex items-center justify-center text-sm font-bold border border-white/10"
+                    aria-label="Close modal"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto pr-1">
+                <SquadManagement
+                  players={players}
+                  onSortPlayers={handleSortPlayers}
+                  onSelectPlayer={(id) => setEditingPlayerId(id)}
+                  onAddPlayer={handleAddBenchDirect}
+                  onRemovePlayer={handleDeletePlayer}
+                  onToggleStarter={handleToggleStarter}
+                  onBulkUpdatePlayers={handleBulkUpdatePlayers}
+                  onBulkDeletePlayers={handleBulkDeletePlayers}
+                  onOpenImport={() => {
+                    setIsSquadImportModalOpen(true);
+                    setIsSquadManagementOpen(false);
+                  }}
+                  primaryColor={primaryColor}
+                  gkColor={gkColor}
+                  numberColor={numberColor}
+                  lang={lang}
+                />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

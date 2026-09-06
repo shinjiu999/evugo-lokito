@@ -118,12 +118,13 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isPlayingSimulation && frames && frames.length > 1) {
-      timer = setInterval(() => {
+      const currentDuration = Math.max(400, (frames[activeFrameIndex]?.duration ?? 2.4) * 1000);
+      timer = setTimeout(() => {
         setActiveFrameIndex((prev) => (prev + 1) % frames.length);
-      }, 2400);
+      }, currentDuration);
     }
-    return () => clearInterval(timer);
-  }, [isPlayingSimulation, frames]);
+    return () => clearTimeout(timer);
+  }, [isPlayingSimulation, frames, activeFrameIndex]);
 
   const playChampionsAnthem = () => {
     try {
@@ -310,7 +311,7 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
           />
         )}
         <h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 tracking-wider uppercase drop-shadow-xl select-none">
-          {teamName || "GARUDA FC"}
+          {teamName || "TEAM A"}
         </h2>
         <p className="text-xs text-blue-400 font-extrabold tracking-widest uppercase flex items-center justify-center gap-1.5 mt-1">
           <Layers className="w-3.5 h-3.5" /> {lang === "id" ? "FORMASI TAKTIS:" : "TACTICAL FORMATION:"} {formationName}
@@ -466,20 +467,22 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
 
             {/* Stages navigation indicator pills */}
             <div className="flex items-center gap-1 bg-black/40 p-1.5 rounded-lg border border-white/5">
-              {frames.map((_, idx) => (
+              {frames.map((frame, idx) => (
                 <button
                   key={idx}
                   onClick={() => {
                     setActiveFrameIndex(idx);
                     setIsPlayingSimulation(false);
                   }}
-                  className={`px-2.5 py-1 text-[9px] font-black uppercase rounded ${
+                  className={`px-2.5 py-1 text-[9px] font-black uppercase rounded flex items-center gap-1 cursor-pointer transition-all ${
                     activeFrameIndex === idx
-                      ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
-                      : "text-gray-500 hover:text-gray-300"
+                      ? "bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm"
+                      : "text-gray-400 hover:text-gray-200"
                   }`}
+                  title={`${frame.name} (${(frame.duration ?? 2.0).toFixed(1)}s)`}
                 >
-                  {lang === "id" ? "Fase" : "Phase"} {idx + 1}
+                  <span>{lang === "id" ? "Fase" : "Phase"} {idx + 1}</span>
+                  <span className="text-[7.5px] opacity-75 font-mono">{(frame.duration ?? 2.0).toFixed(1)}s</span>
                 </button>
               ))}
             </div>
@@ -507,7 +510,7 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
 
         <div className="w-full overflow-hidden whitespace-nowrap relative flex items-center">
           <div className="inline-block animate-[marquee_25s_linear_infinite] pl-[100%] text-xs font-bold text-gray-300 tracking-wide">
-            🔥 COACH ANALYST LIVE: Skenario pergerakan {teamName || "GARUDA FC"} dalam fase {currentFrame?.name || "Transisi"} diinstruksikan agar winger melakukan over-lap lebar. Duet bek sayap membantu sirkulasi pendek sebelum melepas umpan vertikal langsung menuju sepertiga lapangan lawan. Jaga disiplin pertahanan ketat gawang!
+            🔥 COACH ANALYST LIVE: Skenario pergerakan {teamName || "TEAM A"} dalam fase {currentFrame?.name || "Transisi"} diinstruksikan agar winger melakukan over-lap lebar. Duet bek sayap membantu sirkulasi pendek sebelum melepas umpan vertikal langsung menuju sepertiga lapangan lawan. Jaga disiplin pertahanan ketat gawang!
           </div>
         </div>
       </div>

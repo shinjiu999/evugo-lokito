@@ -5,12 +5,25 @@ import { Import, Clipboard, Sparkles, Check, ChevronDown, ChevronUp } from "luci
 interface SquadImportProps {
   onImport: (newPlayers: Player[]) => void;
   lang?: "id" | "en";
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function SquadImport({ onImport, lang = "id" }: SquadImportProps) {
+export default function SquadImport({
+  onImport,
+  lang = "id",
+  isOpen: controlledIsOpen,
+  onOpenChange
+}: SquadImportProps) {
   const [text, setText] = useState("");
   const [success, setSuccess] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+
+  const isModalOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+  const setModalOpen = (open: boolean) => {
+    if (onOpenChange) onOpenChange(open);
+    if (controlledIsOpen === undefined) setInternalIsOpen(open);
+  };
 
   const handleImport = () => {
     if (!text.trim()) return;
@@ -86,7 +99,7 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
 
   const handlePasteDemo = () => {
     setText(
-      `1 Nando GK\n4 Idzes DEF\n5 Ridho DEF\n6 Walsh DEF\n3 Pratama DEF\n8 Haye MID\n19 Hubner MID\n11 Jenner MID\n7 Marselino FWD\n9 Struick FWD\n10 Oratmangoen FWD\n12 Asnawi DEF\n22 Witan MID\n14 Sananta FWD`
+      `1 Player 1 GK\n2 Player 2 DEF\n3 Player 3 DEF\n4 Player 4 DEF\n5 Player 5 DEF\n6 Player 6 MID\n7 Player 7 MID\n8 Player 8 MID\n9 Player 9 FWD\n10 Player 10 FWD\n11 Player 11 FWD\n12 Player 12 DEF\n13 Player 13 MID\n14 Player 14 FWD`
     );
   };
 
@@ -94,7 +107,7 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
     title: lang === "id" ? "📥 Pengimpor Skuad Pintar" : "📥 Smart Squad Importer",
     pasteDemo: lang === "id" ? "Tempel Demo" : "Paste Demo",
     hintText: lang === "id" ? "Tempel daftar skuad dari Notepad / Excel. Gunakan format:" : "Paste squad roster from Notepad / Excel. Use format:",
-    placeholder: lang === "id" ? "Contoh:\n10 Messi FWD\n7 Ronaldo FWD\n4 Van Dijk DEF" : "Example:\n10 Messi FWD\n7 Ronaldo FWD\nvan Dijk DEF",
+    placeholder: lang === "id" ? "Contoh:\n1 Player 1 GK\n4 Player 4 DEF\n10 Player 10 FWD" : "Example:\n1 Player 1 GK\n4 Player 4 DEF\n10 Player 10 FWD",
     importSuccess: lang === "id" ? "Impor Skuad Berhasil!" : "Squad Successfully Imported!",
     applyButton: lang === "id" ? "Terapkan Skuad Baru" : "Apply New Squad"
   };
@@ -102,7 +115,7 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
   return (
     <div className="relative group/importer">
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => setModalOpen(true)}
         className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#071912]/85 hover:bg-[#071912]/95 border-emerald-500/30 hover:border-emerald-400/50 text-gray-300 hover:text-white shadow-xl ring-1 ring-emerald-400/20 backdrop-blur-2xl active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
         aria-label={lang === "id" ? "Impor Skuad" : "Roster Import"}
       >
@@ -115,8 +128,8 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
         <span className="text-white font-extrabold text-[9px]">{lang === "id" ? "Tempel draf daftar pemain" : "Paste custom roster list"}</span>
       </div>
 
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn" onClick={() => setIsOpen(false)}>
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn" onClick={() => setModalOpen(false)}>
           <div 
             className="w-full max-w-md bg-[#071912]/98 border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-3xl p-5 shadow-[0_24px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl relative text-left"
             onClick={(e) => e.stopPropagation()}
@@ -128,7 +141,7 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
                 {t.title}
               </span>
               <button 
-                onClick={() => setIsOpen(false)}
+                onClick={() => setModalOpen(false)}
                 className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer flex items-center justify-center text-xs font-bold"
               >
                 ✕
@@ -168,7 +181,7 @@ export default function SquadImport({ onImport, lang = "id" }: SquadImportProps)
                 handleImport();
                 // Close modal after brief success timeout delay to let the user see the success state
                 setTimeout(() => {
-                  setIsOpen(false);
+                  setModalOpen(false);
                 }, 1200);
               }}
               disabled={!text.trim()}

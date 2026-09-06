@@ -232,9 +232,9 @@ app.post("/api/tactics/scout", async (req: Request, res: Response): Promise<void
     res.json({
       rating: "A",
       synergyScore: "85%",
-      attackingStyle: "Direct Fluid Counter-Attacking. Skuad menunjukkan transisi cepat dari sayap dengan striker utama bergerak sangat fleksibel.",
-      midfieldCore: "Solid Playmaking. Thom Haye mengontrol sirkulasi aliran umpan mendalam dengan presisi tinggi.",
-      defensiveCompactness: "Pertahanan rapat 3 bek tengah yang dikomandani Jay Idzes dan Rizky Ridho menjaga kedalaman dengan baik.",
+      attackingStyle: "Direct Fluid Counter-Attacking. Skuad menunjukkan transisi cepat dari sayap dengan lini penyerang yang fleksibel.",
+      midfieldCore: "Solid Playmaking. Gelandang sentral mengontrol sirkulasi aliran umpan mendalam dengan presisi tinggi.",
+      defensiveCompactness: "Pertahanan rapat barisan bek tengah yang sigap menjaga kedalaman garis pertahanan dengan baik.",
       strengths: [
         "Transisi agresif di area sayap luar.",
         "Komposisi umur optimal untuk endurance tekanan tinggi."
@@ -528,7 +528,7 @@ app.post("/api/tactics/generate-image", async (req: Request, res: Response): Pro
     });
 
     const activeFormation = formation || "4-3-3";
-    const activeTeamName = teamName || "SQUAD UTAMA";
+    const activeTeamName = teamName || "Team A";
     const activePrimaryColor = primaryColor || "red";
     const activeGkColor = gkColor || "yellow";
 

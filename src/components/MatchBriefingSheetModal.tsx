@@ -139,7 +139,7 @@ export default function MatchBriefingSheetModal({
                 )}
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg sm:text-xl font-black text-white uppercase tracking-wider">{teamName || "GARUDA FC"}</h3>
+                    <h3 className="text-lg sm:text-xl font-black text-white uppercase tracking-wider">{teamName || "TEAM A"}</h3>
                     <span className="text-xs font-bold text-gray-400">VS</span>
                     <input 
                       type="text"
@@ -278,7 +278,7 @@ export default function MatchBriefingSheetModal({
               <div className="p-3 bg-[#05170f]/80 border border-emerald-500/20 rounded-2xl flex items-center justify-between">
                 <div>
                   <span className="text-[9px] text-gray-400 uppercase font-bold block">{lang === "id" ? "PELATIH KEPALA (HEAD COACH)" : "HEAD COACH"}</span>
-                  <span className="text-sm font-black text-white">{managerName || "Budi Santoso"}</span>
+                  <span className="text-sm font-black text-white">{managerName || "Coach"}</span>
                 </div>
                 <div className="px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-black uppercase">
                   VERIFIED UEFA PRO ✓

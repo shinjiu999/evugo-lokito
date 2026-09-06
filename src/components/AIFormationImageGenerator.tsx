@@ -1,8 +1,29 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Image, Sparkles, AlertCircle, Download, RefreshCw, Key, HelpCircle, Eye, MonitorPlay } from "lucide-react";
+import {
+  Image as ImageIcon,
+  Sparkles,
+  Download,
+  Copy,
+  Check,
+  Maximize2,
+  Minimize2,
+  Sliders,
+  Palette,
+  Layers,
+  Tv,
+  Trophy,
+  Share2,
+  X,
+  AlertCircle
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player } from "../types";
 import Interactive3DCard from "./Interactive3DCard";
+import {
+  PosterTheme,
+  PosterFormat,
+  renderFormationPoster
+} from "../utils/formationPosterRenderer";
 
 interface AIFormationImageGeneratorProps {
   formation: string;
@@ -28,29 +49,46 @@ export default function AIFormationImageGenerator({
   players,
   teamLogo,
   teamJersey = null,
-  lang = "en",
-  managerName = "Budi Santoso",
+  lang = "id",
+  managerName = "Coach",
   managerPhoto = null,
   isEnemyModeActive = false
 }: AIFormationImageGeneratorProps) {
-  const [activeTab, setActiveTab] = useState<"instant" | "gemini">("instant");
-  const [posterTheme, setPosterTheme] = useState<"stadium" | "club_classic">("stadium");
+  // Theme & Format State
+  const [posterTheme, setPosterTheme] = useState<PosterTheme>("stadium_neon");
+  const [posterFormat, setPosterFormat] = useState<PosterFormat>("landscape");
+
+  // Tactical & Customization Options
+  const [matchTitle, setMatchTitle] = useState(lang === "id" ? "SUSUNAN PEMAIN" : "MATCHDAY SQUAD");
+  const [opponentName, setOpponentName] = useState("");
+  const [showTacticalLinks, setShowTacticalLinks] = useState(true);
+  const [showSubstitutes, setShowSubstitutes] = useState(true);
+  const [showManager, setShowManager] = useState(true);
+  const [showTacticalZones, setShowTacticalZones] = useState(false);
+
+  // Fullscreen Studio Modal State
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"instant" | "ai_imagen">("instant");
+
+  // Clipboard copy state feedback
+  const [copied, setCopied] = useState(false);
+
+  // AI Imagen State
   const [customApiKey, setCustomApiKey] = useState(() => localStorage.getItem("tactigen_custom_key") || "");
   const [customPrompt, setCustomPrompt] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  const [showPromptHelp, setShowPromptHelp] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [generatedAiImageUrl, setGeneratedAiImageUrl] = useState<string | null>(null);
 
   // Instant Vector Canvas State
   const [instantImageUrl, setInstantImageUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [loadedImagesCache, setLoadedImagesCache] = useState<Record<string, HTMLImageElement>>({});
 
-  // Compute adjusted players by uncompressing Y coordinates if enemy mode is active
+  // Compute adjusted players
   const adjustedPlayers = useMemo(() => {
     return players.map((player) => {
       if (isEnemyModeActive && player.isStarting) {
-        // Stretch Y back from the compressed [52, 90] to the original full [0, 100] range
         const uncompressedY = Math.max(0, Math.min(100, ((player.y - 52) / 38) * 100));
         return { ...player, y: parseFloat(uncompressedY.toFixed(1)) };
       }
@@ -58,7 +96,7 @@ export default function AIFormationImageGenerator({
     });
   }, [players, isEnemyModeActive]);
 
-  // Sync with localStorage periodically
+  // Sync API Key
   useEffect(() => {
     const handleStorageChange = () => {
       setCustomApiKey(localStorage.getItem("tactigen_custom_key") || "");
@@ -66,1465 +104,35 @@ export default function AIFormationImageGenerator({
     window.addEventListener("storage", handleStorageChange);
     const interval = setInterval(() => {
       const savedKey = localStorage.getItem("tactigen_custom_key") || "";
-      if (savedKey !== customApiKey) {
-        setCustomApiKey(savedKey);
-      }
+      if (savedKey !== customApiKey) setCustomApiKey(savedKey);
     }, 1500);
-
     return () => {
       window.removeEventListener("storage", handleStorageChange);
       clearInterval(interval);
     };
   }, [customApiKey]);
 
-  // Handle local 3D vector poster rendering
-  const handleRenderInstantPoster = (loadedImages: Record<string, HTMLImageElement> = {}) => {
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1200;
-      canvas.height = 900;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      // Dynamic dominant color extraction from uploaded jersey
-      const getDominantColor = (img: HTMLImageElement): string | null => {
-        try {
-          const tempCanvas = document.createElement("canvas");
-          tempCanvas.width = 16;
-          tempCanvas.height = 16;
-          const tempCtx = tempCanvas.getContext("2d");
-          if (!tempCtx) return null;
-          tempCtx.drawImage(img, 0, 0, 16, 16);
-          const imgData = tempCtx.getImageData(0, 0, 16, 16).data;
-
-          let rSum = 0, gSum = 0, bSum = 0, count = 0;
-          for (let i = 0; i < imgData.length; i += 4) {
-            const r = imgData[i];
-            const g = imgData[i + 1];
-            const b = imgData[i + 2];
-            const a = imgData[i + 3];
-
-            if (a > 180) {
-              rSum += r;
-              gSum += g;
-              bSum += b;
-              count++;
-            }
-          }
-          if (count > 0) {
-            const avgR = Math.round(rSum / count);
-            const avgG = Math.round(gSum / count);
-            const avgB = Math.round(bSum / count);
-            const toHex = (c: number) => {
-              const h = Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0");
-              return h;
-            };
-            return `#${toHex(avgR)}${toHex(avgG)}${toHex(avgB)}`;
-          }
-        } catch (e) {
-          console.warn("Failed to extract dominant color:", e);
-        }
-        return null;
-      };
-
-      const hexToRgb = (hex: string) => {
-        let shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-        let fullHex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
-        let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
-        return result ? {
-          r: parseInt(result[1], 16),
-          g: parseInt(result[2], 16),
-          b: parseInt(result[3], 16)
-        } : null;
-      };
-
-      const getThemePitchColor = (themeHex: string, isAlt: boolean) => {
-        const rgb = hexToRgb(themeHex) || { r: 12, g: 25, b: 68 };
-        const baseR = 10, baseG = 15, baseB = 30;
-        const factor = 0.22;
-        let r = Math.round(baseR * (1 - factor) + rgb.r * factor);
-        let g = Math.round(baseG * (1 - factor) + rgb.g * factor);
-        let b = Math.round(baseB * (1 - factor) + rgb.b * factor);
-        if (isAlt) {
-          r = Math.min(255, r + 5);
-          g = Math.min(255, g + 8);
-          b = Math.min(255, b + 12);
-        }
-        const toHex = (c: number) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0");
-        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-      };
-
-      const getGlowLineColor = (themeHex: string) => {
-        const rgb = hexToRgb(themeHex) || { r: 71, g: 147, b: 247 };
-        const maxVal = Math.max(rgb.r, rgb.g, rgb.b);
-        let factor = 1.0;
-        if (maxVal < 180) {
-          factor = 180 / maxVal;
-        }
-        const r = Math.round(Math.min(255, rgb.r * factor));
-        const g = Math.round(Math.min(255, rgb.g * factor));
-        const b = Math.round(Math.min(255, rgb.b * factor));
-        const toHex = (c: number) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0");
-        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-      };
-
-      // Determine active themeColor: Extract from uploaded team jersey, or use primaryColor as default
-      let themeColor = primaryColor;
-      const jerseyImg = loadedImages["teamJersey"];
-      if (jerseyImg) {
-        const extracted = getDominantColor(jerseyImg);
-        if (extracted) {
-          themeColor = extracted;
-        }
-      }
-
-      const glowRgb = hexToRgb(themeColor) || { r: 56, g: 189, b: 248 };
-      const glowLineColor = getGlowLineColor(themeColor);
-
-      // ==========================================
-      // 1. CLEAR & DRAW MODERN DEEP MIDNIGHT SKY
-      // ==========================================
-      const bgGrad = ctx.createLinearGradient(0, 0, 1200, 900);
-      bgGrad.addColorStop(0, "#060913");
-      bgGrad.addColorStop(0.5, "#0b1226");
-      bgGrad.addColorStop(1, "#03050a");
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, 1200, 900);
-
-      // ==========================================
-      // 2. DRAW LEFT PANEL CONTAINER BACKGROUND WITH STRIPES
-      // ==========================================
-      // Fill the left sidebar area
-      ctx.fillStyle = "#070b17";
-      ctx.fillRect(0, 0, 320, 900);
-
-      // Draw premium subtle diagonal background lines in the sidebar
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, 320, 900);
-      ctx.clip();
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
-      ctx.lineWidth = 3;
-      for (let offset = -900; offset < 1200; offset += 32) {
-        ctx.beginPath();
-        ctx.moveTo(offset, 0);
-        ctx.lineTo(offset + 900, 900);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      // Soft vertical separator line between left sidebar and main pitch area
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(320, 0);
-      ctx.lineTo(320, 900);
-      ctx.stroke();
-
-      // ==========================================
-      // 3. DRAW STARTING XI HEADERS & PLAYERS LIST
-      // ==========================================
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "italic 900 36px sans-serif";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "top";
-      ctx.fillText("STARTING XI", 30, 42);
-
-      // Fetch starting players and sort them by role for an official clean appearance
-      const starters = adjustedPlayers.filter((p) => p.isStarting);
-      const roleOrder: Record<string, number> = { "GK": 0, "DEF": 1, "MID": 2, "FWD": 3 };
-      const sortedStarters = [...starters].sort((a, b) => {
-        const valA = roleOrder[a.role] ?? 99;
-        const valB = roleOrder[b.role] ?? 99;
-        if (valA !== valB) return valA - valB;
-        return a.number - b.number;
-      });
-
-      // Draw dual-badge skewed parallelogram list items for starting XI
-      const itemH = 32;
-      const itemGap = 42;
-      const listStartY = 100;
-      const skewAngle = 8; // slant offset in pixels
-
-      sortedStarters.forEach((player, idx) => {
-        if (idx >= 11) return; // Keep exactly max 11 starting players in list
-        const rowY = listStartY + idx * itemGap;
-
-        // a) Draw squad number badge (Left)
-        const numBadgeW = 44;
-        ctx.save();
-        // Create custom gradient based on dynamic themeColor
-        const badgeGrad = ctx.createLinearGradient(30, rowY, 30 + numBadgeW, rowY + itemH);
-        badgeGrad.addColorStop(0, adjustColorBrightness(themeColor, -20));
-        badgeGrad.addColorStop(1, adjustColorBrightness(themeColor, 15));
-        ctx.fillStyle = badgeGrad;
-
-        ctx.beginPath();
-        ctx.moveTo(30 + skewAngle, rowY);
-        ctx.lineTo(30 + numBadgeW + skewAngle, rowY);
-        ctx.lineTo(30 + numBadgeW, rowY + itemH);
-        ctx.lineTo(30, rowY + itemH);
-        ctx.closePath();
-        ctx.fill();
-
-        // Stroke highlight
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.restore();
-
-        // Write padded squad number
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 13px 'Courier New', 'JetBrains Mono', monospace";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(
-          player.number.toString().padStart(2, "0"),
-          30 + (numBadgeW / 2) + (skewAngle / 2),
-          rowY + (itemH / 2) + 0.5
-        );
-
-        // b) Draw name badge (Right, skewed card)
-        const nameCardX = 30 + numBadgeW + 4;
-        const nameCardW = 212;
-        ctx.save();
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.moveTo(nameCardX + skewAngle, rowY);
-        ctx.lineTo(nameCardX + nameCardW + skewAngle, rowY);
-        ctx.lineTo(nameCardX + nameCardW, rowY + itemH);
-        ctx.lineTo(nameCardX, rowY + itemH);
-        ctx.closePath();
-        ctx.fill();
-
-        // Subtle bottom border/shadow
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.1)";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.restore();
-
-        // Write player name inside white card
-        ctx.fillStyle = "#0c1221"; // very dark blue for high contrast
-        ctx.font = "bold 12.5px sans-serif";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-        let displayListName = player.name.toUpperCase();
-        if (displayListName.length > 18) {
-          displayListName = displayListName.substring(0, 16) + "..";
-        }
-        ctx.fillText(
-          displayListName,
-          nameCardX + 15 + (skewAngle / 2),
-          rowY + (itemH / 2) + 0.5
-        );
-
-        // Position Badge (GK, DEF, MID, FWD) inside the name card on the far right
-        ctx.fillStyle = "rgba(12, 18, 33, 0.4)";
-        ctx.font = "900 8.5px sans-serif";
-        ctx.textAlign = "right";
-        ctx.fillText(
-          player.role,
-          nameCardX + nameCardW - 10 + (skewAngle / 2),
-          rowY + (itemH / 2) + 0.5
-        );
-      });
-
-      // ==========================================
-      // 4. DRAW SUBSTITUTIONS LIST SECTION
-      // ==========================================
-      const subsStartY = 595;
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 18px sans-serif";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "top";
-      const subsHeaderLabel = lang === "id" ? "PEMAIN CADANGAN" : "SUBSTITUTIONS";
-      ctx.fillText(subsHeaderLabel, 30, subsStartY);
-
-      const substitutes = adjustedPlayers.filter((p) => !p.isStarting);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-      ctx.font = "bold 11px sans-serif";
-      ctx.textAlign = "left";
-
-      // Group substitute players into text lines (pairs of 2 per row)
-      const subLines: string[] = [];
-      for (let i = 0; i < substitutes.length; i += 2) {
-        const sub1 = substitutes[i];
-        const sub2 = substitutes[i + 1];
-        let sLine = `${sub1.number}. ${sub1.name.toUpperCase()}`;
-        if (sub2) {
-          sLine += `, ${sub2.number}. ${sub2.name.toUpperCase()}`;
-        }
-        subLines.push(sLine);
-      }
-
-      subLines.forEach((line, idx) => {
-        if (idx >= 10) return; // limit rows
-        ctx.fillText(line, 30, subsStartY + 32 + idx * 22);
-      });
-
-      // ==========================================
-      // 5. DRAW STADIUM GLOWS & SPOTLIGHTS
-      // ==========================================
-      // Radial glow on the top field
-      const glowGrad = ctx.createRadialGradient(760, 100, 20, 760, 200, 500);
-      glowGrad.addColorStop(0, `rgba(${glowRgb.r}, ${glowRgb.g}, ${glowRgb.b}, 0.12)`);
-      glowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = glowGrad;
-      ctx.beginPath();
-      ctx.arc(760, 150, 600, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Television Stadium Spotlights beams
-      ctx.strokeStyle = `rgba(${glowRgb.r}, ${glowRgb.g}, ${glowRgb.b}, 0.025)`;
-      ctx.lineWidth = 140;
-      ctx.beginPath();
-      ctx.moveTo(350, -50);
-      ctx.lineTo(650, 600);
-      ctx.moveTo(1150, -50);
-      ctx.lineTo(850, 600);
-      ctx.stroke();
-
-      // Draw light fixture bulbs on top margins
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = themeColor;
-      ctx.shadowBlur = 12;
-      for (let i = 0; i < 4; i++) {
-        ctx.beginPath();
-        ctx.arc(360 + i * 25, 20, 3, 0, Math.PI * 2);
-        ctx.arc(1140 - i * 25, 20, 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.shadowBlur = 0; // reset shadow state
-
-      // ==========================================
-      // 6. DRAW 3D PERSPECTIVE FIELD
-      // ==========================================
-      // Dynamic coordinate projection mapping (3D perspective)
-      // Center of field area is at X = 760. Field is symmetric.
-      const toScreen = (fx: number, fy: number) => {
-        const pctX = fx / 100;
-        const pctY = fy / 100;
-
-        const topWidth = 540;
-        const bottomWidth = 760;
-        const topLeft = 490;
-        const bottomLeft = 380;
-
-        const widthAtY = topWidth + (bottomWidth - topWidth) * pctY;
-        const leftAtY = topLeft + (bottomLeft - topLeft) * pctY;
-
-        const x = leftAtY + widthAtY * pctX;
-        const y = 215 + 600 * pctY;
-        return { x, y };
-      };
-
-      // Draw beautiful alternating deep thematic pitch grass stripes
-      const stripesCount = 11;
-      const stripeH = 100 / stripesCount;
-      for (let i = 0; i < stripesCount; i++) {
-        const sy1 = i * stripeH;
-        const sy2 = (i + 1) * stripeH;
-
-        const ptL1 = toScreen(0, sy1);
-        const ptR1 = toScreen(100, sy1);
-        const ptR2 = toScreen(100, sy2);
-        const ptL2 = toScreen(0, sy2);
-
-        // Use custom thematic blending to produce stunning grass textures
-        ctx.fillStyle = getThemePitchColor(themeColor, i % 2 !== 0);
-        ctx.beginPath();
-        ctx.moveTo(ptL1.x, ptL1.y);
-        ctx.lineTo(ptR1.x, ptR1.y);
-        ctx.lineTo(ptR2.x, ptR2.y);
-        ctx.lineTo(ptL2.x, ptL2.y);
-        ctx.closePath();
-        ctx.fill();
-      }
-
-      // Draw glowing thematic outlines
-      ctx.strokeStyle = glowLineColor;
-      ctx.lineWidth = 3.5;
-
-      // Outer boundary lines
-      ctx.beginPath();
-      const pTL = toScreen(0, 0);
-      const pTR = toScreen(100, 0);
-      const pBR = toScreen(100, 100);
-      const pBL = toScreen(0, 100);
-      ctx.moveTo(pTL.x, pTL.y);
-      ctx.lineTo(pTR.x, pTR.y);
-      ctx.lineTo(pBR.x, pBR.y);
-      ctx.lineTo(pBL.x, pBL.y);
-      ctx.closePath();
-      ctx.stroke();
-
-      // Halfway line
-      ctx.beginPath();
-      const pHalfLeft = toScreen(0, 50);
-      const pHalfRight = toScreen(100, 50);
-      ctx.moveTo(pHalfLeft.x, pHalfLeft.y);
-      ctx.lineTo(pHalfRight.x, pHalfRight.y);
-      ctx.stroke();
-
-      // Center circle
-      ctx.beginPath();
-      for (let deg = 0; deg <= 360; deg += 6) {
-        const rad = deg * Math.PI / 180;
-        const sx = 50 + 11 * Math.cos(rad);
-        const sy = 50 + 11 * Math.sin(rad) * 1.05;
-        const pt = toScreen(sx, sy);
-        if (deg === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
-      }
-      ctx.stroke();
-
-      // Center spot
-      const pCenter = toScreen(50, 50);
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.arc(pCenter.x, pCenter.y, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Top penalty area box (Trapezoid)
-      ctx.beginPath();
-      const pBoxTL = toScreen(25, 0);
-      const pBoxTR = toScreen(25, 18);
-      const pBoxBR = toScreen(75, 18);
-      const pBoxBL = toScreen(75, 0);
-      ctx.moveTo(pBoxTL.x, pBoxTL.y);
-      ctx.lineTo(pBoxTR.x, pBoxTR.y);
-      ctx.lineTo(pBoxBR.x, pBoxBR.y);
-      ctx.lineTo(pBoxBL.x, pBoxBL.y);
-      ctx.stroke();
-
-      // Top goal box
-      ctx.beginPath();
-      const pGoalTL = toScreen(38, 0);
-      const pGoalTR = toScreen(38, 6);
-      const pGoalBR = toScreen(62, 6);
-      const pGoalBL = toScreen(62, 0);
-      ctx.moveTo(pGoalTL.x, pGoalTL.y);
-      ctx.lineTo(pGoalTR.x, pGoalTR.y);
-      ctx.lineTo(pGoalBR.x, pGoalBR.y);
-      ctx.lineTo(pGoalBL.x, pGoalBL.y);
-      ctx.stroke();
-
-      // Top penalty arc
-      ctx.beginPath();
-      for (let deg = 0; deg <= 180; deg += 6) {
-        const rad = deg * Math.PI / 180;
-        const sx = 50 + 11 * Math.cos(rad);
-        const sy = 18 + 11 * Math.sin(rad) * 0.7;
-        const pt = toScreen(sx, sy);
-        if (deg === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
-      }
-      ctx.stroke();
-
-      // Bottom penalty area box
-      ctx.beginPath();
-      const pBBoxTL = toScreen(25, 100);
-      const pBBoxTR = toScreen(25, 82);
-      const pBBoxBR = toScreen(75, 82);
-      const pBBoxBL = toScreen(75, 100);
-      ctx.moveTo(pBBoxTL.x, pBBoxTL.y);
-      ctx.lineTo(pBBoxTR.x, pBBoxTR.y);
-      ctx.lineTo(pBBoxBR.x, pBBoxBR.y);
-      ctx.lineTo(pBBoxBL.x, pBBoxBL.y);
-      ctx.stroke();
-
-      // Bottom goal box
-      ctx.beginPath();
-      const pBGoalTL = toScreen(38, 100);
-      const pBGoalTR = toScreen(38, 94);
-      const pBGoalBR = toScreen(62, 94);
-      const pBGoalBL = toScreen(62, 100);
-      ctx.moveTo(pBGoalTL.x, pBGoalTL.y);
-      ctx.lineTo(pBGoalTR.x, pBGoalTR.y);
-      ctx.lineTo(pBGoalBR.x, pBGoalBR.y);
-      ctx.lineTo(pBGoalBL.x, pBGoalBL.y);
-      ctx.stroke();
-
-      // Bottom penalty arc
-      ctx.beginPath();
-      for (let deg = 180; deg <= 360; deg += 6) {
-        const rad = deg * Math.PI / 180;
-        const sx = 50 + 11 * Math.cos(rad);
-        const sy = 82 + 11 * Math.sin(rad) * 0.7;
-        const pt = toScreen(sx, sy);
-        if (deg === 180) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
-      }
-      ctx.stroke();
-
-      // Draw bottom goal net lines
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
-      ctx.lineWidth = 3;
-      const gL1 = toScreen(38, 100);
-      const gR1 = toScreen(62, 100);
-      const nTL = { x: gL1.x, y: gL1.y + 35 };
-      const nTR = { x: gR1.x, y: gR1.y + 35 };
-
-      ctx.beginPath();
-      ctx.moveTo(gL1.x, gL1.y);
-      ctx.lineTo(nTL.x, nTL.y);
-      ctx.lineTo(nTR.x, nTR.y);
-      ctx.lineTo(gR1.x, gR1.y);
-      ctx.stroke();
-
-      // Net grid meshlines
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-      ctx.lineWidth = 1.2;
-      for (let j = 1; j <= 5; j++) {
-        const pct = j / 6;
-        const lx = gL1.x + (gR1.x - gL1.x) * pct;
-        const nlx = nTL.x + (nTR.x - nTL.x) * pct;
-        ctx.beginPath();
-        ctx.moveTo(lx, gL1.y);
-        ctx.lineTo(nlx, nTL.y);
-        ctx.stroke();
-      }
-
-      // ==========================================
-      // 7. DRAW TEAM LOGO & TEAM NAME TITLE BANNER
-      // ==========================================
-      const headerX = 760;
-      const headerY = 100;
-      const headerSkew = 15;
-      const headerW = 300;
-      const headerH = 45;
-
-      // Draw team name parallelogram
-      ctx.save();
-      const bannerGrad = ctx.createLinearGradient(headerX - headerW / 2, headerY, headerX + headerW / 2, headerY + headerH);
-      bannerGrad.addColorStop(0, "#ffffff");
-      bannerGrad.addColorStop(1, "#e2e8f0");
-      ctx.fillStyle = bannerGrad;
-
-      ctx.beginPath();
-      ctx.moveTo(headerX - headerW / 2 + headerSkew, headerY);
-      ctx.lineTo(headerX + headerW / 2 + headerSkew, headerY);
-      ctx.lineTo(headerX + headerW / 2, headerY + headerH);
-      ctx.lineTo(headerX - headerW / 2, headerY + headerH);
-      ctx.closePath();
-      ctx.fill();
-
-      // Draw subtle bottom outline shadow
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.15)";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.restore();
-
-      // Print team name inside the header banner
-      ctx.fillStyle = "#0c1b40"; // Dark blue color
-      ctx.font = "italic 900 24px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(teamName.toUpperCase(), headerX + (headerSkew / 2), headerY + headerH / 2 + 0.5);
-
-      // Draw premium circular Team Logo on the left of team banner
-      const logoCenterX = headerX - (headerW / 2) - 15;
-      const logoCenterY = headerY + headerH / 2;
-      const logoOuterRadius = 36;
-      const logoInnerRadius = 30;
-
-      ctx.save();
-      // Outer shiny chrome ring themed with themeColor
-      const logoRingGrad = ctx.createRadialGradient(logoCenterX, logoCenterY, logoInnerRadius, logoCenterX, logoCenterY, logoOuterRadius);
-      logoRingGrad.addColorStop(0, "#ffffff");
-      logoRingGrad.addColorStop(0.5, adjustColorBrightness(themeColor, 15));
-      logoRingGrad.addColorStop(1, adjustColorBrightness(themeColor, -20));
-      ctx.fillStyle = logoRingGrad;
-      ctx.beginPath();
-      ctx.arc(logoCenterX, logoCenterY, logoOuterRadius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Dark emblem face
-      ctx.fillStyle = "#060913";
-      ctx.beginPath();
-      ctx.arc(logoCenterX, logoCenterY, logoInnerRadius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Draw custom team logo, or beautifully detailed fallback soccer starball!
-      const tLogoImg = loadedImages["teamLogo"];
-      if (tLogoImg) {
-        ctx.beginPath();
-        ctx.arc(logoCenterX, logoCenterY, logoInnerRadius - 2, 0, Math.PI * 2);
-        ctx.clip();
-        ctx.drawImage(
-          tLogoImg,
-          logoCenterX - (logoInnerRadius - 2),
-          logoCenterY - (logoInnerRadius - 2),
-          (logoInnerRadius - 2) * 2,
-          (logoInnerRadius - 2) * 2
-        );
-      } else {
-        // Draw elegant soccer starball geometry vectors
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
-        ctx.lineWidth = 1.8;
-        for (let i = 0; i < 5; i++) {
-          const sAngle = (i * 2 * Math.PI) / 5 - Math.PI / 2;
-          const starX = logoCenterX + 15 * Math.cos(sAngle);
-          const starY = logoCenterY + 15 * Math.sin(sAngle);
-          ctx.beginPath();
-          ctx.arc(starX, starY, 10, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      }
-      ctx.restore();
-
-      // ==========================================
-      // 8. DRAW PLAYERS ON THE PITCH (JERSEY + MINI-BANNER)
-      // ==========================================
-      adjustedPlayers
-          .filter((p) => p.isStarting)
-          .forEach((player) => {
-            const pt = toScreen(player.x, player.y);
-            const isGK = player.role === "GK";
-            const playerColor = isGK ? gkColor : themeColor;
-            const cx = pt.x;
-            const cy = pt.y - 14; // elevation
-            const k = 1.25; // standard coordinate multiplier for jerseys
-
-            // Draw player shadow
-            ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-            ctx.beginPath();
-            ctx.ellipse(cx, cy + 18 * k, 20 * k, 7 * k, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            const hasPhoto = !!(player.photo && loadedImages[player.id]);
-
-            if (hasPhoto) {
-              // Circle profile photo for starting player
-              const radius = 22 * k;
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-              ctx.clip();
-
-              const pImg = loadedImages[player.id];
-              const size = Math.min(pImg.width, pImg.height);
-              const sx = (pImg.width - size) / 2;
-              const sy = (pImg.height - size) / 2;
-              ctx.drawImage(
-                pImg,
-                sx,
-                sy,
-                size,
-                size,
-                cx - radius,
-                cy - radius,
-                radius * 2,
-                radius * 2
-              );
-              ctx.restore();
-
-              // Circular profile frame border
-              ctx.strokeStyle = playerColor;
-              ctx.lineWidth = 3.5;
-              ctx.beginPath();
-              ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-              ctx.stroke();
-
-            } else {
-              // Draw regular soccer jerseys (with support for custom team jersey image upload!)
-              const jerseyImg = !isGK ? loadedImages["teamJersey"] : null;
-
-              if (jerseyImg) {
-                // Custom jersey layout
-                ctx.save();
-                ctx.beginPath();
-                ctx.moveTo(cx - 10 * k, cy - 20 * k);
-                ctx.quadraticCurveTo(cx, cy - 13 * k, cx + 10 * k, cy - 20 * k);
-                ctx.lineTo(cx + 21 * k, cy - 20 * k);
-                ctx.lineTo(cx + 31 * k, cy - 6 * k);
-                ctx.lineTo(cx + 22 * k, cy + 0 * k);
-                ctx.lineTo(cx + 17 * k, cy - 8 * k);
-                ctx.lineTo(cx + 17 * k, cy + 18 * k);
-                ctx.lineTo(cx - 17 * k, cy + 18 * k);
-                ctx.lineTo(cx - 17 * k, cy - 8 * k);
-                ctx.lineTo(cx - 22 * k, cy + 0 * k);
-                ctx.lineTo(cx - 31 * k, cy - 6 * k);
-                ctx.lineTo(cx - 21 * k, cy - 20 * k);
-                ctx.closePath();
-                ctx.clip();
-
-                ctx.drawImage(jerseyImg, cx - 31 * k, cy - 20 * k, 62 * k, 38 * k);
-                ctx.restore();
-
-                // Add subtle outline stroke
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(cx - 10 * k, cy - 20 * k);
-                ctx.quadraticCurveTo(cx, cy - 13 * k, cx + 10 * k, cy - 20 * k);
-                ctx.lineTo(cx + 21 * k, cy - 20 * k);
-                ctx.lineTo(cx + 31 * k, cy - 6 * k);
-                ctx.lineTo(cx + 22 * k, cy + 0 * k);
-                ctx.lineTo(cx + 17 * k, cy - 8 * k);
-                ctx.lineTo(cx + 17 * k, cy + 18 * k);
-                ctx.lineTo(cx - 17 * k, cy + 18 * k);
-                ctx.lineTo(cx - 17 * k, cy - 8 * k);
-                ctx.lineTo(cx - 22 * k, cy + 0 * k);
-                ctx.lineTo(cx - 31 * k, cy - 6 * k);
-                ctx.lineTo(cx - 21 * k, cy - 20 * k);
-                ctx.closePath();
-                ctx.stroke();
-
-              } else {
-                // Vector jersey with standard team color
-                ctx.beginPath();
-                ctx.moveTo(cx - 10 * k, cy - 20 * k);
-                ctx.quadraticCurveTo(cx, cy - 13 * k, cx + 10 * k, cy - 20 * k);
-                ctx.lineTo(cx + 21 * k, cy - 20 * k);
-                ctx.lineTo(cx + 31 * k, cy - 6 * k);
-                ctx.lineTo(cx + 22 * k, cy + 0 * k);
-                ctx.lineTo(cx + 17 * k, cy - 8 * k);
-                ctx.lineTo(cx + 17 * k, cy + 18 * k);
-                ctx.lineTo(cx - 17 * k, cy + 18 * k);
-                ctx.lineTo(cx - 17 * k, cy - 8 * k);
-                ctx.lineTo(cx - 22 * k, cy + 0 * k);
-                ctx.lineTo(cx - 31 * k, cy - 6 * k);
-                ctx.lineTo(cx - 21 * k, cy - 20 * k);
-                ctx.closePath();
-
-                const shirtGrad = ctx.createLinearGradient(cx, cy - 20 * k, cx, cy + 18 * k);
-                shirtGrad.addColorStop(0, playerColor);
-                shirtGrad.addColorStop(1, adjustColorBrightness(playerColor, -40));
-                ctx.fillStyle = shirtGrad;
-                ctx.fill();
-
-                // Cuff trims
-                ctx.strokeStyle = numberColor;
-                ctx.lineWidth = 2 * k;
-                ctx.beginPath();
-                ctx.moveTo(cx - 31 * k, cy - 6 * k);
-                ctx.lineTo(cx - 22 * k, cy + 0 * k);
-                ctx.moveTo(cx + 31 * k, cy - 6 * k);
-                ctx.lineTo(cx + 22 * k, cy + 0 * k);
-                ctx.stroke();
-              }
-
-              // Draw Jersey Number on Back
-              ctx.fillStyle = numberColor;
-              ctx.font = `bold ${14 * k}px 'Courier New', 'JetBrains Mono', monospace`;
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              ctx.fillText(player.number.toString(), cx, cy);
-            }
-
-            // ==========================================
-            // DRAW DUAL-BADGE MINI SKEWED NAME TAG BELOW PLAYER
-            // ==========================================
-            const tagY = cy + 24 * k;
-            const tagW = 90;
-            const tagH = 17;
-            const tagSkew = 4;
-
-            // Number Badge on Left (Thematic skewed badge)
-            ctx.fillStyle = playerColor;
-            ctx.beginPath();
-            ctx.moveTo(cx - 45 + tagSkew, tagY);
-            ctx.lineTo(cx - 23 + tagSkew, tagY);
-            ctx.lineTo(cx - 23, tagY + tagH);
-            ctx.lineTo(cx - 45, tagY + tagH);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 9px monospace";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(
-              player.number.toString().padStart(2, "0"),
-              cx - 34 + (tagSkew / 2),
-              tagY + (tagH / 2) + 0.5
-            );
-
-            // Name Badge on Right (White skewed card)
-            ctx.fillStyle = "#ffffff";
-            ctx.beginPath();
-            ctx.moveTo(cx - 21 + tagSkew, tagY);
-            ctx.lineTo(cx + 45 + tagSkew, tagY);
-            ctx.lineTo(cx + 45, tagY + tagH);
-            ctx.lineTo(cx - 21, tagY + tagH);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.fillStyle = "#0c1221"; // Dark charcoal blue text
-            ctx.font = "bold 8.5px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            let displayPlayerName = player.name.toUpperCase();
-            if (displayPlayerName.length > 10) {
-              displayPlayerName = displayPlayerName.substring(0, 8) + ".";
-            }
-            ctx.fillText(
-              displayPlayerName,
-              cx + 12 + (tagSkew / 2),
-              tagY + (tagH / 2) + 0.5
-            );
-          });
-
-      // ==========================================
-      // 9. DRAW MANAGER BANNER AT THE BOTTOM OF PITCH
-      // ==========================================
-      const coachCenterX = 760;
-      const coachY = 840;
-      const coachH = 28;
-      const coachSkew = 5;
-
-      // Draw "MANAGER" label badge themed with themeColor
-      ctx.save();
-      const cBadgeGrad = ctx.createLinearGradient(coachCenterX - 130, coachY, coachCenterX - 40, coachY + coachH);
-      cBadgeGrad.addColorStop(0, adjustColorBrightness(themeColor, -20));
-      cBadgeGrad.addColorStop(1, adjustColorBrightness(themeColor, 15));
-      ctx.fillStyle = cBadgeGrad;
-
-      ctx.beginPath();
-      ctx.moveTo(coachCenterX - 130 + coachSkew, coachY);
-      ctx.lineTo(coachCenterX - 40 + coachSkew, coachY);
-      ctx.lineTo(coachCenterX - 40, coachY + coachH);
-      ctx.lineTo(coachCenterX - 130, coachY + coachH);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 11px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      const mLabel = lang === "id" ? "PELATIH" : "MANAGER";
-      ctx.fillText(mLabel, coachCenterX - 85 + (coachSkew / 2), coachY + coachH / 2 + 0.5);
-
-      // Draw Coach Name badge
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.moveTo(coachCenterX - 36 + coachSkew, coachY);
-      ctx.lineTo(coachCenterX + 130 + coachSkew, coachY);
-      ctx.lineTo(coachCenterX + 130, coachY + coachH);
-      ctx.lineTo(coachCenterX - 36, coachY + coachH);
-      ctx.closePath();
-      ctx.fill();
-
-      // Write head coach name inside white card
-      ctx.fillStyle = "#0c1221";
-      ctx.font = "bold 12.5px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      let displayCoachName = (managerName || (lang === "id" ? "Budi Santoso" : "Alex Ferguson")).toUpperCase();
-      if (displayCoachName.length > 20) {
-        displayCoachName = displayCoachName.substring(0, 18) + "..";
-      }
-      ctx.fillText(displayCoachName, coachCenterX + 47 + (coachSkew / 2), coachY + coachH / 2 + 0.5);
-
-      // Watermark indicator on lower-right corner of the canvas
-      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
-      ctx.font = "bold 10px monospace";
-      ctx.textAlign = "right";
-      ctx.fillText("TACTIGEN 3D BOARDS", 1160, 880);
-
-      const dataUrl = canvas.toDataURL("image/png");
-      setInstantImageUrl(dataUrl);
-    } catch (e) {
-      console.error("Gagal menjamin render lokal canvas: ", e);
-    }
-  };
-
-  // Handle local Club Classic (wavy modern poster with custom card design) rendering
-  const handleRenderClubClassicPoster = (loadedImages: Record<string, HTMLImageElement> = {}) => {
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1200;
-      canvas.height = 900;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      // Dominant color extractor helper
-      const getDominantColor = (img: HTMLImageElement): string | null => {
-        try {
-          const tempCanvas = document.createElement("canvas");
-          tempCanvas.width = 16;
-          tempCanvas.height = 16;
-          const tempCtx = tempCanvas.getContext("2d");
-          if (!tempCtx) return null;
-          tempCtx.drawImage(img, 0, 0, 16, 16);
-          const imgData = tempCtx.getImageData(0, 0, 16, 16).data;
-          let rSum = 0, gSum = 0, bSum = 0, count = 0;
-          for (let i = 0; i < imgData.length; i += 4) {
-            const r = imgData[i];
-            const g = imgData[i + 1];
-            const b = imgData[i + 2];
-            const a = imgData[i + 3];
-            if (a > 180) {
-              rSum += r; gSum += g; bSum += b; count++;
-            }
-          }
-          if (count > 0) {
-            const toHex = (c: number) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0");
-            return `#${toHex(Math.round(rSum / count))}${toHex(Math.round(gSum / count))}${toHex(Math.round(bSum / count))}`;
-          }
-        } catch (e) {
-          console.warn("Failed to extract dominant color:", e);
-        }
-        return null;
-      };
-
-      let themeColor = primaryColor;
-      const jerseyImg = loadedImages["teamJersey"];
-      if (jerseyImg) {
-        const extracted = getDominantColor(jerseyImg);
-        if (extracted) themeColor = extracted;
-      }
-
-      // 1. Clear background & draw premium sports backdrop (Midnight blue + tiger/zebra stripes)
-      const bgGrad = ctx.createLinearGradient(0, 0, 1200, 900);
-      bgGrad.addColorStop(0, "#050915");
-      bgGrad.addColorStop(0.5, "#0b1226");
-      bgGrad.addColorStop(1, "#03040a");
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, 1200, 900);
-
-      // Procedural tiger/zebra stripes (overlays)
-      ctx.save();
-      ctx.fillStyle = "rgba(16, 80, 255, 0.09)";
-      for (let i = 0; i < 15; i++) {
-        ctx.beginPath();
-        ctx.moveTo(-300 + i * 140, -100);
-        ctx.bezierCurveTo(100 + i * 130, 300, -100 + i * 140, 600, 1500, 1000);
-        ctx.lineTo(1600, 1000);
-        ctx.lineTo(-300 + i * 140 + 90, -100);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.restore();
-
-      // 2. Draw Left Sidebar (Classic dark background + golden diagonal subtle stripes)
-      ctx.fillStyle = "#030612";
-      ctx.fillRect(0, 0, 320, 900);
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, 320, 900);
-      ctx.clip();
-      ctx.strokeStyle = "rgba(234, 179, 8, 0.04)";
-      ctx.lineWidth = 3;
-      for (let offset = -900; offset < 1200; offset += 32) {
-        ctx.beginPath();
-        ctx.moveTo(offset, 0);
-        ctx.lineTo(offset + 900, 900);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      // Golden vertical dividing separator line
-      ctx.strokeStyle = "rgba(234, 179, 8, 0.35)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(320, 0);
-      ctx.lineTo(320, 900);
-      ctx.stroke();
-
-      // 3. Draw Left sidebar text & list: STARTING XI
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "italic 900 36px sans-serif";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "top";
-      ctx.fillText("STARTING XI", 30, 42);
-
-      // Fetch starting players sorted by role
-      const starters = adjustedPlayers.filter((p) => p.isStarting);
-      const roleOrder: Record<string, number> = { "GK": 0, "DEF": 1, "MID": 2, "FWD": 3 };
-      const sortedStarters = [...starters].sort((a, b) => {
-        const valA = roleOrder[a.role] ?? 99;
-        const valB = roleOrder[b.role] ?? 99;
-        if (valA !== valB) return valA - valB;
-        return a.number - b.number;
-      });
-
-      const itemH = 32;
-      const itemGap = 42;
-      const listStartY = 100;
-      const skewAngle = 8;
-
-      sortedStarters.forEach((player, idx) => {
-        if (idx >= 11) return;
-        const rowY = listStartY + idx * itemGap;
-
-        // Squad number badge with golden gradient
-        const numBadgeW = 44;
-        ctx.save();
-        const badgeGrad = ctx.createLinearGradient(30, rowY, 30 + numBadgeW, rowY + itemH);
-        badgeGrad.addColorStop(0, "#855d14");
-        badgeGrad.addColorStop(1, "#ebd55b");
-        ctx.fillStyle = badgeGrad;
-
-        ctx.beginPath();
-        ctx.moveTo(30 + skewAngle, rowY);
-        ctx.lineTo(30 + numBadgeW + skewAngle, rowY);
-        ctx.lineTo(30 + numBadgeW, rowY + itemH);
-        ctx.lineTo(30, rowY + itemH);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 13px 'Courier New', 'JetBrains Mono', monospace";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(
-          player.number.toString().padStart(2, "0"),
-          30 + (numBadgeW / 2) + (skewAngle / 2),
-          rowY + (itemH / 2) + 0.5
-        );
-
-        // Name badge
-        const nameCardX = 30 + numBadgeW + 4;
-        const nameCardW = 212;
-        ctx.save();
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.moveTo(nameCardX + skewAngle, rowY);
-        ctx.lineTo(nameCardX + nameCardW + skewAngle, rowY);
-        ctx.lineTo(nameCardX + nameCardW, rowY + itemH);
-        ctx.lineTo(nameCardX, rowY + itemH);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-
-        ctx.fillStyle = "#0c1221";
-        ctx.font = "bold 12.5px sans-serif";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-        let displayListName = player.name.toUpperCase();
-        if (displayListName.length > 18) {
-          displayListName = displayListName.substring(0, 16) + "..";
-        }
-        ctx.fillText(
-          displayListName,
-          nameCardX + 15 + (skewAngle / 2),
-          rowY + (itemH / 2) + 0.5
-        );
-
-        ctx.fillStyle = "rgba(12, 18, 33, 0.4)";
-        ctx.font = "900 8.5px sans-serif";
-        ctx.textAlign = "right";
-        ctx.fillText(
-          player.role,
-          nameCardX + nameCardW - 10 + (skewAngle / 2),
-          rowY + (itemH / 2) + 0.5
-        );
-      });
-
-      // Substitutions list
-      const subsStartY = 595;
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 18px sans-serif";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "top";
-      const subsHeaderLabel = lang === "id" ? "PEMAIN CADANGAN" : "SUBSTITUTIONS";
-      ctx.fillText(subsHeaderLabel, 30, subsStartY);
-
-      const substitutes = adjustedPlayers.filter((p) => !p.isStarting);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-      ctx.font = "bold 11px sans-serif";
-      ctx.textAlign = "left";
-
-      const subLines: string[] = [];
-      for (let i = 0; i < substitutes.length; i += 2) {
-        const sub1 = substitutes[i];
-        const sub2 = substitutes[i + 1];
-        let sLine = `${sub1.number}. ${sub1.name.toUpperCase()}`;
-        if (sub2) {
-          sLine += `, ${sub2.number}. ${sub2.name.toUpperCase()}`;
-        }
-        subLines.push(sLine);
-      }
-
-      subLines.forEach((line, idx) => {
-        if (idx >= 10) return;
-        ctx.fillText(line, 30, subsStartY + 32 + idx * 22);
-      });
-
-      // 4. coordinate perspective projector
-      const toScreen = (fx: number, fy: number) => {
-        const pctX = fx / 100;
-        const pctY = fy / 100;
-        const topWidth = 540;
-        const bottomWidth = 760;
-        const topLeft = 490;
-        const bottomLeft = 380;
-        const widthAtY = topWidth + (bottomWidth - topWidth) * pctY;
-        const leftAtY = topLeft + (bottomLeft - topLeft) * pctY;
-        return { x: leftAtY + widthAtY * pctX, y: 215 + 600 * pctY };
-      };
-
-      // Draw golden pitch skeleton outlines
-      ctx.strokeStyle = "rgba(234, 179, 8, 0.42)";
-      ctx.lineWidth = 2.5;
-
-      ctx.beginPath();
-      const pTL = toScreen(0, 0);
-      const pTR = toScreen(100, 0);
-      const pBR = toScreen(100, 100);
-      const pBL = toScreen(0, 100);
-      ctx.moveTo(pTL.x, pTL.y);
-      ctx.lineTo(pTR.x, pTR.y);
-      ctx.lineTo(pBR.x, pBR.y);
-      ctx.lineTo(pBL.x, pBL.y);
-      ctx.closePath();
-      ctx.stroke();
-
-      ctx.beginPath();
-      const pHalfLeft = toScreen(0, 50);
-      const pHalfRight = toScreen(100, 50);
-      ctx.moveTo(pHalfLeft.x, pHalfLeft.y);
-      ctx.lineTo(pHalfRight.x, pHalfRight.y);
-      ctx.stroke();
-
-      ctx.beginPath();
-      for (let deg = 0; deg <= 360; deg += 6) {
-        const rad = deg * Math.PI / 180;
-        const sx = 50 + 11 * Math.cos(rad);
-        const sy = 50 + 11 * Math.sin(rad) * 1.05;
-        const pt = toScreen(sx, sy);
-        if (deg === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
-      }
-      ctx.stroke();
-
-      const pCenter = toScreen(50, 50);
-      ctx.fillStyle = "rgba(234, 179, 8, 0.65)";
-      ctx.beginPath();
-      ctx.arc(pCenter.x, pCenter.y, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.beginPath();
-      const pBoxTL = toScreen(25, 0);
-      const pBoxTR = toScreen(25, 18);
-      const pBoxBR = toScreen(75, 18);
-      const pBoxBL = toScreen(75, 0);
-      ctx.moveTo(pBoxTL.x, pBoxTL.y);
-      ctx.lineTo(pBoxTR.x, pBoxTR.y);
-      ctx.lineTo(pBoxBR.x, pBoxBR.y);
-      ctx.lineTo(pBoxBL.x, pBoxBL.y);
-      ctx.stroke();
-
-      ctx.beginPath();
-      const pBBoxTL = toScreen(25, 100);
-      const pBBoxTR = toScreen(25, 82);
-      const pBBoxBR = toScreen(75, 82);
-      const pBBoxBL = toScreen(75, 100);
-      ctx.moveTo(pBBoxTL.x, pBBoxTL.y);
-      ctx.lineTo(pBBoxTR.x, pBBoxTR.y);
-      ctx.lineTo(pBBoxBR.x, pBBoxBR.y);
-      ctx.lineTo(pBBoxBL.x, pBBoxBL.y);
-      ctx.stroke();
-
-      // 5. Title Header
-      const titleCenterX = 760;
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "italic 900 46px Impact, Arial Black, sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("STARTING LINE UP", titleCenterX, 72);
-
-      ctx.fillStyle = "#ebd55b";
-      ctx.font = "bold 24px Impact, Arial Black, sans-serif";
-      ctx.fillText(teamName.toUpperCase(), titleCenterX, 110);
-
-      // Draw club logo at top right
-      const tLogoImg = loadedImages["teamLogo"];
-      if (tLogoImg) {
-        const logoX = 1110;
-        const logoY = 72;
-        const logoRadius = 40;
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(logoX, logoY, logoRadius, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-        ctx.strokeStyle = "rgba(234, 179, 8, 0.85)";
-        ctx.lineWidth = 3;
-        ctx.shadowColor = "rgba(234, 179, 8, 0.5)";
-        ctx.shadowBlur = 10;
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(logoX, logoY, logoRadius - 1.5, 0, Math.PI * 2);
-        ctx.clip();
-        ctx.drawImage(tLogoImg, logoX - logoRadius, logoY - logoRadius, logoRadius * 2, logoRadius * 2);
-        ctx.restore();
-      }
-
-      // 6. Draw FUT player cards
-      starters.forEach((player) => {
-        const pt = toScreen(player.x, player.y);
-        const isGK = player.role === "GK";
-        const playerColor = isGK ? gkColor : themeColor;
-        const cx = pt.x;
-        const cy = pt.y - 12;
-
-        const cardW = 76;
-        const cardH = 110;
-
-        // Container card with gold outline
-        ctx.save();
-        ctx.shadowColor = playerColor;
-        ctx.shadowBlur = 8;
-
-        const cardGrad = ctx.createLinearGradient(cx - cardW / 2, cy - cardH / 2, cx + cardW / 2, cy + cardH / 2);
-        cardGrad.addColorStop(0, "#0d162d");
-        cardGrad.addColorStop(0.5, "#050813");
-        cardGrad.addColorStop(1, adjustColorBrightness(playerColor, -55));
-        ctx.fillStyle = cardGrad;
-
-        ctx.strokeStyle = "rgba(234, 179, 8, 0.72)";
-        ctx.lineWidth = 1.5;
-
-        ctx.beginPath();
-        ctx.roundRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 6);
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-
-        // Card texture line
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(cx - cardW / 2 + 10, cy - cardH / 2);
-        ctx.lineTo(cx - cardW / 2 + 25, cy + cardH / 2);
-        ctx.stroke();
-
-        // Portrait or Jersey
-        const hasPhoto = !!(player.photo && loadedImages[player.id]);
-        const photoRadius = 24;
-        const photoY = cy - 20;
-
-        if (hasPhoto) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(cx, photoY, photoRadius, 0, Math.PI * 2);
-          ctx.clip();
-
-          const pImg = loadedImages[player.id];
-          const size = Math.min(pImg.width, pImg.height);
-          const sx = (pImg.width - size) / 2;
-          const sy = (pImg.height - size) / 2;
-          ctx.drawImage(pImg, sx, sy, size, size, cx - photoRadius, photoY - photoRadius, photoRadius * 2, photoRadius * 2);
-          ctx.restore();
-
-          ctx.strokeStyle = "rgba(234, 179, 8, 0.8)";
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.arc(cx, photoY, photoRadius, 0, Math.PI * 2);
-          ctx.stroke();
-        } else {
-          const jY = photoY + 2;
-          const k = 0.85;
-
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(cx - 10 * k, jY - 20 * k);
-          ctx.quadraticCurveTo(cx, jY - 13 * k, cx + 10 * k, jY - 20 * k);
-          ctx.lineTo(cx + 21 * k, jY - 20 * k);
-          ctx.lineTo(cx + 31 * k, jY - 6 * k);
-          ctx.lineTo(cx + 22 * k, jY + 0 * k);
-          ctx.lineTo(cx + 17 * k, jY - 8 * k);
-          ctx.lineTo(cx + 17 * k, jY + 18 * k);
-          ctx.lineTo(cx - 17 * k, jY + 18 * k);
-          ctx.lineTo(cx - 17 * k, jY - 8 * k);
-          ctx.lineTo(cx - 22 * k, jY + 0 * k);
-          ctx.lineTo(cx - 31 * k, jY - 6 * k);
-          ctx.lineTo(cx - 21 * k, jY - 20 * k);
-          ctx.closePath();
-
-          const shirtGrad = ctx.createLinearGradient(cx, jY - 20 * k, cx, jY + 18 * k);
-          shirtGrad.addColorStop(0, playerColor);
-          shirtGrad.addColorStop(1, adjustColorBrightness(playerColor, -40));
-          ctx.fillStyle = shirtGrad;
-          ctx.fill();
-
-          ctx.strokeStyle = numberColor;
-          ctx.lineWidth = 1.5 * k;
-          ctx.beginPath();
-          ctx.moveTo(cx - 31 * k, jY - 6 * k);
-          ctx.lineTo(cx - 22 * k, jY + 0 * k);
-          ctx.moveTo(cx + 31 * k, jY - 6 * k);
-          ctx.lineTo(cx + 22 * k, jY + 0 * k);
-          ctx.stroke();
-          ctx.restore();
-
-          ctx.fillStyle = numberColor;
-          ctx.font = `bold ${10 * k}px sans-serif`;
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(player.number.toString(), cx, jY);
-        }
-
-        // Mini Badge + 5 stars
-        const badgeX = cx - cardW / 2 + 13;
-        const badgeY = cy - cardH / 2 + 13;
-        const badgeRadius = 7.5;
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-        ctx.strokeStyle = "rgba(234, 179, 8, 0.85)";
-        ctx.lineWidth = 1;
-        ctx.fill();
-        ctx.stroke();
-
-        const tLogoImg = loadedImages["teamLogo"];
-        if (tLogoImg) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(badgeX, badgeY, badgeRadius - 0.5, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.drawImage(tLogoImg, badgeX - badgeRadius, badgeY - badgeRadius, badgeRadius * 2, badgeRadius * 2);
-          ctx.restore();
-        } else {
-          ctx.fillStyle = "#ebd55b";
-          ctx.font = "bold 8px sans-serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText("★", badgeX, badgeY + 0.5);
-        }
-
-        ctx.fillStyle = "#ebd55b";
-        ctx.font = "5px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("★★★★★", badgeX, badgeY - 10.5);
-        ctx.restore();
-
-        // Big squad number
-        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-        ctx.font = "bold 13px 'Courier New', 'JetBrains Mono', monospace";
-        ctx.textAlign = "right";
-        ctx.textBaseline = "top";
-        ctx.fillText(player.number.toString().padStart(2, "0"), cx + cardW / 2 - 8, cy - cardH / 2 + 8);
-
-        // White position tag
-        const bannerY = cy + 18;
-        const bannerW = cardW - 12;
-        const bannerH = 14;
-
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(cx - bannerW / 2, bannerY, bannerW, bannerH);
-
-        ctx.fillStyle = "#0c1221";
-        ctx.font = "900 8.5px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(player.role.toUpperCase(), cx, bannerY + bannerH / 2 + 0.5);
-
-        // Player Name Banner
-        const nameY = bannerY + bannerH;
-        const nameW = bannerW;
-        const nameH = 15;
-
-        ctx.fillStyle = "#1e3a8a";
-        ctx.fillRect(cx - nameW / 2, nameY, nameW, nameH);
-
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 7.5px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        let displayCardName = player.name.toUpperCase();
-        if (displayCardName.length > 9) {
-          displayCardName = displayCardName.substring(0, 8) + ".";
-        }
-        ctx.fillText(displayCardName, cx, nameY + nameH / 2 + 0.5);
-      });
-
-      // 7. Coach Banner
-      const coachCenterX = 760;
-      const coachY = 842;
-      const coachH = 30;
-
-      ctx.save();
-      ctx.fillStyle = "#ebd55b";
-      ctx.beginPath();
-      ctx.roundRect(coachCenterX - 140, coachY, 80, coachH, [4, 0, 0, 4]);
-      ctx.fill();
-
-      ctx.fillStyle = "#0c1221";
-      ctx.font = "bold 11px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      const mLabel = lang === "id" ? "PELATIH" : "MANAGER";
-      ctx.fillText(mLabel, coachCenterX - 100, coachY + coachH / 2 + 0.5);
-
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.roundRect(coachCenterX - 60, coachY, 200, coachH, [0, 4, 4, 0]);
-      ctx.fill();
-
-      ctx.fillStyle = "#0c1221";
-      ctx.font = "bold 13px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      let displayCoachName = (managerName || (lang === "id" ? "Budi Santoso" : "Alex Ferguson")).toUpperCase();
-      if (displayCoachName.length > 22) {
-        displayCoachName = displayCoachName.substring(0, 20) + "..";
-      }
-      ctx.fillText(displayCoachName, coachCenterX + 40, coachY + coachH / 2 + 0.5);
-      ctx.restore();
-
-      ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
-      ctx.font = "bold 10px monospace";
-      ctx.textAlign = "right";
-      ctx.fillText("TACTIGEN TIGER POSTERS", 1160, 880);
-
-      const dataUrl = canvas.toDataURL("image/png");
-      setInstantImageUrl(dataUrl);
-    } catch (e) {
-      console.error("Gagal menjamin render lokal canvas: ", e);
-    }
-  };
-
-  // Run initial vector drawing and redraw when properties change
+  // Preload Images (Player photos, team logo, jersey, manager)
   useEffect(() => {
     let active = true;
-    const playersWithPhotos = adjustedPlayers.filter((p) => p.isStarting && p.photo);
-
-    // List of items to load
     const toLoad: { id: string; url: string }[] = [];
 
-    playersWithPhotos.forEach((player) => {
-      if (player.photo) {
-        toLoad.push({ id: player.id, url: player.photo });
+    adjustedPlayers.forEach((p) => {
+      if (p.isStarting && p.photo) {
+        toLoad.push({ id: p.id, url: p.photo });
       }
     });
-
-    if (teamLogo) {
-      toLoad.push({ id: "teamLogo", url: teamLogo });
-    }
-
-    if (teamJersey) {
-      toLoad.push({ id: "teamJersey", url: teamJersey });
-    }
-
-    if (managerPhoto) {
-      toLoad.push({ id: "managerPhoto", url: managerPhoto });
-    }
+    if (teamLogo) toLoad.push({ id: "teamLogo", url: teamLogo });
+    if (teamJersey) toLoad.push({ id: "teamJersey", url: teamJersey });
+    if (managerPhoto) toLoad.push({ id: "managerPhoto", url: managerPhoto });
 
     if (toLoad.length === 0) {
-      if (posterTheme === "stadium") {
-        handleRenderInstantPoster({});
-      } else {
-        handleRenderClubClassicPoster({});
-      }
+      setLoadedImagesCache({});
       return;
     }
 
-    const loadedImages: Record<string, HTMLImageElement> = {};
-    let loadedCount = 0;
+    const loadedMap: Record<string, HTMLImageElement> = {};
+    let count = 0;
 
     toLoad.forEach((item) => {
       const img = new window.Image();
@@ -1532,74 +140,129 @@ export default function AIFormationImageGenerator({
       img.src = item.url;
       img.onload = () => {
         if (!active) return;
-        loadedImages[item.id] = img;
-        loadedCount++;
-        if (loadedCount === toLoad.length) {
-          if (posterTheme === "stadium") {
-            handleRenderInstantPoster(loadedImages);
-          } else {
-            handleRenderClubClassicPoster(loadedImages);
-          }
-        }
+        loadedMap[item.id] = img;
+        count++;
+        if (count === toLoad.length) setLoadedImagesCache(loadedMap);
       };
       img.onerror = () => {
         if (!active) return;
-        loadedCount++;
-        if (loadedCount === toLoad.length) {
-          if (posterTheme === "stadium") {
-            handleRenderInstantPoster(loadedImages);
-          } else {
-            handleRenderClubClassicPoster(loadedImages);
-          }
-        }
+        count++;
+        if (count === toLoad.length) setLoadedImagesCache(loadedMap);
       };
     });
-
-    // Render immediately (it will update as files finish loading)
-    if (posterTheme === "stadium") {
-      handleRenderInstantPoster(loadedImages);
-    } else {
-      handleRenderClubClassicPoster(loadedImages);
-    }
 
     return () => {
       active = false;
     };
-  }, [adjustedPlayers, formation, teamName, primaryColor, gkColor, numberColor, teamLogo, teamJersey, lang, managerName, managerPhoto, posterTheme]);
+  }, [adjustedPlayers, teamLogo, teamJersey, managerPhoto]);
 
-  // Helper utility to adjust HEX brightness for shadow curves
-  const adjustColorBrightness = (hex: string, percent: number): string => {
-    let R = parseInt(hex.substring(1, 3), 16);
-    let G = parseInt(hex.substring(3, 5), 16);
-    let B = parseInt(hex.substring(5, 7), 16);
+  // Render poster whenever options or loaded images change
+  useEffect(() => {
+    try {
+      const canvas = canvasRef.current || document.createElement("canvas");
+      canvasRef.current = canvas;
 
-    R = parseInt(((R * (100 + percent)) / 100).toString());
-    G = parseInt(((G * (100 + percent)) / 100).toString());
-    B = parseInt(((B * (100 + percent)) / 100).toString());
+      const dataUrl = renderFormationPoster(
+        canvas,
+        {
+          theme: posterTheme,
+          format: posterFormat,
+          formation,
+          teamName,
+          matchTitle: matchTitle.trim() || undefined,
+          opponentName: opponentName.trim() || undefined,
+          primaryColor,
+          gkColor,
+          numberColor,
+          players: adjustedPlayers,
+          teamLogo,
+          teamJersey,
+          managerName,
+          managerPhoto,
+          lang: lang as "id" | "en",
+          showTacticalLinks,
+          showSubstitutes,
+          showManager,
+          showTacticalZones,
+          isEnemyModeActive
+        },
+        loadedImagesCache
+      );
 
-    R = R < 255 ? R : 255;
-    G = G < 255 ? G : 255;
-    B = B < 255 ? B : 255;
+      if (dataUrl) {
+        setInstantImageUrl(dataUrl);
+      }
+    } catch (e) {
+      console.error("Gagal merender poster formasi: ", e);
+    }
+  }, [
+    posterTheme,
+    posterFormat,
+    formation,
+    teamName,
+    matchTitle,
+    opponentName,
+    primaryColor,
+    gkColor,
+    numberColor,
+    adjustedPlayers,
+    teamLogo,
+    teamJersey,
+    managerName,
+    managerPhoto,
+    lang,
+    showTacticalLinks,
+    showSubstitutes,
+    showManager,
+    showTacticalZones,
+    isEnemyModeActive,
+    loadedImagesCache
+  ]);
 
-    R = R > 0 ? R : 0;
-    G = G > 0 ? G : 0;
-    B = B > 0 ? B : 0;
-
-    const rHex = R.toString(16).padStart(2, "0");
-    const gHex = G.toString(16).padStart(2, "0");
-    const bHex = B.toString(16).padStart(2, "0");
-
-    return `#${rHex}${gHex}${bHex}`;
+  // Download Poster as PNG
+  const handleDownload = (imgUrl: string | null) => {
+    if (!imgUrl) return;
+    const link = document.createElement("a");
+    link.href = imgUrl;
+    const sanitizedName = teamName.toLowerCase().replace(/\s+/g, "-");
+    link.download = `poster-${sanitizedName}-${formation}-${posterTheme}-${posterFormat}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleGenerateImage = async () => {
+  // Copy Image to Clipboard
+  const handleCopyToClipboard = async (imgUrl: string | null) => {
+    if (!imgUrl) return;
+    try {
+      const res = await fetch(imgUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [blob.type]: blob
+        })
+      ]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (err) {
+      console.warn("Clipboard copy failed, downloading instead", err);
+      handleDownload(imgUrl);
+    }
+  };
+
+  // Gemini Imagen Generator
+  const handleGenerateAiImage = async () => {
     if (!customApiKey.trim()) {
-      setError("Sila masukkan Google AI Studio API Key anda di menu Setingan (ikon gear biru) terlebih dahulu untuk membolehkan penjanaan imej.");
+      setAiError(
+        lang === "id"
+          ? "Silakan masukkan Google AI Studio API Key di menu Setelan untuk menggunakan fitur AI Imagen."
+          : "Please insert your Google AI Studio API Key in Settings to generate AI Imagen artwork."
+      );
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    setAiLoading(true);
+    setAiError(null);
     try {
       const response = await fetch("/api/tactics/generate-image", {
         method: "POST",
@@ -1614,132 +277,461 @@ export default function AIFormationImageGenerator({
         })
       });
 
-      let responseText = "";
-      try {
-        responseText = (await response.text() || "").trim();
-      } catch (ignored) {}
-
       if (!response.ok) {
-        let errMessage = "Gagal membuat gambar menggunakan model AI.";
+        const text = await response.text();
+        let errMsg = "Gagal membuat gambar dengan AI.";
         try {
-          const trimmedText = (responseText || "").trim();
-          if (trimmedText && trimmedText.toLowerCase() !== "undefined" && trimmedText.toLowerCase() !== "null") {
-            const errData = JSON.parse(trimmedText);
-            if (errData && errData.error) {
-              if (typeof errData.error === "object" && errData.error !== null && errData.error.message) {
-                errMessage = errData.error.message;
-              } else if (typeof errData.error === "string") {
-                errMessage = errData.error;
-              } else {
-                errMessage = JSON.stringify(errData.error);
-              }
-            }
-          }
-        } catch (jErr) {}
-        throw new Error(errMessage);
+          const parsed = JSON.parse(text);
+          if (parsed.error) errMsg = typeof parsed.error === "string" ? parsed.error : parsed.error.message;
+        } catch (_) {}
+        throw new Error(errMsg);
       }
 
-      let data: any;
-      try {
-        const trimmedText = (responseText || "").trim();
-        const normText = trimmedText.toLowerCase();
-        if (!trimmedText || normText === "undefined" || normText === "null") {
-          throw new Error("Respons pelayan kosong.");
-        }
-        data = JSON.parse(trimmedText);
-      } catch (parseError) {
-        throw new Error("Respons daripada server tidak berada dalam bentuk JSON yang sah.");
-      }
-
+      const data = await response.json();
       if (data.imageUrl) {
-        setGeneratedImageUrl(data.imageUrl);
+        setGeneratedAiImageUrl(data.imageUrl);
       } else {
-        throw new Error("Papan imej tidak mengandungi url data visual.");
+        throw new Error("Format respons tidak valid.");
       }
     } catch (err: any) {
-      console.error(err);
-      
-      let systemErrMessage = err?.message || "Koneksi terputus ke Google Imagen.";
-      
-      // If it is a quota or 429 issue, explain clearly and recommend the instant local renderer!
-      if (systemErrMessage.includes("429") || systemErrMessage.includes("quota") || systemErrMessage.includes("RESOURCE_EXHAUSTED")) {
-        systemErrMessage = "Had kuota Google AI Studio (Free Tier) anda telah tercapai atau telah melebihi had seminit. Sila bertukar ke mod 'Pro 3D Digital Renderer (Instan)' untuk menjana dan memuat turun imej poster 3D tercanggih tanpa had secara percuma!";
-      }
-      
-      setError(systemErrMessage);
+      setAiError(err?.message || "Koneksi ke AI terputus.");
     } finally {
-      setLoading(false);
+      setAiLoading(false);
     }
   };
 
-  const handleDownload = (imgUrl: string | null) => {
-    if (!imgUrl) return;
-    const link = document.createElement("a");
-    link.href = imgUrl;
-    link.download = `tactigen-3d-${formation}-${teamName.toLowerCase().replace(/\s+/g, "-")}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const THEMES: { id: PosterTheme; label: string; tag: string; icon: any; color: string }[] = [
+    {
+      id: "stadium_neon",
+      label: lang === "id" ? "Champions Neon" : "Champions Neon",
+      tag: "3D Stadium & Spotlights",
+      icon: Trophy,
+      color: "from-cyan-500 to-emerald-500"
+    },
+    {
+      id: "gold_heritage",
+      label: lang === "id" ? "Gold Prestige" : "Gold Prestige",
+      tag: "FUT Golden Shields & Luxury",
+      icon: Trophy,
+      color: "from-yellow-400 to-amber-600"
+    },
+    {
+      id: "broadcast_pro",
+      label: lang === "id" ? "Matchday TV" : "Matchday Live",
+      tag: "Sky Sports & Premier Broadcast",
+      icon: Tv,
+      color: "from-blue-500 to-indigo-600"
+    },
+    {
+      id: "editorial_studio",
+      label: lang === "id" ? "Studio Swiss" : "Studio Swiss",
+      tag: "Minimalist Modern Magazine",
+      icon: Palette,
+      color: "from-slate-400 to-zinc-600"
+    },
+    {
+      id: "retro_vintage",
+      label: lang === "id" ? "Calcio 90s" : "Calcio 90s",
+      tag: "Nostalgic Classic Striped Lawn",
+      icon: Layers,
+      color: "from-emerald-600 to-green-700"
+    }
+  ];
+
+  const FORMATS: { id: PosterFormat; label: string; ratio: string; desc: string }[] = [
+    {
+      id: "landscape",
+      label: lang === "id" ? "Lanskap (4:3)" : "Landscape (4:3)",
+      ratio: "4/3",
+      desc: "PC / Taktik / YouTube"
+    },
+    {
+      id: "square",
+      label: lang === "id" ? "Persegi (1:1)" : "Square (1:1)",
+      ratio: "1/1",
+      desc: "Instagram / WhatsApp"
+    },
+    {
+      id: "portrait",
+      label: lang === "id" ? "Story (9:16)" : "Story (9:16)",
+      ratio: "9/16",
+      desc: "Reels / WhatsApp Status"
+    }
+  ];
 
   return (
     <Interactive3DCard glowColor="rgba(16, 185, 129, 0.45)">
-      <div className="p-4 space-y-4">
-      {/* Clean minimal Header, no description or explanations */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg text-white">
-            <Image className="w-4 h-4" />
-          </div>
-          <h3 className="text-xs font-black text-white uppercase tracking-wider">
-            {lang === "id" ? "Poster Formasi 3D" : "3D Formation Poster"}
-          </h3>
-        </div>
-
-        {/* Theme Selection Buttons */}
-        <div className="flex gap-1 bg-white/5 p-0.5 rounded-lg border border-white/5">
-          <button
-            onClick={() => setPosterTheme("stadium")}
-            className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-              posterTheme === "stadium"
-                ? "bg-emerald-600 text-white shadow-md"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            STADIUM
-          </button>
-          <button
-            onClick={() => setPosterTheme("club_classic")}
-            className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-              posterTheme === "club_classic"
-                ? "bg-emerald-600 text-white shadow-md"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            {lang === "id" ? "POSTER KLASIK" : "CLUB CLASSIC"}
-          </button>
-        </div>
-      </div>
-
-      {instantImageUrl && (
-        <div className="space-y-3">
-          <div className="relative group overflow-hidden rounded-xl border border-white/10 aspect-[4/3] bg-zinc-950 flex items-center justify-center">
-            <img
-              src={instantImageUrl}
-              alt="Poster Formasi 3D"
-              className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.01]"
-              referrerPolicy="no-referrer"
-            />
+      <div className="p-3.5 sm:p-4 space-y-3.5">
+        {/* Compact Widget Header */}
+        <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-cyan-600 rounded-lg text-white shadow-md shadow-emerald-500/20">
+              <ImageIcon className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                {lang === "id" ? "Studio Poster Formasi" : "Formation Poster Studio"}
+                <span className="text-[8.5px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">
+                  PRO HD
+                </span>
+              </h3>
+            </div>
           </div>
 
-          <button
-            onClick={() => handleDownload(instantImageUrl)}
-            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/10 border-0 uppercase tracking-wider active:scale-95"
-          >
-            <Download className="w-4 h-4" /> Save Formation (PNG)
-          </button>
+          {/* Quick Action Buttons */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setIsStudioOpen(true)}
+              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-emerald-500/20 text-gray-300 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/30 text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+              title={lang === "id" ? "Buka Studio Lengkap" : "Open Full Studio"}
+            >
+              <Maximize2 className="w-3 h-3" />
+              <span className="hidden xs:inline">{lang === "id" ? "Buka Studio" : "Studio"}</span>
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* Format Selector Pills (Landscape, Square, Portrait) */}
+        <div className="grid grid-cols-3 gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+          {FORMATS.map((fmt) => (
+            <button
+              key={fmt.id}
+              onClick={() => setPosterFormat(fmt.id)}
+              className={`py-1 px-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer flex flex-col items-center justify-center text-center ${
+                posterFormat === fmt.id
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30 scale-[1.02]"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <span>{fmt.label}</span>
+              <span className="text-[8px] font-normal opacity-75">{fmt.desc}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Theme Selector Carousel/Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/10">
+          {THEMES.map((th) => {
+            const isSelected = posterTheme === th.id;
+            return (
+              <button
+                key={th.id}
+                onClick={() => setPosterTheme(th.id)}
+                className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black tracking-wide shrink-0 transition-all cursor-pointer border flex items-center gap-1.5 ${
+                  isSelected
+                    ? "bg-emerald-500/20 text-white border-emerald-400/60 ring-1 ring-emerald-400/40 shadow-sm"
+                    : "bg-black/30 text-gray-400 border-white/10 hover:border-white/20 hover:text-white"
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${th.color}`} />
+                <span>{th.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Live Poster Image Preview Card */}
+        {instantImageUrl && (
+          <div className="space-y-2.5">
+            <div
+              onClick={() => setIsStudioOpen(true)}
+              className={`relative group overflow-hidden rounded-2xl border border-emerald-500/20 bg-black/60 flex items-center justify-center cursor-pointer shadow-2xl transition-all hover:border-emerald-400/40 ${
+                posterFormat === "landscape"
+                  ? "aspect-[4/3]"
+                  : posterFormat === "square"
+                  ? "aspect-square max-h-[300px]"
+                  : "aspect-[9/16] max-h-[360px]"
+              }`}
+            >
+              <img
+                src={instantImageUrl}
+                alt="Formation Poster Preview"
+                className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+                referrerPolicy="no-referrer"
+              />
+
+              {/* Hover Overlay Hint */}
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-xs">
+                <span className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-xl">
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  {lang === "id" ? "Klik untuk Mode Studio HD" : "Click for HD Studio Mode"}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Bar (Download HD & Copy to Clipboard) */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleDownload(instantImageUrl)}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/20 active:scale-95 uppercase tracking-wider"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>{lang === "id" ? "Unduh HD" : "Save PNG"}</span>
+              </button>
+
+              <button
+                onClick={() => handleCopyToClipboard(instantImageUrl)}
+                className="w-full py-2.5 bg-white/10 hover:bg-white/15 text-white border border-white/15 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 tracking-wider"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copied ? (lang === "id" ? "Disalin!" : "Copied!") : lang === "id" ? "Salin Gambar" : "Copy Image"}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* FULLSCREEN POSTER STUDIO MODAL */}
+        <AnimatePresence>
+          {isStudioOpen && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn"
+              onClick={() => setIsStudioOpen(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                className="w-full max-w-6xl max-h-[94vh] bg-[#071912]/98 border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-3xl p-4 sm:p-6 shadow-[0_30px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl flex flex-col relative text-left overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div className="flex items-center justify-between pb-3.5 border-b border-emerald-500/20 mb-4 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-inner">
+                      <ImageIcon className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-base sm:text-lg font-black text-white tracking-wide flex items-center gap-2">
+                        {lang === "id" ? "Studio Poster Formasi Digital" : "Digital Formation Poster Studio"}
+                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30 uppercase">
+                          {posterTheme.replace("_", " ")}
+                        </span>
+                      </h2>
+                      <p className="text-[11px] sm:text-xs text-gray-400">
+                        {lang === "id"
+                          ? "Kustomisasi gaya poster grafis pertandingan berkualitas tinggi untuk media sosial dan papan taktik"
+                          : "Customize high-end matchday graphic formation posters for social media and tactical briefings"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleDownload(instantImageUrl)}
+                      className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/20 active:scale-95 uppercase tracking-wider"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{lang === "id" ? "Unduh PNG HD" : "Download HD"}</span>
+                    </button>
+                    <button
+                      onClick={() => setIsStudioOpen(false)}
+                      className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer flex items-center justify-center text-sm font-bold border border-white/10"
+                      aria-label="Close modal"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modal Body: Left Canvas Preview, Right Studio Controls */}
+                <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto pr-1">
+                  {/* Left Column: Big Image Preview */}
+                  <div className="lg:col-span-7 flex flex-col items-center justify-center bg-black/60 border border-white/10 rounded-2xl p-3 relative overflow-hidden group min-h-[380px]">
+                    {instantImageUrl ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <img
+                          src={instantImageUrl}
+                          alt="Poster Big Preview"
+                          className="max-h-[68vh] w-auto object-contain rounded-xl shadow-2xl transition-all"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 text-xs flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        {lang === "id" ? "Merender poster..." : "Rendering poster..."}
+                      </div>
+                    )}
+
+                    {/* Format Badge Overlay */}
+                    <div className="absolute top-3 left-3 bg-black/75 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-mono text-emerald-300">
+                      {posterFormat.toUpperCase()} ({posterFormat === "landscape" ? "1200x900" : posterFormat === "square" ? "1080x1080" : "1080x1920"})
+                    </div>
+                  </div>
+
+                  {/* Right Column: Studio Controls & Themes */}
+                  <div className="lg:col-span-5 space-y-4 text-left">
+                    {/* 1. Format Switcher */}
+                    <div>
+                      <label className="text-[11px] font-black text-gray-300 uppercase tracking-wider block mb-1.5">
+                        {lang === "id" ? "Format & Rasio Kanvas" : "Canvas Format & Aspect Ratio"}
+                      </label>
+                      <div className="grid grid-cols-3 gap-1.5 bg-black/40 p-1.5 rounded-2xl border border-white/10">
+                        {FORMATS.map((fmt) => (
+                          <button
+                            key={fmt.id}
+                            onClick={() => setPosterFormat(fmt.id)}
+                            className={`py-2 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex flex-col items-center justify-center text-center ${
+                              posterFormat === fmt.id
+                                ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30 scale-[1.02]"
+                                : "text-gray-400 hover:text-white hover:bg-white/5"
+                            }`}
+                          >
+                            <span>{fmt.label}</span>
+                            <span className="text-[8.5px] font-normal opacity-75">{fmt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 2. Theme Selection Grid */}
+                    <div>
+                      <label className="text-[11px] font-black text-gray-300 uppercase tracking-wider block mb-1.5">
+                        {lang === "id" ? "Tema & Gaya Visual Poster" : "Poster Theme & Visual Style"}
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {THEMES.map((th) => {
+                          const isSelected = posterTheme === th.id;
+                          return (
+                            <button
+                              key={th.id}
+                              onClick={() => setPosterTheme(th.id)}
+                              className={`p-2.5 rounded-2xl text-left transition-all cursor-pointer border flex items-start gap-2.5 ${
+                                isSelected
+                                  ? "bg-emerald-500/20 text-white border-emerald-400 ring-1 ring-emerald-400/40 shadow-lg"
+                                  : "bg-black/40 text-gray-400 border-white/10 hover:border-white/20 hover:text-white"
+                              }`}
+                            >
+                              <div className={`w-3 h-3 mt-0.5 rounded-full bg-gradient-to-r ${th.color} shrink-0`} />
+                              <div>
+                                <div className="text-xs font-black text-white">{th.label}</div>
+                                <div className="text-[9px] text-gray-400 leading-tight">{th.tag}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 3. Matchday & Typography Customizer */}
+                    <div className="bg-black/30 border border-white/10 rounded-2xl p-3 space-y-2.5">
+                      <div className="text-[11px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sliders className="w-3.5 h-3.5" />
+                        {lang === "id" ? "Detail Pertandingan & Teks" : "Match Details & Typography"}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9.5px] font-bold text-gray-400 block mb-1">
+                            {lang === "id" ? "Judul Laga / Header" : "Matchday Title / Header"}
+                          </label>
+                          <input
+                            type="text"
+                            value={matchTitle}
+                            onChange={(e) => setMatchTitle(e.target.value)}
+                            placeholder="MATCHDAY SQUAD"
+                            className="w-full px-2.5 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-bold focus:border-emerald-400 focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[9.5px] font-bold text-gray-400 block mb-1">
+                            {lang === "id" ? "Lawan / Subtitle (Opsional)" : "Opponent / Subtitle (Optional)"}
+                          </label>
+                          <input
+                            type="text"
+                            value={opponentName}
+                            onChange={(e) => setOpponentName(e.target.value)}
+                            placeholder="VS RIVAL FC"
+                            className="w-full px-2.5 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-bold focus:border-emerald-400 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Tactical Layer Toggles */}
+                    <div className="bg-black/30 border border-white/10 rounded-2xl p-3 space-y-2">
+                      <div className="text-[11px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5" />
+                        {lang === "id" ? "Elemen Taktis & Visual" : "Tactical & Visual Elements"}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <label className="flex items-center gap-2 text-gray-300 cursor-pointer bg-white/5 p-2 rounded-xl border border-white/5 hover:border-white/15">
+                          <input
+                            type="checkbox"
+                            checked={showTacticalLinks}
+                            onChange={(e) => setShowTacticalLinks(e.target.checked)}
+                            className="rounded accent-emerald-500"
+                          />
+                          <span className="text-[10px] font-bold">
+                            {lang === "id" ? "Garis Formasi" : "Tactical Links"}
+                          </span>
+                        </label>
+
+                        <label className="flex items-center gap-2 text-gray-300 cursor-pointer bg-white/5 p-2 rounded-xl border border-white/5 hover:border-white/15">
+                          <input
+                            type="checkbox"
+                            checked={showTacticalZones}
+                            onChange={(e) => setShowTacticalZones(e.target.checked)}
+                            className="rounded accent-emerald-500"
+                          />
+                          <span className="text-[10px] font-bold">
+                            {lang === "id" ? "Zona / Half-Space" : "Tactical Zones"}
+                          </span>
+                        </label>
+
+                        <label className="flex items-center gap-2 text-gray-300 cursor-pointer bg-white/5 p-2 rounded-xl border border-white/5 hover:border-white/15">
+                          <input
+                            type="checkbox"
+                            checked={showSubstitutes}
+                            onChange={(e) => setShowSubstitutes(e.target.checked)}
+                            className="rounded accent-emerald-500"
+                          />
+                          <span className="text-[10px] font-bold">
+                            {lang === "id" ? "Pemain Cadangan" : "Substitutes"}
+                          </span>
+                        </label>
+
+                        <label className="flex items-center gap-2 text-gray-300 cursor-pointer bg-white/5 p-2 rounded-xl border border-white/5 hover:border-white/15">
+                          <input
+                            type="checkbox"
+                            checked={showManager}
+                            onChange={(e) => setShowManager(e.target.checked)}
+                            className="rounded accent-emerald-500"
+                          />
+                          <span className="text-[10px] font-bold">
+                            {lang === "id" ? "Badge Pelatih" : "Manager Badge"}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* 5. Quick Export Controls */}
+                    <div className="pt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => handleDownload(instantImageUrl)}
+                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/30 uppercase tracking-wider active:scale-95"
+                      >
+                        <Download className="w-4 h-4" />
+                        {lang === "id" ? "Unduh Gambar HD" : "Save Image (PNG)"}
+                      </button>
+
+                      <button
+                        onClick={() => handleCopyToClipboard(instantImageUrl)}
+                        className="px-4 py-2.5 bg-white/10 hover:bg-white/15 text-white border border-white/20 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                      >
+                        {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                        <span>{copied ? (lang === "id" ? "Tersalin!" : "Copied!") : lang === "id" ? "Salin" : "Copy"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </Interactive3DCard>
   );

@@ -407,7 +407,7 @@ export default function SponsorAcquisitionPortal({ lang = "id" }: SponsorAcquisi
                         required
                         value={brandName}
                         onChange={(e) => setBrandName(e.target.value)}
-                        placeholder="e.g., Garuda Soccer Academy / Strike Gear"
+                        placeholder="e.g., Team A Soccer Academy / Strike Gear"
                         className="w-full bg-black/50 border border-white/10 text-xs rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 font-medium"
                       />
                     </div>

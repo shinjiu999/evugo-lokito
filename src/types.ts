@@ -32,6 +32,7 @@ export interface AnimationFrame {
   players: { id: string; x: number; y: number }[];
   items: { id: string; x: number; y: number }[];
   instruction: string;
+  duration?: number; // Time-to-complete value in seconds (e.g. 0.5s, 1.5s, 2.0s, 3.0s)
 }
 
 export interface DrawingStroke {
@@ -60,6 +61,7 @@ export interface TacticalPlay {
     instruction: string;
     players: { id: string; x: number; y: number }[];
     items: { id: string; x: number; y: number }[];
+    duration?: number;
   }[];
 }
 
