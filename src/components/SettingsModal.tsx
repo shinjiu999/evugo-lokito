@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Settings, Key, Network, Check, HelpCircle, Eye, EyeOff } from "lucide-react";
+import { X, Settings, Key, Network, Check, HelpCircle, Eye, EyeOff, Volume2, VolumeX, Sparkles, Sliders } from "lucide-react";
 import { soundManager } from "../utils/sound";
 
 interface SettingsModalProps {
@@ -8,11 +8,11 @@ interface SettingsModalProps {
   onClose: () => void;
   onSave: () => void;
   lang?: "id" | "en";
-  initialTab?: "gemini" | "mcp";
+  initialTab?: "gemini" | "mcp" | "audio";
 }
 
 export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab = "gemini" }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<"gemini" | "mcp">(initialTab);
+  const [activeTab, setActiveTab] = useState<"gemini" | "mcp" | "audio">(initialTab);
   
   // Local state initialized from localStorage
   const [customApiKey, setCustomApiKey] = useState("");
@@ -25,6 +25,11 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
   const [apiTestStatus, setApiTestStatus] = useState<"idle" | "valid" | "warning">("idle");
   const [mcpTestStatus, setMcpTestStatus] = useState<"idle" | "testing" | "success" | "warning">("idle");
 
+  // Audio settings state
+  const [soundVolume, setSoundVolume] = useState<number>(soundManager.getVolume());
+  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(soundManager.getMuted());
+  const [recentSoundPlayed, setRecentSoundPlayed] = useState<string | null>(null);
+
   // Load values from localStorage when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -35,9 +40,12 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
       setMcpEnabled(localStorage.getItem("tactigen_mcp_enabled") === "true");
       setMcpUrl(localStorage.getItem("tactigen_mcp_url") || "http://localhost:3015/mcp");
       setMcpTool(localStorage.getItem("tactigen_mcp_tool") || "pitch-scout-analyzer");
+      setSoundVolume(soundManager.getVolume());
+      setIsAudioMuted(soundManager.getMuted());
       setSaveSuccess(false);
       setApiTestStatus("idle");
       setMcpTestStatus("idle");
+      setRecentSoundPlayed(null);
     }
   }, [isOpen, initialTab]);
 
@@ -71,9 +79,9 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
     localStorage.setItem("tactigen_mcp_url", mcpUrl.trim());
     localStorage.setItem("tactigen_mcp_tool", mcpTool.trim());
     
-    // Play sound effect for successful change
+    // Play lush success chime for settings save
     try {
-      soundManager.playWhistle();
+      soundManager.playChime();
     } catch (e) {}
 
     setSaveSuccess(true);
@@ -83,6 +91,22 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
       setSaveSuccess(false);
       onClose();
     }, 1000);
+  };
+
+  const handleVolumeChange = (newVol: number) => {
+    setSoundVolume(newVol);
+    soundManager.setVolume(newVol);
+  };
+
+  const handleToggleMute = () => {
+    const muted = soundManager.toggleMuted();
+    setIsAudioMuted(muted);
+  };
+
+  const playPreviewSound = (name: string, fn: () => void) => {
+    setRecentSoundPlayed(name);
+    fn();
+    setTimeout(() => setRecentSoundPlayed(null), 1200);
   };
 
   if (!isOpen) return null;
@@ -109,10 +133,10 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
               </div>
               <div>
                 <h3 id="settings-modal-title" className="text-sm font-black text-white tracking-wide uppercase font-sans">
-                  {lang === "id" ? "Pengaturan Akses AI & MCP kustom" : "Custom AI & MCP Access Settings"}
+                  {lang === "id" ? "Pengaturan Sistem & Audio Taktis" : "System & Tactical Audio Settings"}
                 </h3>
                 <p className="text-[10px] text-gray-400 font-medium font-mono">
-                  {lang === "id" ? "Konfigurasi Kunci API AI atau Model Context Protocol" : "Configure AI API Key or Model Context Protocol"}
+                  {lang === "id" ? "Konfigurasi Kunci API AI, MCP, atau Efek Suara Profesional" : "Configure AI Key, MCP Server, or Professional Sound FX"}
                 </p>
               </div>
             </div>
@@ -132,7 +156,10 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
               role="tab"
               aria-selected={activeTab === "gemini"}
               aria-controls="panel-gemini"
-              onClick={() => setActiveTab("gemini")}
+              onClick={() => {
+                setActiveTab("gemini");
+                soundManager.playClick();
+              }}
               className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none cursor-pointer ${
                 activeTab === "gemini"
                   ? "bg-blue-600/10 text-blue-400 border border-blue-500/25"
@@ -147,7 +174,10 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
               role="tab"
               aria-selected={activeTab === "mcp"}
               aria-controls="panel-mcp"
-              onClick={() => setActiveTab("mcp")}
+              onClick={() => {
+                setActiveTab("mcp");
+                soundManager.playClick();
+              }}
               className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all rounded-lg focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer ${
                 activeTab === "mcp"
                   ? "bg-indigo-600/10 text-indigo-400 border border-indigo-500/25"
@@ -155,7 +185,25 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
               }`}
             >
               <Network className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Model Context Protocol (MCP)</span>
+              <span>MCP</span>
+            </button>
+            <button
+              id="tab-audio"
+              role="tab"
+              aria-selected={activeTab === "audio"}
+              aria-controls="panel-audio"
+              onClick={() => {
+                setActiveTab("audio");
+                soundManager.playClick();
+              }}
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none cursor-pointer ${
+                activeTab === "audio"
+                  ? "bg-emerald-600/10 text-emerald-400 border border-emerald-500/25"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Volume2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{lang === "id" ? "Audio & Suara" : "Sound FX"}</span>
             </button>
           </div>
 
@@ -385,6 +433,190 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
               </div>
             )}
 
+            {/* 3. Audio & Sound FX Tab */}
+            {activeTab === "audio" && (
+              <div 
+                id="panel-audio" 
+                role="tabpanel" 
+                aria-labelledby="tab-audio"
+                className="space-y-4 animate-fadeIn"
+              >
+                {/* Volume & Mute Controller Card */}
+                <div className="bg-emerald-500/5 border border-emerald-500/15 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-emerald-500/10 rounded-lg text-emerald-400">
+                        <Sliders className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white">
+                          {lang === "id" ? "Volume Master Audio" : "Master Audio Volume"}
+                        </h4>
+                        <p className="text-[10px] text-gray-400">
+                          {lang === "id" 
+                            ? "Sintesis Web Audio API beresolusi tinggi dengan kompresi analog lembut" 
+                            : "High-resolution Web Audio API synthesis with soft analog limiting"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleToggleMute}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        isAudioMuted
+                          ? "bg-red-500/20 text-red-300 border border-red-500/30"
+                          : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30"
+                      }`}
+                    >
+                      {isAudioMuted ? (
+                        <>
+                          <VolumeX className="w-3.5 h-3.5" />
+                          <span>{lang === "id" ? "Suara Bisu" : "Muted"}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="w-3.5 h-3.5" />
+                          <span>{lang === "id" ? "Suara Aktif" : "Active"}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Slider */}
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-[10.5px] font-mono text-gray-300">
+                      <span>0%</span>
+                      <span className="font-bold text-emerald-400">{Math.round(soundVolume * 100)}%</span>
+                      <span>100%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={soundVolume}
+                      onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                      onMouseUp={() => soundManager.playClick()}
+                      onTouchEnd={() => soundManager.playClick()}
+                      className="w-full accent-emerald-400 h-1.5 bg-white/10 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* Sound FX Interactive Showcase Grid */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
+                      {lang === "id" ? "Uji Efek Suara Profesional" : "Test Professional Sound FX"}
+                    </span>
+                    <span className="text-[9px] text-gray-500">
+                      {lang === "id" ? "Klik kartu untuk mendengarkan" : "Click card to preview"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      {
+                        id: "click",
+                        title: lang === "id" ? "Haptic Click" : "Haptic Click",
+                        desc: lang === "id" ? "Klik tombol, tab & navigasi" : "Button clicks & tabs",
+                        icon: "🔔",
+                        fn: () => soundManager.playClick(),
+                      },
+                      {
+                        id: "kick",
+                        title: lang === "id" ? "Tendangan Kulit Bola" : "Leather Ball Kick",
+                        desc: lang === "id" ? "Geser & lepas pemain lapangan" : "Player pitch placement",
+                        icon: "⚽",
+                        fn: () => soundManager.playKick(),
+                      },
+                      {
+                        id: "whistle",
+                        title: lang === "id" ? "Peluit Wasit Sonik" : "Referee Whistle",
+                        desc: lang === "id" ? "Fox 40 Sonik peluit lapangan" : "Authentic match whistle",
+                        icon: "📢",
+                        fn: () => soundManager.playWhistle(),
+                      },
+                      {
+                        id: "whistleDouble",
+                        title: lang === "id" ? "Peluit Ganda (Jeda)" : "Double Whistle",
+                        desc: lang === "id" ? "Transisi babak & strategi" : "Phase & tactical change",
+                        icon: "🎺",
+                        fn: () => soundManager.playWhistleDouble(),
+                      },
+                      {
+                        id: "chime",
+                        title: lang === "id" ? "Melodi Sukses Kaca" : "Celesta Glass Chime",
+                        desc: lang === "id" ? "Simpan formasi & eksekusi AI" : "Save playbook & AI success",
+                        icon: "✨",
+                        fn: () => soundManager.playChime(),
+                      },
+                      {
+                        id: "crowd",
+                        title: lang === "id" ? "Sorak Riuh Stadion" : "Stadium Crowd Roar",
+                        desc: lang === "id" ? "Selesai simulasi tayangan TV" : "Broadcast simulation finish",
+                        icon: "🏟️",
+                        fn: () => soundManager.playCrowdCheer(),
+                      },
+                      {
+                        id: "sweep",
+                        title: lang === "id" ? "Sapu Bersih Papan" : "Board Air Sweep",
+                        desc: lang === "id" ? "Reset formasi & hapus garis" : "Reset pitch & clear drawing",
+                        icon: "🧹",
+                        fn: () => soundManager.playSweep(),
+                      },
+                      {
+                        id: "scribble",
+                        title: lang === "id" ? "Spidol Papan Tulis" : "Dry-Erase Marker",
+                        desc: lang === "id" ? "Menggambar panah & anotasi" : "Drawing arrows & zones",
+                        icon: "🖊️",
+                        fn: () => soundManager.playScribble(),
+                      },
+                      {
+                        id: "anthem",
+                        title: lang === "id" ? "Fanfare Orkestra" : "Champions Fanfare",
+                        desc: lang === "id" ? "Lagu megah Broadcast TV" : "Majestic orchestral fanfare",
+                        icon: "🏆",
+                        fn: () => soundManager.playChampionsAnthem(),
+                      },
+                      {
+                        id: "pop",
+                        title: lang === "id" ? "Micro Pop" : "Micro Haptic Pop",
+                        desc: lang === "id" ? "Toggle switch & menu kecil" : "Mini switches & toggles",
+                        icon: "🫧",
+                        fn: () => soundManager.playPop(),
+                      },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => playPreviewSound(item.id, item.fn)}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                          recentSoundPlayed === item.id
+                            ? "bg-emerald-500/20 border-emerald-400/50 scale-[1.02] shadow-lg shadow-emerald-500/10"
+                            : "bg-black/40 border-white/10 hover:border-white/20 hover:bg-white/5"
+                        }`}
+                      >
+                        <span className="text-lg leading-none mt-0.5">{item.icon}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] font-bold text-white truncate flex items-center justify-between">
+                            <span>{item.title}</span>
+                            {recentSoundPlayed === item.id && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                            )}
+                          </div>
+                          <p className="text-[9.5px] text-gray-400 line-clamp-1 mt-0.5">
+                            {item.desc}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
 
           {/* Footer */}
@@ -407,7 +639,9 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
                     ? "bg-emerald-600 shadow-emerald-500/10"
                     : activeTab === "gemini"
                       ? "bg-blue-600 hover:bg-blue-500 shadow-blue-500/10 font-bold"
-                      : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/10 font-bold"
+                      : activeTab === "audio"
+                        ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/10 font-bold"
+                        : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/10 font-bold"
                 }`}
               >
                 {saveSuccess ? (

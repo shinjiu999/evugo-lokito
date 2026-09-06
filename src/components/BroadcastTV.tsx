@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Tv, Volume2, Gamepad2, Play, Pause, Download, RefreshCw, Layers } from "lucide-react";
 import { toPng } from "html-to-image";
 import gifshot from "gifshot";
+import { soundManager } from "../utils/sound";
 
 interface BroadcastTVProps {
   players: Player[];
@@ -128,32 +129,8 @@ export default function BroadcastTV({ players, items, teamName, formationName, f
 
   const playChampionsAnthem = () => {
     try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
-      const audioCtx = new AudioContext();
-
-      // Majestic orchestral fanfares (C4, E4, G4, C5, E5)
-      const notes = [261.63, 329.63, 392.0, 523.25, 659.25];
       setIsPlayingAnthem(true);
-
-      notes.forEach((freq, idx) => {
-        const osc = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-
-        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.3 + idx * 0.1);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 3.5);
-
-        osc.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        osc.start(audioCtx.currentTime);
-        osc.stop(audioCtx.currentTime + 3.6);
-      });
-
+      soundManager.playChampionsAnthem();
       setTimeout(() => setIsPlayingAnthem(false), 3600);
     } catch (e) {
       console.warn("Autoplay blocked sound synth.");

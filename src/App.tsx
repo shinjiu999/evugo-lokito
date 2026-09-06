@@ -911,7 +911,7 @@ export default function App() {
   // Global API Keys & MCP Settings Portal Modal
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsKey, setSettingsKey] = useState(0);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"gemini" | "mcp">("gemini");
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"gemini" | "mcp" | "audio">("gemini");
   const [hasConnectedAI, setHasConnectedAI] = useState(() => {
     return !!(
       (localStorage.getItem("tactigen_custom_key") || "").trim() ||
@@ -1809,6 +1809,19 @@ export default function App() {
               aria-label="Stadium Crowd Cheer"
             >
               🏟️
+            </button>
+
+            <button
+              onClick={() => {
+                setSettingsInitialTab("audio");
+                setIsSettingsModalOpen(true);
+                soundManager.playClick();
+              }}
+              className="p-1.5 rounded-lg hover:bg-white/10 text-emerald-400/90 hover:text-emerald-300 transition-all cursor-pointer hover:scale-110 active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none text-xs"
+              title={lang === "id" ? "Pengaturan Audio & Efek Suara" : "Audio & Sound FX Settings"}
+              aria-label="Audio & Sound FX Settings"
+            >
+              <Sliders className="w-3.5 h-3.5" />
             </button>
           </div>
 
