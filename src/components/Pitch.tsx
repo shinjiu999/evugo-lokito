@@ -1819,7 +1819,11 @@ export default function Pitch({
   let useGlow = false;
   let pitchWrapperClass = "border-slate-800 bg-[#0b2b14] shadow-2xl";
 
-  if (theme === "emerald-grass") {
+  if (theme === "sporty-tosca") {
+    lineStroke = "#ccfbf1";
+    lineOpacity = 0.72;
+    pitchWrapperClass = "border-teal-600/70 ring-2 ring-teal-400/20 shadow-[0_15px_40px_rgba(6,38,44,0.65)] bg-[#082d30]";
+  } else if (theme === "emerald-grass") {
     lineStroke = "#ffffff";
     lineOpacity = 0.6;
     pitchWrapperClass = "border-slate-800 shadow-2xl bg-[#0b2b14]";
@@ -2023,6 +2027,22 @@ export default function Pitch({
         {/* Animated, High-Stakes Theme Background Graphics */}
         {!customBackgroundUrl && (
           <>
+            {theme === "sporty-tosca" && (
+              <div className="absolute inset-0 opacity-95 pointer-events-none z-0">
+                <div
+                  className="w-full h-full"
+                  style={{
+                    background: `
+                      repeating-linear-gradient(0deg, #0b3438, #0b3438 6.25%, #0e3f44 6.25%, #0e3f44 12.5%),
+                      repeating-linear-gradient(90deg, rgba(45,212,191,0.03), rgba(45,212,191,0.03) 12.5%, transparent 12.5%, transparent 25%)
+                    `
+                  }}
+                />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(94,234,212,0.16),transparent_60%),radial-gradient(circle_at_10%_10%,rgba(45,212,191,0.14),transparent_40%),radial-gradient(circle_at_90%_10%,rgba(45,212,191,0.14),transparent_40%)]" />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#041418]/55" />
+              </div>
+            )}
+
             {theme === "emerald-grass" && (
               <div className="absolute inset-0 opacity-95 pointer-events-none z-0">
                 <div
@@ -2383,6 +2403,115 @@ export default function Pitch({
               <text x="50" y={Math.max(5, fwdLineY - 1.5)} textAnchor="middle" fill="#f87171" fontSize="2.2" fontWeight="900">
                 TRIGGER HIGH PRESS DEPAN
               </text>
+            </g>
+          )}
+
+          {/* Corner Kick Set-Piece Tactical Target Zones Overlay */}
+          {tacticalOverlay === "corner-zones" && (
+            <g id="corner-kick-zones-overlay" style={{ transition: "all 0.3s ease-in-out" }}>
+              {/* Near Post Zone (Left & Right) */}
+              <rect
+                x="35"
+                y="3.2"
+                width="9.5"
+                height="8.5"
+                rx="0.8"
+                fill="rgba(45, 212, 191, 0.16)"
+                stroke="#2dd4bf"
+                strokeWidth="0.4"
+                strokeDasharray="1.2, 1"
+              />
+              <text x="39.75" y="7.5" textAnchor="middle" dominantBaseline="middle" fill="#99f6e4" fontSize="1.6" fontWeight="800">
+                NEAR POST
+              </text>
+
+              {/* Central 6-Yard Goalmouth Zone */}
+              <rect
+                x="44.8"
+                y="3.2"
+                width="10.4"
+                height="6.2"
+                rx="0.8"
+                fill="rgba(20, 184, 166, 0.24)"
+                stroke="#5eead4"
+                strokeWidth="0.45"
+              />
+              <text x="50" y="6.3" textAnchor="middle" dominantBaseline="middle" fill="#ffffff" fontSize="1.6" fontWeight="900">
+                GK BOX
+              </text>
+
+              {/* Far Post Zone */}
+              <rect
+                x="55.5"
+                y="3.2"
+                width="9.5"
+                height="8.5"
+                rx="0.8"
+                fill="rgba(45, 212, 191, 0.16)"
+                stroke="#2dd4bf"
+                strokeWidth="0.4"
+                strokeDasharray="1.2, 1"
+              />
+              <text x="60.25" y="7.5" textAnchor="middle" dominantBaseline="middle" fill="#99f6e4" fontSize="1.6" fontWeight="800">
+                FAR POST
+              </text>
+
+              {/* Penalty Spot & Central Run Zone */}
+              <rect
+                x="41"
+                y="12"
+                width="18"
+                height="6"
+                rx="1"
+                fill="rgba(45, 212, 191, 0.1)"
+                stroke="#2dd4bf"
+                strokeWidth="0.35"
+                strokeDasharray="1.5, 1.2"
+              />
+              <text x="50" y="15" textAnchor="middle" dominantBaseline="middle" fill="#5eead4" fontSize="1.6" fontWeight="800">
+                PENALTY SPOT RUNS
+              </text>
+
+              {/* Edge of Box Volley / Rebound Zone */}
+              <rect
+                x="37"
+                y="20.5"
+                width="26"
+                height="6.5"
+                rx="1.2"
+                fill="rgba(245, 158, 11, 0.12)"
+                stroke="#fbbf24"
+                strokeWidth="0.4"
+                strokeDasharray="1.5, 1.2"
+              />
+              <text x="50" y="23.8" textAnchor="middle" dominantBaseline="middle" fill="#fde68a" fontSize="1.6" fontWeight="800">
+                EDGE VOLLEY / SECOND BALL
+              </text>
+
+              {/* Corner Arcs Highlight & Active Delivery Guide */}
+              <circle cx="3.8" cy="3.8" r="2.2" fill="rgba(45, 212, 191, 0.25)" stroke="#2dd4bf" strokeWidth="0.4" />
+              <circle cx="96.2" cy="3.8" r="2.2" fill="rgba(45, 212, 191, 0.25)" stroke="#2dd4bf" strokeWidth="0.4" />
+              {(() => {
+                const activeBall = items.find((i) => i.type === "ball");
+                if (!activeBall) return null;
+                const isLeftCorner = activeBall.x < 22 && activeBall.y < 18;
+                const isRightCorner = activeBall.x > 78 && activeBall.y < 18;
+                if (!isLeftCorner && !isRightCorner) return null;
+                const cX = isLeftCorner ? 24 : 76;
+                return (
+                  <g>
+                    <path
+                      d={`M ${activeBall.x} ${activeBall.y} Q ${cX} 16 49 7.5`}
+                      fill="none"
+                      stroke="#2dd4bf"
+                      strokeWidth="0.65"
+                      strokeDasharray="1.6, 1.2"
+                      opacity="0.85"
+                    />
+                    <circle cx="49" cy="7.5" r="1.4" fill="none" stroke="#5eead4" strokeWidth="0.4" />
+                  </g>
+                );
+              })()}
             </g>
           )}
 

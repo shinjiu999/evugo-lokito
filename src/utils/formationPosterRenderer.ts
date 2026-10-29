@@ -1,6 +1,7 @@
 import { Player } from "../types";
 
 export type PosterTheme =
+  | "sporty_tosca"
   | "stadium_neon"
   | "gold_heritage"
   | "broadcast_pro"
@@ -17,6 +18,7 @@ export interface PosterOptions {
   matchTitle?: string;
   opponentName?: string;
   venueName?: string;
+  tacticalStyleLabel?: string;
   primaryColor: string;
   gkColor: string;
   numberColor: string;
@@ -112,14 +114,15 @@ export function renderFormationPoster(
   if (!ctx) return null;
 
   const {
-    theme = "stadium_neon",
+    theme = "sporty_tosca",
     format = "landscape",
     formation = "4-3-3",
     teamName = "MY TEAM",
     matchTitle = "MATCHDAY SQUAD",
     opponentName,
     venueName,
-    primaryColor = "#10b981",
+    tacticalStyleLabel,
+    primaryColor = "#14b8a6",
     gkColor = "#f59e0b",
     numberColor = "#ffffff",
     players = [],
@@ -241,7 +244,44 @@ export function renderFormationPoster(
   // =========================================================================
   // 1. DRAW BACKGROUND & ATMOSPHERE ACCORDING TO THEME
   // =========================================================================
-  if (theme === "stadium_neon") {
+  if (theme === "sporty_tosca") {
+    const bgGrad = ctx.createLinearGradient(0, 0, width, height);
+    bgGrad.addColorStop(0, "#041116");
+    bgGrad.addColorStop(0.5, "#071f27");
+    bgGrad.addColorStop(1, "#030b0e");
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    const toscaGlow1 = ctx.createRadialGradient(width * 0.28, 40, 40, width * 0.35, 520, 680);
+    toscaGlow1.addColorStop(0, "rgba(45, 212, 191, 0.24)");
+    toscaGlow1.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = toscaGlow1;
+    ctx.fillRect(0, 0, width, height);
+
+    const toscaGlow2 = ctx.createRadialGradient(width * 0.78, 40, 40, width * 0.7, 520, 680);
+    toscaGlow2.addColorStop(0, "rgba(16, 185, 129, 0.18)");
+    toscaGlow2.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = toscaGlow2;
+    ctx.fillRect(0, 0, width, height);
+
+    // Subtle geometric tactical grid lines
+    ctx.save();
+    ctx.strokeStyle = "rgba(45, 212, 191, 0.04)";
+    ctx.lineWidth = 1;
+    for (let gx = 0; gx < width; gx += 40) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, height);
+      ctx.stroke();
+    }
+    for (let gy = 0; gy < height; gy += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(width, gy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  } else if (theme === "stadium_neon") {
     // Deep carbon midnight with electric stadium spotlights
     const bgGrad = ctx.createLinearGradient(0, 0, width, height);
     bgGrad.addColorStop(0, "#030611");
@@ -370,7 +410,7 @@ export function renderFormationPoster(
   // =========================================================================
   if (format === "landscape") {
     const sideW = 320;
-    ctx.fillStyle = theme === "gold_heritage" ? "#07090e" : "#060a14";
+    ctx.fillStyle = theme === "gold_heritage" ? "#07090e" : theme === "sporty_tosca" ? "#05151b" : "#060a14";
     ctx.fillRect(0, 0, sideW, height);
 
     // Subtle sidebar texture
@@ -378,7 +418,12 @@ export function renderFormationPoster(
     ctx.beginPath();
     ctx.rect(0, 0, sideW, height);
     ctx.clip();
-    ctx.strokeStyle = theme === "gold_heritage" ? "rgba(234, 179, 8, 0.04)" : "rgba(255, 255, 255, 0.03)";
+    ctx.strokeStyle =
+      theme === "gold_heritage"
+        ? "rgba(234, 179, 8, 0.04)"
+        : theme === "sporty_tosca"
+        ? "rgba(45, 212, 191, 0.04)"
+        : "rgba(255, 255, 255, 0.03)";
     ctx.lineWidth = 2.5;
     for (let offset = -height; offset < sideW + height; offset += 30) {
       ctx.beginPath();
@@ -392,6 +437,8 @@ export function renderFormationPoster(
     ctx.strokeStyle =
       theme === "gold_heritage"
         ? "rgba(234, 179, 8, 0.4)"
+        : theme === "sporty_tosca"
+        ? "rgba(45, 212, 191, 0.4)"
         : theme === "stadium_neon"
         ? `rgba(${themeRgb.r}, ${themeRgb.g}, ${themeRgb.b}, 0.4)`
         : "rgba(255, 255, 255, 0.1)";
@@ -409,9 +456,13 @@ export function renderFormationPoster(
     ctx.fillText("STARTING XI", 26, 38);
 
     // Format & Formation Subtitle
-    ctx.fillStyle = theme === "gold_heritage" ? "#ebd55b" : themeColor;
+    ctx.fillStyle = theme === "gold_heritage" ? "#ebd55b" : theme === "sporty_tosca" ? "#2dd4bf" : themeColor;
     ctx.font = "bold 12px monospace";
-    ctx.fillText(`FORMATION: ${formation}`, 28, 76);
+    ctx.fillText(
+      `FORMATION: ${formation}${tacticalStyleLabel ? ` • ${tacticalStyleLabel.toUpperCase()}` : ""}`,
+      28,
+      76
+    );
 
     // Draw Starting XI Player Badges
     const itemH = 30;
@@ -536,7 +587,9 @@ export function renderFormationPoster(
     let grassColor = "#0e241b";
     let isAlt = i % 2 !== 0;
 
-    if (theme === "stadium_neon") {
+    if (theme === "sporty_tosca") {
+      grassColor = isAlt ? "#072027" : "#0b2a33";
+    } else if (theme === "stadium_neon") {
       grassColor = isAlt ? "#0a1e16" : "#0d261c";
     } else if (theme === "gold_heritage") {
       grassColor = isAlt ? "#090d14" : "#0f1522";
@@ -562,7 +615,7 @@ export function renderFormationPoster(
   // Draw optional Shaded Tactical Corridors / Half-Spaces
   if (showTacticalZones) {
     ctx.save();
-    ctx.fillStyle = "rgba(56, 189, 248, 0.08)";
+    ctx.fillStyle = "rgba(45, 212, 191, 0.09)";
     // Left Half-space (x: 18 to 36)
     const hsL1 = toScreen(18, 0);
     const hsR1 = toScreen(36, 0);
@@ -595,6 +648,8 @@ export function renderFormationPoster(
   const pitchLineColor =
     theme === "gold_heritage"
       ? "rgba(234, 179, 8, 0.55)"
+      : theme === "sporty_tosca"
+      ? "rgba(45, 212, 191, 0.65)"
       : theme === "stadium_neon"
       ? `rgba(${themeRgb.r}, ${themeRgb.g}, ${themeRgb.b}, 0.7)`
       : theme === "editorial_studio"
@@ -727,12 +782,12 @@ export function renderFormationPoster(
   const pillH = 22;
   const pillX = headerCenterX - pillW / 2;
 
-  ctx.fillStyle = theme === "gold_heritage" ? "#ebd55b" : themeColor;
+  ctx.fillStyle = theme === "gold_heritage" ? "#ebd55b" : theme === "sporty_tosca" ? "#2dd4bf" : themeColor;
   ctx.beginPath();
   ctx.roundRect(pillX, headerY, pillW, pillH, 11);
   ctx.fill();
 
-  ctx.fillStyle = "#0c1221";
+  ctx.fillStyle = "#041115";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(matchPillText, headerCenterX, headerY + pillH / 2 + 0.5);
@@ -758,13 +813,14 @@ export function renderFormationPoster(
 
   // Sub-header: Opponent or Formation Tag
   const subY = titleY + 30;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
   ctx.font = "bold 13px monospace";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  const styleSuffix = tacticalStyleLabel ? `  •  ${tacticalStyleLabel.toUpperCase()}` : "";
   const subLabel = opponentName
-    ? `${opponentName.toUpperCase()}  •  FORMATION ${formation}`
-    : `FORMATION ${formation}${venueName ? `  •  ${venueName.toUpperCase()}` : ""}`;
+    ? `${opponentName.toUpperCase()}  •  FORMATION ${formation}${styleSuffix}`
+    : `FORMATION ${formation}${styleSuffix}${venueName ? `  •  ${venueName.toUpperCase()}` : ""}`;
   ctx.fillText(subLabel, headerCenterX, subY);
 
   // Draw Team Logo Crest (Left or Center-top)

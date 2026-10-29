@@ -247,5 +247,169 @@ export const TACTICAL_DRILLS_DATA: TacticalDrill[] = [
         ]
       }
     ]
+  },
+  {
+    id: "corner-inswing-near",
+    title: {
+      id: "Corner Kick: In-Swinger Tiang Dekat",
+      en: "Corner Kick: Near-Post In-Swinger"
+    },
+    description: {
+      id: "Simulasi tendangan sudut melengkung ke tiang dekat dengan skema flick-on menuju penyerang di tiang jauh.",
+      en: "Whipped corner kick delivery to the near post for a glancing flick-on toward the back post runner."
+    },
+    category: "attack",
+    icon: "🚩",
+    sportMode: "soccer",
+    frames: [
+      {
+        id: "drill-ck-near-f1",
+        name: "Fasa 1: Persiapan Sudut Kiri",
+        instruction: "Eksekutor (#10) bersiap di sudut kiri. Penyerang berkumpul di titik penalti dan mengunci kiper lawan.",
+        duration: 1.8,
+        players: [
+          { id: "p1", x: 50, y: 82 },
+          { id: "p10", x: 3.5, y: 3.5 },
+          { id: "p11", x: 46, y: 6.2 },
+          { id: "p9", x: 42, y: 14.5 },
+          { id: "p2", x: 50, y: 15.5 },
+          { id: "p3", x: 58, y: 15.5 },
+          { id: "p7", x: 35, y: 18 },
+          { id: "p8", x: 48, y: 23.5 },
+          { id: "p6", x: 32, y: 28 },
+          { id: "p4", x: 42, y: 42 },
+          { id: "p5", x: 58, y: 44 }
+        ],
+        items: [
+          { id: "item-default-ball", x: 3.8, y: 3.8 }
+        ]
+      },
+      {
+        id: "drill-ck-near-f2",
+        name: "Fasa 2: Umpan Melengkung & Flick",
+        instruction: "Bola dikirim melengkung ke tiang dekat. Striker (#9) menyambar bola untuk diteruskan ke tiang jauh (#3).",
+        duration: 2.0,
+        players: [
+          { id: "p1", x: 50, y: 82 },
+          { id: "p10", x: 6, y: 5.5 },
+          { id: "p11", x: 48, y: 5.2 },
+          { id: "p9", x: 40.5, y: 7.5 },
+          { id: "p2", x: 49, y: 8.5 },
+          { id: "p3", x: 57, y: 7.5 },
+          { id: "p7", x: 34, y: 12 },
+          { id: "p8", x: 49, y: 21 },
+          { id: "p6", x: 32, y: 26 },
+          { id: "p4", x: 42, y: 42 },
+          { id: "p5", x: 58, y: 44 }
+        ],
+        items: [
+          { id: "item-default-ball", x: 40.5, y: 7.5 }
+        ]
+      },
+      {
+        id: "drill-ck-near-f3",
+        name: "Fasa 3: Penyelesaian Tiang Jauh",
+        instruction: "Bek tengah (#3) menyundul bola hasil flick-on masuk ke sudut kanan gawang!",
+        duration: 1.8,
+        players: [
+          { id: "p1", x: 50, y: 82 },
+          { id: "p10", x: 8, y: 7 },
+          { id: "p11", x: 48, y: 5.0 },
+          { id: "p9", x: 42, y: 6.5 },
+          { id: "p2", x: 49, y: 6.0 },
+          { id: "p3", x: 55, y: 5.0 },
+          { id: "p7", x: 36, y: 10 },
+          { id: "p8", x: 49, y: 19 },
+          { id: "p6", x: 34, y: 25 },
+          { id: "p4", x: 42, y: 42 },
+          { id: "p5", x: 58, y: 44 }
+        ],
+        items: [
+          { id: "item-default-ball", x: 53, y: 2.5 }
+        ]
+      }
+    ]
+  },
+  {
+    id: "corner-short-overload",
+    title: {
+      id: "Corner Kick: Short 2v1 & Cutback",
+      en: "Corner Kick: Short 2v1 & Cutback"
+    },
+    description: {
+      id: "Kombinasi corner pendek 2 lawan 1 di sudut kanan untuk menarik bek lawan keluar dan mengirim umpan tarik ke Zone 14.",
+      en: "Short 2v1 corner routine on the right side to draw defenders out and deliver a low cutback."
+    },
+    category: "attack",
+    icon: "📐",
+    sportMode: "soccer",
+    frames: [
+      {
+        id: "drill-ck-short-f1",
+        name: "Fasa 1: Pancingan Corner Pendek",
+        instruction: "Winger (#11) mendekat ke sudut kanan untuk membuka opsi umpan pendek dari eksekutor (#10).",
+        duration: 1.8,
+        players: [
+          { id: "p1", x: 50, y: 82 },
+          { id: "p10", x: 96.5, y: 3.5 },
+          { id: "p11", x: 88, y: 8.5 },
+          { id: "p6", x: 82, y: 18 },
+          { id: "p9", x: 55, y: 10 },
+          { id: "p2", x: 48, y: 10 },
+          { id: "p3", x: 42, y: 11 },
+          { id: "p7", x: 58, y: 16 },
+          { id: "p8", x: 50, y: 21.5 },
+          { id: "p4", x: 58, y: 42 },
+          { id: "p5", x: 42, y: 44 }
+        ],
+        items: [
+          { id: "item-default-ball", x: 96.2, y: 3.8 }
+        ]
+      },
+      {
+        id: "drill-ck-short-f2",
+        name: "Fasa 2: Segitiga Half-Space",
+        instruction: "Bola diumpan pendek ke #11 lalu diteruskan ke #6 yang menusuk ke tepi kotak penalti kanan.",
+        duration: 2.0,
+        players: [
+          { id: "p1", x: 50, y: 82 },
+          { id: "p10", x: 91, y: 13 },
+          { id: "p11", x: 86, y: 7.5 },
+          { id: "p6", x: 78, y: 14 },
+          { id: "p9", x: 55, y: 8 },
+          { id: "p2", x: 48, y: 8 },
+          { id: "p3", x: 43, y: 8.5 },
+          { id: "p7", x: 54, y: 13.5 },
+          { id: "p8", x: 50, y: 18.5 },
+          { id: "p4", x: 58, y: 42 },
+          { id: "p5", x: 42, y: 44 }
+        ],
+        items: [
+          { id: "item-default-ball", x: 78, y: 14 }
+        ]
+      },
+      {
+        id: "drill-ck-short-f3",
+        name: "Fasa 3: Umpan Cutback & Tembakan",
+        instruction: "#6 melepaskan umpan tarik mendatar ke titik penalti yang langsung disambar oleh gelandang (#7) menjadi gol!",
+        duration: 1.8,
+        players: [
+          { id: "p1", x: 50, y: 82 },
+          { id: "p10", x: 88, y: 11 },
+          { id: "p11", x: 82, y: 8 },
+          { id: "p6", x: 76, y: 12 },
+          { id: "p9", x: 54, y: 6.5 },
+          { id: "p2", x: 48, y: 6.5 },
+          { id: "p3", x: 43, y: 7 },
+          { id: "p7", x: 53, y: 11.5 },
+          { id: "p8", x: 50, y: 16.5 },
+          { id: "p4", x: 58, y: 42 },
+          { id: "p5", x: 42, y: 44 }
+        ],
+        items: [
+          { id: "item-default-ball", x: 49, y: 2.5 }
+        ]
+      }
+    ]
   }
 ];

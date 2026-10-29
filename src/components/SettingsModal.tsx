@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Settings, Key, Network, Check, HelpCircle, Eye, EyeOff, Volume2, VolumeX, Sparkles, Sliders } from "lucide-react";
+import { X, Settings, Key, Network, Check, HelpCircle, Eye, EyeOff, Volume2, VolumeX, Sparkles, Sliders, Smartphone, Monitor, Tablet } from "lucide-react";
 import { soundManager } from "../utils/sound";
 
 interface SettingsModalProps {
@@ -8,11 +8,11 @@ interface SettingsModalProps {
   onClose: () => void;
   onSave: () => void;
   lang?: "id" | "en";
-  initialTab?: "gemini" | "mcp" | "audio";
+  initialTab?: "gemini" | "mcp" | "audio" | "display";
 }
 
 export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab = "gemini" }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<"gemini" | "mcp" | "audio">(initialTab);
+  const [activeTab, setActiveTab] = useState<"gemini" | "mcp" | "audio" | "display">(initialTab);
   
   // Local state initialized from localStorage
   const [customApiKey, setCustomApiKey] = useState("");
@@ -30,6 +30,10 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(soundManager.getMuted());
   const [recentSoundPlayed, setRecentSoundPlayed] = useState<string | null>(null);
 
+  // Display & Device Mode settings
+  const [deviceMode, setDeviceMode] = useState<"android" | "pc">("android");
+  const [androidViewport, setAndroidViewport] = useState<"phone" | "tablet" | "fluid">("fluid");
+
   // Load values from localStorage when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -42,6 +46,8 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
       setMcpTool(localStorage.getItem("tactigen_mcp_tool") || "pitch-scout-analyzer");
       setSoundVolume(soundManager.getVolume());
       setIsAudioMuted(soundManager.getMuted());
+      setDeviceMode((localStorage.getItem("tactigen_device_mode") as any) || "android");
+      setAndroidViewport((localStorage.getItem("tactigen_android_viewport") as any) || "fluid");
       setSaveSuccess(false);
       setApiTestStatus("idle");
       setMcpTestStatus("idle");
@@ -78,6 +84,8 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
     localStorage.setItem("tactigen_mcp_enabled", String(mcpEnabled));
     localStorage.setItem("tactigen_mcp_url", mcpUrl.trim());
     localStorage.setItem("tactigen_mcp_tool", mcpTool.trim());
+    localStorage.setItem("tactigen_device_mode", deviceMode);
+    localStorage.setItem("tactigen_android_viewport", androidViewport);
     
     // Play lush success chime for settings save
     try {
@@ -204,6 +212,24 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
             >
               <Volume2 className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{lang === "id" ? "Audio & Suara" : "Sound FX"}</span>
+            </button>
+            <button
+              id="tab-display"
+              role="tab"
+              aria-selected={activeTab === "display"}
+              aria-controls="panel-display"
+              onClick={() => {
+                setActiveTab("display");
+                soundManager.playClick();
+              }}
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none cursor-pointer ${
+                activeTab === "display"
+                  ? "bg-emerald-600/10 text-emerald-400 border border-emerald-500/25"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{lang === "id" ? "Tampilan" : "Display"}</span>
             </button>
           </div>
 
@@ -612,6 +638,147 @@ export function SettingsModal({ isOpen, onClose, onSave, lang = "id", initialTab
                         </div>
                       </button>
                     ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: DISPLAY / DEVICE MODE */}
+            {activeTab === "display" && (
+              <div id="panel-display" role="tabpanel" aria-labelledby="tab-display" className="space-y-6">
+                <div>
+                  <label className="block text-xs font-bold text-gray-200 uppercase tracking-wide mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                      {lang === "id" ? "Mode Tampilan Aplikasi (PC & Windows)" : "App Display Mode (PC & Windows)"}
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                      {deviceMode === "android" ? (lang === "id" ? "Mode Android Aktif" : "Android Mode Active") : (lang === "id" ? "Mode PC Aktif" : "PC Mode Active")}
+                    </span>
+                  </label>
+                  <p className="text-[11px] text-gray-400 mb-3">
+                    {lang === "id"
+                      ? "Sesuaikan tata letak pada PC/Windows agar menyerupai tampilan aplikasi di Android dengan navigasi tab bawah yang ringkas dan nyaman."
+                      : "Adapt layout on PC/Windows to match Android app presentation with compact, comfortable bottom navigation."}
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Android Mode Card */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeviceMode("android");
+                        soundManager.playClick();
+                      }}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-2 ${
+                        deviceMode === "android"
+                          ? "bg-emerald-500/15 border-emerald-500/50 shadow-md shadow-emerald-500/10"
+                          : "bg-white/5 border-white/10 hover:border-white/20 text-gray-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Smartphone className="w-4 h-4 text-emerald-400" />
+                          <span className="text-xs font-extrabold text-white">
+                            {lang === "id" ? "📱 Mode Android (Disarankan)" : "📱 Android Mode (Recommended)"}
+                          </span>
+                        </div>
+                        {deviceMode === "android" && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                        )}
+                      </div>
+                      <p className="text-[10.5px] text-gray-400 leading-relaxed">
+                        {lang === "id"
+                          ? "Tampilan terpusat dengan bar status Android, navigasi tab bawah (Lapangan, Skuad, Animasi, AI), dan tata letak bebas distraksi."
+                          : "Centered view with Android status bar, bottom navigation tabs (Pitch, Squad, Animation, AI), and distraction-free flow."}
+                      </p>
+                    </button>
+
+                    {/* PC Mode Card */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeviceMode("pc");
+                        soundManager.playClick();
+                      }}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-2 ${
+                        deviceMode === "pc"
+                          ? "bg-blue-500/15 border-blue-500/50 shadow-md shadow-blue-500/10"
+                          : "bg-white/5 border-white/10 hover:border-white/20 text-gray-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Monitor className="w-4 h-4 text-blue-400" />
+                          <span className="text-xs font-extrabold text-white">
+                            {lang === "id" ? "💻 Mode PC (Multi-Kolom)" : "💻 PC Mode (Multi-Column)"}
+                          </span>
+                        </div>
+                        {deviceMode === "pc" && (
+                          <span className="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]" />
+                        )}
+                      </div>
+                      <p className="text-[10.5px] text-gray-400 leading-relaxed">
+                        {lang === "id"
+                          ? "Tampilan desktop multi-kolom berdampingan untuk monitor lebar (Klub di kiri, Lapangan di tengah, Animasi & AI di kanan)."
+                          : "Side-by-side desktop multi-column layout for wide monitors (Club left, Pitch center, Animation & AI right)."}
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Viewport Width Preset (when in Android Mode) */}
+                <div className="p-3.5 bg-white/[0.03] border border-white/10 rounded-xl space-y-2.5">
+                  <span className="text-xs font-bold text-gray-200 uppercase tracking-wide flex items-center gap-1.5">
+                    <Tablet className="w-3.5 h-3.5 text-indigo-400" />
+                    {lang === "id" ? "Format Lebar Layar Android di PC" : "Android Screen Width Preset on PC"}
+                  </span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAndroidViewport("phone");
+                        soundManager.playClick();
+                      }}
+                      className={`p-2 rounded-lg border text-center text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                        androidViewport === "phone"
+                          ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300"
+                          : "bg-black/30 border-white/10 text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      <Smartphone className="w-3.5 h-3.5" />
+                      <span>{lang === "id" ? "HP (440px)" : "Phone (440px)"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAndroidViewport("tablet");
+                        soundManager.playClick();
+                      }}
+                      className={`p-2 rounded-lg border text-center text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                        androidViewport === "tablet"
+                          ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300"
+                          : "bg-black/30 border-white/10 text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      <Tablet className="w-3.5 h-3.5" />
+                      <span>{lang === "id" ? "Tablet (780px)" : "Tablet (780px)"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAndroidViewport("fluid");
+                        soundManager.playClick();
+                      }}
+                      className={`p-2 rounded-lg border text-center text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                        androidViewport === "fluid"
+                          ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300"
+                          : "bg-black/30 border-white/10 text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      <Monitor className="w-3.5 h-3.5" />
+                      <span>{lang === "id" ? "Penuh (100%)" : "Fluid (100%)"}</span>
+                    </button>
                   </div>
                 </div>
               </div>

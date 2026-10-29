@@ -44,6 +44,7 @@ export interface DrawingStroke {
 }
 
 export type PitchTheme =
+  | "sporty-tosca"
   | "emerald-grass"
   | "premier-pitch"
   | "neon-hologram"
@@ -65,7 +66,7 @@ export interface TacticalPlay {
   }[];
 }
 
-export type TacticalOverlayMode = "none" | "18-zones" | "corridors" | "pressing-blocks";
+export type TacticalOverlayMode = "none" | "18-zones" | "corridors" | "pressing-blocks" | "corner-zones";
 
 export type TacticalPhase =
   | "build-up"
@@ -87,3 +88,33 @@ export interface PassMeasurement {
   isObstructed: boolean;
   obstructingEnemyId?: string;
 }
+
+export type DeviceViewMode = "android" | "pc";
+export type AndroidViewportSize = "phone" | "tablet" | "fluid";
+export type AndroidActiveTab = "pitch" | "corner" | "squad" | "animation" | "ai";
+
+export type TacticalStylePreset =
+  | "balanced"
+  | "high-press"
+  | "mid-block"
+  | "low-block"
+  | "tiki-taka"
+  | "wing-overload"
+  | "custom";
+
+export interface FormationShapeConfig {
+  lineHeight: number; // 0-100 (50 = standard)
+  teamWidth: number; // 0-100 (50 = standard)
+  compactness: number; // 0-100 (50 = standard)
+  stylePreset: TacticalStylePreset;
+  autoFitRoles: boolean;
+}
+
+export interface CustomFormationTemplate {
+  id: string;
+  name: string;
+  sportMode: "soccer" | "minisoccer" | "futsal" | "custom";
+  positions: { role: "GK" | "DEF" | "MID" | "FWD"; x: number; y: number }[];
+  createdAt: number;
+}
+

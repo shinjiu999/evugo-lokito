@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Player, TacticalItem, DrawingStroke, AnimationFrame, TacticalPlay, PitchTheme, TacticalOverlayMode, TacticalPhase } from "./types";
+import { Player, TacticalItem, DrawingStroke, AnimationFrame, TacticalPlay, PitchTheme, TacticalOverlayMode, TacticalPhase, DeviceViewMode, AndroidViewportSize, AndroidActiveTab, FormationShapeConfig, TacticalStylePreset, CustomFormationTemplate } from "./types";
 import Pitch from "./components/Pitch";
 import TacticalTelemetryHUD from "./components/TacticalTelemetryHUD";
 import MatchBriefingSheetModal from "./components/MatchBriefingSheetModal";
@@ -17,10 +17,16 @@ import BroadcastTV from "./components/BroadcastTV";
 import { AppTutorialSocialKit } from "./components/AppTutorialSocialKit";
 import { PlaybookSaveLoadModal } from "./components/PlaybookSaveLoadModal";
 import { SettingsModal } from "./components/SettingsModal";
+import AndroidStatusBar from "./components/AndroidStatusBar";
+import AndroidBottomNav from "./components/AndroidBottomNav";
+import CornerKickSimulator, { generateCornerSimulationData, CornerSide, CornerSchemeId } from "./components/CornerKickSimulator";
 import { soundManager } from "./utils/sound";
 import { toPng } from "html-to-image";
 import Interactive3DCard from "./components/Interactive3DCard";
 import {
+  Flag,
+  Play,
+  Pause,
   Sparkles,
   Check,
   Download,
@@ -59,7 +65,10 @@ import {
   Magnet,
   Users,
   ArrowUpDown,
-  Import
+  Import,
+  Smartphone,
+  Monitor,
+  Tablet
 } from "lucide-react";
 
 const TRANSLATIONS = {
@@ -547,6 +556,27 @@ export default function App() {
   const [opponentFormation, setOpponentFormation] = useState<string>("custom");
   const [preEnemyTeamPositions, setPreEnemyTeamPositions] = useState<Record<string, { x: number; y: number }>>({});
 
+  // Formation Studio: Tactical Shape Sliders, Base Anchor Coordinates & Custom Formations
+  const [formationShape, setFormationShape] = useState<FormationShapeConfig>({
+    lineHeight: 50,
+    teamWidth: 50,
+    compactness: 50,
+    stylePreset: "balanced",
+    autoFitRoles: true
+  });
+  const [baseFormationCoords, setBaseFormationCoords] = useState<{ role: string; x: number; y: number }[]>(
+    () => PRESET_FORMATIONS["4-3-3"]
+  );
+  const [customFormations, setCustomFormations] = useState<CustomFormationTemplate[]>(() => {
+    try {
+      const raw = localStorage.getItem("tactigen_custom_formations_v1");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isFormationStudioModalOpen, setIsFormationStudioModalOpen] = useState<boolean>(false);
+
   const handleAddBenchDirect = (name: string, num: number, role: "GK" | "DEF" | "MID" | "FWD") => {
     const newPlayer: Player = {
       id: `p-bench-${Date.now()}`,
@@ -584,11 +614,13 @@ export default function App() {
 
   // Custom textures backdrop URL
   const [customBackgroundUrl, setCustomBackgroundUrl] = useState<string | null>(null);
-  const [pitchTheme, setPitchTheme] = useState<PitchTheme>("emerald-grass");
+  const [pitchTheme, setPitchTheme] = useState<PitchTheme>("sporty-tosca");
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showFormationMenu, setShowFormationMenu] = useState(false);
   const [isPitchFullscreen, setIsPitchFullscreen] = useState(false);
+  const [activeSimulationTitle, setActiveSimulationTitle] = useState<string | null>(null);
+  const [isInlineSimPlaying, setIsInlineSimPlaying] = useState<boolean>(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -604,6 +636,30 @@ export default function App() {
   const [drawHistory, setDrawHistory] = useState<DrawingStroke[]>([]);
   const [showTacticalGrid, setShowTacticalGrid] = useState<boolean>(false);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
+
+  // Device & Display Mode State (Android vs PC layout adaptation)
+  const [deviceMode, setDeviceMode] = useState<DeviceViewMode>(() => {
+    const saved = localStorage.getItem("tactigen_device_mode");
+    if (saved === "pc" || saved === "android") return saved;
+    // Default to Android mode per user request: "Untuk mode windows atau PC. Set tampilan nya agar menyesuaikan tampilan seperti di android dll"
+    return "android";
+  });
+  const [androidViewportSize, setAndroidViewportSize] = useState<AndroidViewportSize>(() => {
+    const saved = localStorage.getItem("tactigen_android_viewport");
+    if (saved === "phone" || saved === "tablet" || saved === "fluid") return saved;
+    return "fluid";
+  });
+  const [androidActiveTab, setAndroidActiveTab] = useState<AndroidActiveTab>("pitch");
+
+  const handleSetDeviceMode = (mode: DeviceViewMode) => {
+    setDeviceMode(mode);
+    localStorage.setItem("tactigen_device_mode", mode);
+  };
+
+  const handleSetAndroidViewportSize = (size: AndroidViewportSize) => {
+    setAndroidViewportSize(size);
+    localStorage.setItem("tactigen_android_viewport", size);
+  };
 
   // Professional Tactical Telemetry & UEFA Matchday Sheet States
   const [tacticalOverlay, setTacticalOverlay] = useState<TacticalOverlayMode>("none");
@@ -911,7 +967,7 @@ export default function App() {
   // Global API Keys & MCP Settings Portal Modal
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsKey, setSettingsKey] = useState(0);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"gemini" | "mcp" | "audio">("gemini");
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"gemini" | "mcp" | "audio" | "display">("gemini");
   const [hasConnectedAI, setHasConnectedAI] = useState(() => {
     return !!(
       (localStorage.getItem("tactigen_custom_key") || "").trim() ||
@@ -1083,18 +1139,100 @@ export default function App() {
   };
 
   const handleResetFrames = () => {
+    setIsInlineSimPlaying(false);
+    setActiveSimulationTitle(null);
+    setTacticalOverlay("none");
+    setTacticalPhase("build-up");
+    const cleanItems = items.filter((item) => !item.id.startsWith("enemy-ck-"));
+    setItems(cleanItems);
     setFrames([
       {
         id: "frame-init",
         name: "Fasa 1: Posisi Standard",
         players: players.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y })),
-        items: items.map((item) => ({ id: item.id, x: item.x, y: item.y })),
+        items: cleanItems.map((item) => ({ id: item.id, x: item.x, y: item.y })),
         instruction: "Kembali ke setelan standard awal.",
         duration: 2.0
       }
     ]);
     setActiveFrameIndex(0);
     applyPresetFormation(formation);
+  };
+
+  // Inline simulation auto-play effect (for Corner Kick & multi-phase simulations directly on the pitch)
+  useEffect(() => {
+    if (!isInlineSimPlaying || frames.length <= 1) return;
+    const currentDur = Math.max(0.8, frames[activeFrameIndex]?.duration ?? 1.8);
+    const speedMult =
+      playSpeed === "slow" ? 1.4 : playSpeed === "fast" ? 0.65 : playSpeed === "superfast" ? 0.4 : 1.0;
+    const delayMs = Math.round(currentDur * 1000 * speedMult);
+
+    const timer = setTimeout(() => {
+      const nextIdx = activeFrameIndex >= frames.length - 1 ? 0 : activeFrameIndex + 1;
+      handleSelectFrameIndex(nextIdx);
+      if (nextIdx === frames.length - 1) {
+        soundManager.playCrowdCheer();
+      } else {
+        soundManager.playClick();
+      }
+    }, delayMs);
+
+    return () => clearTimeout(timer);
+  }, [isInlineSimPlaying, activeFrameIndex, frames, playSpeed]);
+
+  const handleApplyCornerSimulation = (payload: {
+    updatedPlayers: Player[];
+    updatedItems: TacticalItem[];
+    frames: AnimationFrame[];
+    overlayMode: TacticalOverlayMode;
+    phase: TacticalPhase;
+    autoPlay: boolean;
+    title: string;
+  }) => {
+    setSportMode("soccer");
+    setPlayers(payload.updatedPlayers);
+    setItems(payload.updatedItems);
+    setFrames(payload.frames);
+    setActiveFrameIndex(0);
+    setTacticalOverlay(payload.overlayMode);
+    setTacticalPhase(payload.phase);
+    setShowMovementTrails(true);
+    setActiveSimulationTitle(payload.title);
+    if (deviceMode === "android") {
+      setAndroidActiveTab("pitch");
+    }
+    if (payload.autoPlay) {
+      setIsInlineSimPlaying(true);
+    } else {
+      setIsInlineSimPlaying(false);
+    }
+  };
+
+  const handleQuickCornerKick = (side: CornerSide, schemeId: CornerSchemeId) => {
+    const data = generateCornerSimulationData(players, side, schemeId, "hybrid", lang);
+    const titleLabel =
+      side === "left"
+        ? lang === "id"
+          ? "Corner Kiri: In-Swinger & Flick"
+          : "Left Corner: In-Swinger & Flick"
+        : schemeId === "short-triangle"
+        ? lang === "id"
+          ? "Corner Pendek 2v1 & Cutback"
+          : "Short Corner 2v1 & Cutback"
+        : lang === "id"
+        ? "Corner Kanan: Tiang Jauh Overload"
+        : "Right Corner: Far-Post Overload";
+
+    handleApplyCornerSimulation({
+      updatedPlayers: data.updatedPlayers,
+      updatedItems: data.updatedItems,
+      frames: data.frames,
+      overlayMode: "corner-zones",
+      phase: "set-piece",
+      autoPlay: true,
+      title: titleLabel
+    });
+    soundManager.playWhistle();
   };
 
   const handleSaveCurrentAsNewFrame = () => {
@@ -1327,6 +1465,144 @@ export default function App() {
     }
   };
 
+  const getAvailableFormationsForSport = (mode: string = sportMode) => {
+    if (mode === "futsal") {
+      return [
+        { key: "1-2-1", desc: lang === "id" ? "Diamond Taktikal" : "Tactical Diamond", icon: "💎" },
+        { key: "2-2", desc: lang === "id" ? "Kotak Seimbang" : "Balanced Box", icon: "📦" },
+        { key: "1-1-2", desc: lang === "id" ? "Y-Menyerang" : "Attacking Y", icon: "🔱" },
+        { key: "3-1", desc: lang === "id" ? "Pyramid Bertahan" : "Defensive Pyramid", icon: "📐" }
+      ];
+    }
+    if (mode === "minisoccer") {
+      return [
+        { key: "2-3-1", desc: lang === "id" ? "Sayap Agresif" : "Aggressive Wings", icon: "⚡" },
+        { key: "3-2-1", desc: lang === "id" ? "Piramida Kokoh" : "Solid Pyramid", icon: "⛑️" },
+        { key: "3-1-2", desc: lang === "id" ? "Ganda Striker" : "Double Attackers", icon: "🏹" },
+        { key: "2-2-2", desc: lang === "id" ? "Simetris Box" : "Symmetric Box", icon: "⏹️" }
+      ];
+    }
+    return [
+      { key: "4-3-3", desc: lang === "id" ? "Attack Klasik" : "Classic Attacking", icon: "⚔️" },
+      { key: "4-4-2", desc: lang === "id" ? "Classic Seimbang" : "Classic Balanced", icon: "🛡️" },
+      { key: "4-2-3-1", desc: lang === "id" ? "Taktis Modern" : "Modern Tactical", icon: "🎯" },
+      { key: "3-5-2", desc: lang === "id" ? "Kuasai Sayap" : "Midfield Domination", icon: "⛓️" },
+      { key: "3-4-3", desc: lang === "id" ? "Sangat Menyerang" : "Aggressive Attack", icon: "🔥" },
+      { key: "3-2-4-1", desc: lang === "id" ? "Box Midfield Pro" : "Pro Box Midfield", icon: "💠" },
+      { key: "4-1-2-1-2", desc: lang === "id" ? "Diamond Sempit" : "Narrow Diamond", icon: "💎" },
+      { key: "4-1-4-1", desc: lang === "id" ? "Jangkar Tunggal" : "Single Pivot", icon: "⚓" },
+      { key: "4-5-1", desc: lang === "id" ? "Blok Bertahan" : "Defensive Block", icon: "🧱" },
+      { key: "5-3-2", desc: lang === "id" ? "Wingback Kokoh" : "Solid Wingbacks", icon: "🏔️" },
+      { key: "5-4-1", desc: lang === "id" ? "Ultra Bertahan" : "Low Block Wall", icon: "🔒" }
+    ];
+  };
+
+  const computeShapedCoordinates = (
+    baseCoords: { role: string; x: number; y: number }[],
+    shape: FormationShapeConfig,
+    enemyActive: boolean
+  ): { role: "GK" | "DEF" | "MID" | "FWD"; x: number; y: number }[] => {
+    const outfield = baseCoords.filter((c, idx) => c.role !== "GK" && idx !== 0);
+    const avgCenterY =
+      outfield.length > 0
+        ? outfield.reduce((sum, c) => sum + c.y, 0) / outfield.length
+        : 48;
+
+    const compactFactor = 1 - ((shape.compactness - 50) / 50) * 0.42;
+    const yShift = -((shape.lineHeight - 50) / 50) * 16;
+    const widthFactor = 1 + ((shape.teamWidth - 50) / 50) * 0.38;
+
+    return baseCoords.map((coord, idx) => {
+      const validRole = (
+        ["GK", "DEF", "MID", "FWD"].includes(coord.role) ? coord.role : "MID"
+      ) as "GK" | "DEF" | "MID" | "FWD";
+
+      if (validRole === "GK" || idx === 0) {
+        const gkShift = shape.lineHeight > 65 ? -((shape.lineHeight - 65) / 35) * 4 : 0;
+        const rawGkY = Math.max(76, Math.min(92, coord.y + gkShift));
+        const finalGkY = enemyActive
+          ? parseFloat((52 + (rawGkY / 100) * 38).toFixed(1))
+          : parseFloat(rawGkY.toFixed(1));
+        return { role: "GK", x: coord.x, y: finalGkY };
+      }
+
+      const yAfterCompact = avgCenterY + (coord.y - avgCenterY) * compactFactor;
+      const rawY = Math.max(10, Math.min(82, yAfterCompact + yShift));
+      const rawX = Math.max(7, Math.min(93, 50 + (coord.x - 50) * widthFactor));
+
+      const finalY = enemyActive
+        ? parseFloat((52 + (rawY / 100) * 38).toFixed(1))
+        : parseFloat(rawY.toFixed(1));
+
+      return {
+        role: validRole,
+        x: parseFloat(rawX.toFixed(1)),
+        y: finalY
+      };
+    });
+  };
+
+  const applyCoordinatesAndSyncFrames = (
+    targetBaseCoords: { role: string; x: number; y: number }[],
+    targetShape: FormationShapeConfig,
+    forceRoleFit = false
+  ) => {
+    const shapedCoords = computeShapedCoordinates(targetBaseCoords, targetShape, isEnemyModeActive);
+    const shouldFitRoles = forceRoleFit || targetShape.autoFitRoles;
+
+    // Clean up any temporary corner simulation state
+    setIsInlineSimPlaying(false);
+    setActiveSimulationTitle(null);
+    if (tacticalOverlay === "corner-zones") {
+      setTacticalOverlay("none");
+    }
+    const cleanItems = items.filter((item) => !item.id.startsWith("enemy-ck-"));
+    setItems(cleanItems);
+
+    const roleOrder: Record<string, number> = { GK: 0, DEF: 1, MID: 2, FWD: 3 };
+
+    const currentStarters = players.filter((p) => p.isStarting);
+    const currentSubs = players.filter((p) => !p.isStarting);
+
+    const orderedStarters = shouldFitRoles
+      ? [...currentStarters].sort((a, b) => {
+          const rA = roleOrder[a.role] ?? 99;
+          const rB = roleOrder[b.role] ?? 99;
+          if (rA !== rB) return rA - rB;
+          return (a.number || 0) - (b.number || 0);
+        })
+      : currentStarters;
+
+    const updatedStarters = orderedStarters.map((player, idx) => {
+      const slot = shapedCoords[idx];
+      if (!slot) return player;
+      return {
+        ...player,
+        x: slot.x,
+        y: slot.y,
+        role: shouldFitRoles ? slot.role : player.role
+      };
+    });
+
+    const nextPlayers = [...updatedStarters, ...currentSubs];
+    setPlayers(nextPlayers);
+
+    setFrames([
+      {
+        id: "frame-init",
+        name: lang === "id" ? "Fasa 1: Posisi Standard" : "Phase 1: Standard Positions",
+        players: updatedStarters.map((p) => ({ id: p.id, x: p.x, y: p.y })),
+        items: cleanItems.map((item) => ({ id: item.id, x: item.x, y: item.y })),
+        instruction:
+          lang === "id"
+            ? "Organisasi formasi dan lini taktis telah diperbarui."
+            : "Formation structure and tactical lines updated.",
+        duration: 2.0
+      }
+    ]);
+    setActiveFrameIndex(0);
+  };
+
   // --- SQUAD MODIFICATION CODES ---
   const handleSetSportMode = (mode: "soccer" | "minisoccer" | "futsal" | "custom", customVal?: number) => {
     setSportMode(mode);
@@ -1344,95 +1620,189 @@ export default function App() {
     setFormation(nextForm);
 
     const coords = mode === "custom" ? getCustomCoordinates(activeCount) : SPORT_FORMATIONS[mode][nextForm];
+    setBaseFormationCoords(coords);
 
-    setPlayers((prev) => {
-      // Find starting and substitute players
-      const currentStarters = prev.filter((p) => p.isStarting);
-      const currentSubs = prev.filter((p) => !p.isStarting);
+    const resetShape: FormationShapeConfig = {
+      ...formationShape,
+      lineHeight: 50,
+      teamWidth: 50,
+      compactness: 50,
+      stylePreset: "balanced"
+    };
+    setFormationShape(resetShape);
 
-      let nextStarters: Player[] = [];
-      let nextSubs: Player[] = [];
+    const currentStarters = players.filter((p) => p.isStarting);
+    const currentSubs = players.filter((p) => !p.isStarting);
 
-      if (currentStarters.length > activeCount) {
-        nextStarters = currentStarters.slice(0, activeCount);
-        nextSubs = [...currentStarters.slice(activeCount), ...currentSubs];
-      } else if (currentStarters.length < activeCount) {
-        const diff = activeCount - currentStarters.length;
-        nextStarters = [...currentStarters, ...currentSubs.slice(0, diff)];
-        nextSubs = currentSubs.slice(diff);
-      } else {
-        nextStarters = [...currentStarters];
-        nextSubs = [...currentSubs];
-      }
+    let nextStarters: Player[] = [];
+    let nextSubs: Player[] = [];
 
-      // Re-assign status
-      const updatedStarters = nextStarters.map((p) => ({ ...p, isStarting: true }));
-      const updatedSubs = nextSubs.map((p) => ({ ...p, isStarting: false, x: 0, y: 0 }));
+    if (currentStarters.length > activeCount) {
+      nextStarters = currentStarters.slice(0, activeCount);
+      nextSubs = [...currentStarters.slice(activeCount), ...currentSubs];
+    } else if (currentStarters.length < activeCount) {
+      const diff = activeCount - currentStarters.length;
+      nextStarters = [...currentStarters, ...currentSubs.slice(0, diff)];
+      nextSubs = currentSubs.slice(diff);
+    } else {
+      nextStarters = [...currentStarters];
+      nextSubs = [...currentSubs];
+    }
 
-      const combined = [...updatedStarters, ...updatedSubs];
-
-      // Map coordinates to starters
-      let starterCounter = 0;
-      return combined.map((player) => {
-        if (player.isStarting && coords[starterCounter]) {
-          const coord = coords[starterCounter];
-          starterCounter++;
-          return { ...player, x: coord.x, y: coord.y };
-        } else if (!player.isStarting) {
-          return { ...player, x: 0, y: 0 };
-        }
-        return player;
-      });
+    const updatedStarters = nextStarters.map((p, idx) => {
+      const c = coords[idx];
+      if (!c) return { ...p, isStarting: true };
+      const validRole = (["GK", "DEF", "MID", "FWD"].includes(c.role) ? c.role : p.role) as "GK" | "DEF" | "MID" | "FWD";
+      return {
+        ...p,
+        isStarting: true,
+        x: c.x,
+        y: isEnemyModeActive ? parseFloat((52 + (c.y / 100) * 38).toFixed(1)) : c.y,
+        role: formationShape.autoFitRoles ? validRole : p.role
+      };
     });
+    const updatedSubs = nextSubs.map((p) => ({ ...p, isStarting: false, x: 0, y: 0 }));
+    const combined = [...updatedStarters, ...updatedSubs];
+    setPlayers(combined);
 
-    // Sync frames with players' starting coordinates
-    setTimeout(() => {
-      setFrames((prev) => {
-        const updated = [...prev];
-        if (updated[0]) {
-          setPlayers((latestPlayers) => {
-            updated[0].players = latestPlayers.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y }));
-            return latestPlayers;
-          });
-        }
-        return updated;
-      });
-    }, 120);
+    const cleanItems = items.filter((item) => !item.id.startsWith("enemy-ck-"));
+    setItems(cleanItems);
+    setIsInlineSimPlaying(false);
+    setActiveSimulationTitle(null);
+    setFrames([
+      {
+        id: "frame-init",
+        name: lang === "id" ? "Fasa 1: Posisi Standard" : "Phase 1: Standard Positions",
+        players: updatedStarters.map((p) => ({ id: p.id, x: p.x, y: p.y })),
+        items: cleanItems.map((item) => ({ id: item.id, x: item.x, y: item.y })),
+        instruction: lang === "id" ? "Mode olahraga dan formasi disesuaikan." : "Sport mode and formation updated.",
+        duration: 2.0
+      }
+    ]);
+    setActiveFrameIndex(0);
   };
 
   const applyPresetFormation = (formKey: string) => {
     setFormation(formKey);
-    const coordinates = SPORT_FORMATIONS[sportMode][formKey];
+    const coordinates = SPORT_FORMATIONS[sportMode]?.[formKey];
     if (!coordinates) return;
 
-    setPlayers((prev) => {
-      let starterCounter = 0;
-      return prev.map((player) => {
-        if (player.isStarting && coordinates[starterCounter]) {
-          const coord = coordinates[starterCounter];
-          starterCounter++;
-          const finalY = isEnemyModeActive 
-            ? parseFloat((52 + (coord.y / 100) * 38).toFixed(1)) 
-            : coord.y;
-          return { ...player, x: coord.x, y: finalY };
-        }
-        return player;
-      });
+    setBaseFormationCoords(coordinates);
+    const nextShape: FormationShapeConfig = {
+      ...formationShape,
+      lineHeight: 50,
+      teamWidth: 50,
+      compactness: 50,
+      stylePreset: "balanced"
+    };
+    setFormationShape(nextShape);
+    applyCoordinatesAndSyncFrames(coordinates, nextShape, false);
+    soundManager.playClick();
+  };
+
+  const handleChangeFormationShape = (partialShape: Partial<FormationShapeConfig>) => {
+    const nextShape: FormationShapeConfig = {
+      ...formationShape,
+      ...partialShape
+    };
+    setFormationShape(nextShape);
+    applyCoordinatesAndSyncFrames(baseFormationCoords, nextShape, false);
+  };
+
+  const handleApplyTacticalStyle = (preset: TacticalStylePreset) => {
+    const styleMap: Record<TacticalStylePreset, { lineHeight: number; teamWidth: number; compactness: number; phase: TacticalPhase }> = {
+      balanced: { lineHeight: 50, teamWidth: 50, compactness: 50, phase: "build-up" },
+      "high-press": { lineHeight: 78, teamWidth: 56, compactness: 76, phase: "high-press" },
+      "mid-block": { lineHeight: 48, teamWidth: 42, compactness: 80, phase: "mid-block" },
+      "low-block": { lineHeight: 22, teamWidth: 34, compactness: 84, phase: "low-block" },
+      "tiki-taka": { lineHeight: 64, teamWidth: 62, compactness: 82, phase: "progression" },
+      "wing-overload": { lineHeight: 60, teamWidth: 88, compactness: 52, phase: "final-third" },
+      custom: {
+        lineHeight: formationShape.lineHeight,
+        teamWidth: formationShape.teamWidth,
+        compactness: formationShape.compactness,
+        phase: tacticalPhase
+      }
+    };
+    const cfg = styleMap[preset] || styleMap.balanced;
+    const nextShape: FormationShapeConfig = {
+      ...formationShape,
+      lineHeight: cfg.lineHeight,
+      teamWidth: cfg.teamWidth,
+      compactness: cfg.compactness,
+      stylePreset: preset
+    };
+    setFormationShape(nextShape);
+    setTacticalPhase(cfg.phase);
+    applyCoordinatesAndSyncFrames(baseFormationCoords, nextShape, false);
+    soundManager.playClick();
+  };
+
+  const handleAutoFitRoles = () => {
+    applyCoordinatesAndSyncFrames(baseFormationCoords, formationShape, true);
+    soundManager.playClick();
+  };
+
+  const handleSaveCustomFormation = (name: string) => {
+    const starters = players.filter((p) => p.isStarting);
+    const normalizedPositions = starters.map((p) => {
+      const normY = isEnemyModeActive
+        ? Math.max(8, Math.min(92, parseFloat((((p.y - 52) / 38) * 100).toFixed(1))))
+        : p.y;
+      return {
+        role: p.role,
+        x: p.x,
+        y: normY
+      };
     });
 
-    // Reset frames to sync with new formation selection
-    setTimeout(() => {
-      setFrames((prev) => {
-        const updated = [...prev];
-        if (updated[0]) {
-          setPlayers((latestPlayers) => {
-            updated[0].players = latestPlayers.filter((p) => p.isStarting).map((p) => ({ id: p.id, x: p.x, y: p.y }));
-            return latestPlayers;
-          });
-        }
-        return updated;
-      });
-    }, 100);
+    const newTemplate: CustomFormationTemplate = {
+      id: `custom-form-${Date.now()}`,
+      name,
+      sportMode,
+      positions: normalizedPositions,
+      createdAt: Date.now()
+    };
+
+    const updated = [newTemplate, ...customFormations];
+    setCustomFormations(updated);
+    setFormation(name);
+    setBaseFormationCoords(normalizedPositions);
+    try {
+      localStorage.setItem("tactigen_custom_formations_v1", JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
+    }
+    soundManager.playClick();
+  };
+
+  const handleDeleteCustomFormation = (id: string) => {
+    const updated = customFormations.filter((cf) => cf.id !== id);
+    setCustomFormations(updated);
+    try {
+      localStorage.setItem("tactigen_custom_formations_v1", JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
+    }
+    soundManager.playClick();
+  };
+
+  const handleApplyCustomFormation = (template: CustomFormationTemplate) => {
+    if (template.sportMode !== sportMode) {
+      setSportMode(template.sportMode);
+    }
+    setFormation(template.name);
+    setBaseFormationCoords(template.positions);
+    const resetShape: FormationShapeConfig = {
+      ...formationShape,
+      lineHeight: 50,
+      teamWidth: 50,
+      compactness: 50,
+      stylePreset: "balanced"
+    };
+    setFormationShape(resetShape);
+    applyCoordinatesAndSyncFrames(template.positions, resetShape, false);
+    soundManager.playClick();
   };
 
   const handleSidelineSwap = (sidelinePlayerId: string, starterPlayerId: string) => {
@@ -1703,8 +2073,96 @@ export default function App() {
 
   const activeEditingPlayer = players.find((p) => p.id === editingPlayerId) || null;
 
+  const renderAnimationTimeline = () => (
+    <AnimationTimeline
+      frames={frames}
+      activeFrameIndex={activeFrameIndex}
+      setActiveFrameIndex={handleSelectFrameIndex}
+      onPlayStateChange={setIsPlayingTactic}
+      onResetFrames={handleResetFrames}
+      onSaveCurrentFrameAsNew={handleSaveCurrentAsNewFrame}
+      onUpdateFrameDuration={handleUpdateFrameDuration}
+      onUpdateAllFramesDuration={handleUpdateAllFramesDuration}
+      playSpeed={playSpeed}
+      setPlaySpeed={setPlaySpeed}
+      transitionType={transitionType}
+      setTransitionType={setTransitionType}
+      showMovementTrails={showMovementTrails}
+      setShowMovementTrails={setShowMovementTrails}
+      onDeleteFrame={handleDeleteFrame}
+      lang={lang}
+    />
+  );
+
+  const renderTacticalDrills = () => (
+    <TacticalDrills
+      onLoadDrill={handleLoadTacticalDrill}
+      currentFrames={frames}
+      currentSportMode={sportMode}
+      lang={lang}
+    />
+  );
+
+  const renderAIImageGen = () => (
+    <AIFormationImageGenerator
+      formation={formation}
+      sportMode={sportMode}
+      availableFormations={getAvailableFormationsForSport(sportMode)}
+      onSelectFormation={applyPresetFormation}
+      formationShape={formationShape}
+      onChangeFormationShape={handleChangeFormationShape}
+      onApplyTacticalStyle={handleApplyTacticalStyle}
+      onAutoFitRoles={handleAutoFitRoles}
+      customFormations={customFormations}
+      onSaveCustomFormation={handleSaveCustomFormation}
+      onDeleteCustomFormation={handleDeleteCustomFormation}
+      onApplyCustomFormation={handleApplyCustomFormation}
+      onOpenSettings={() => {
+        setSettingsInitialTab("gemini");
+        setIsSettingsModalOpen(true);
+      }}
+      teamName={teamName}
+      primaryColor={primaryColor}
+      gkColor={gkColor}
+      numberColor={numberColor}
+      players={players}
+      teamLogo={teamLogo}
+      teamJersey={teamJersey}
+      lang={lang}
+      managerName={managerName}
+      managerPhoto={managerPhoto}
+      isEnemyModeActive={isEnemyModeActive}
+      externalOpenStudio={isFormationStudioModalOpen}
+      onExternalCloseStudio={() => setIsFormationStudioModalOpen(false)}
+    />
+  );
+
+  const renderAICoach = () => (
+    <AICoach
+      key={settingsKey}
+      players={players}
+      items={items}
+      currentFormation={formation}
+      onLoadGeneratedPlay={handleLoadGeneratedPlay}
+      onApplyFormation={applyPresetFormation}
+      onOpenSettings={(tab) => {
+        setSettingsInitialTab(tab);
+        setIsSettingsModalOpen(true);
+      }}
+      lang={lang}
+    />
+  );
+
+  const renderCornerKickSimulator = () => (
+    <CornerKickSimulator
+      players={players}
+      onApplyCornerSimulation={handleApplyCornerSimulation}
+      lang={lang}
+    />
+  );
+
   return (
-    <div className="relative min-h-screen bg-[#07070a] bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:28px_28px] text-white flex flex-col font-sans antialiased overflow-x-hidden">
+    <div className="relative min-h-screen bg-[#061318] bg-[linear-gradient(to_right,#2dd4bf08_1px,transparent_1px),linear-gradient(to_bottom,#2dd4bf08_1px,transparent_1px)] bg-[size:28px_28px] text-white flex flex-col font-sans antialiased overflow-x-hidden">
       
       {/* Global floating button to exit presentation mode */}
       {isPitchFullscreen && (
@@ -1713,32 +2171,68 @@ export default function App() {
           className="fixed top-4 right-4 z-[9999] px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl flex items-center gap-2 bg-red-600/90 hover:bg-red-600 text-white font-bold text-xs uppercase shadow-[0_10px_25px_rgba(239,68,68,0.4)] backdrop-blur-md border border-red-500/30 transition-all active:scale-95 cursor-pointer animate-fadeIn"
           title={lang === "id" ? "Keluar Layar Penuh (ESC)" : "Exit Fullscreen (ESC)"}
         >
-          <Minimize2 className="w-4 h-4 animate-pulse" />
+          <Minimize2 className="w-4 h-4" />
           <span>{lang === "id" ? "Keluar" : "Exit"}</span>
         </button>
       )}
       
-      {/* Premium ambient decorative glowing blobs */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[130px] pointer-events-none z-0" />
-      <div className="absolute bottom-20 right-1/4 w-[450px] h-[450px] bg-indigo-500/10 rounded-full blur-[130px] pointer-events-none z-0" />
+      {/* Soft Sporty Tosca ambient decorative illumination */}
+      <div className="absolute top-0 left-1/4 w-[520px] h-[520px] bg-teal-500/10 rounded-full blur-[140px] pointer-events-none z-0" />
+      <div className="absolute bottom-20 right-1/4 w-[480px] h-[480px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none z-0" />
       
-      {/* Header bar Navigation - Transparent Frosted Glass effect */}
-      <header className="h-16 flex items-center justify-between px-3 md:px-6 border-b border-white/[0.08] bg-[#0c0c11]/80 backdrop-blur-md z-40 shadow-[0_4px_30px_rgba(0,0,0,0.4)] select-none">
+      {/* Header bar Navigation - Soft Sporty Tosca Frosted Glass */}
+      <header className="h-16 flex items-center justify-between px-3 md:px-6 border-b border-teal-400/15 bg-[#051419]/90 backdrop-blur-md z-40 shadow-[0_4px_30px_rgba(2,10,14,0.55)] select-none">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-550 via-blue-600 to-indigo-650 flex items-center justify-center shadow-lg shadow-blue-500/30 transition-transform duration-300 hover:rotate-6">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-md shadow-teal-500/25">
+            <svg className="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
           <div>
-            <h1 className="text-sm md:text-base font-extrabold tracking-tight bg-gradient-to-r from-white via-white to-blue-400 bg-clip-text text-transparent">{t.appTitle}</h1>
-            <p className="text-[9px] text-gray-400 font-medium tracking-wide hidden sm:block">{t.appSubtitle}</p>
+            <h1 className="text-sm md:text-base font-extrabold tracking-tight text-white font-display">{t.appTitle}</h1>
+            <p className="text-[10px] text-teal-200/70 font-medium tracking-wide hidden sm:block">{t.appSubtitle}</p>
           </div>
         </div>
 
         {/* Global Toolbar controls */}
         {/* Desktop-only full interactive dashboard toolbar */}
-        <div className="hidden md:flex items-center gap-2 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-1 shadow-inner">
+        <div className="hidden md:flex items-center gap-2 bg-[#071c22]/80 border border-teal-400/15 rounded-2xl p-1 shadow-inner">
+          {/* Display Mode Switcher: Android vs PC */}
+          <div className="flex bg-[#041115] border border-teal-400/20 rounded-xl p-0.5 shrink-0" role="group" aria-label={lang === "id" ? "Mode Tampilan" : "Display Mode"}>
+            <button
+              onClick={() => {
+                handleSetDeviceMode("android");
+                soundManager.playClick();
+              }}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                deviceMode === "android"
+                  ? "bg-teal-500 text-slate-950 font-extrabold shadow-sm"
+                  : "text-teal-100/70 hover:text-white hover:bg-white/5"
+              }`}
+              title={lang === "id" ? "Mode Android: Tampilan fokus mobile & tablet dengan tab navigasi" : "Android Mode: Mobile & Tablet UI with bottom tabs"}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Android</span>
+            </button>
+            <button
+              onClick={() => {
+                handleSetDeviceMode("pc");
+                soundManager.playClick();
+              }}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                deviceMode === "pc"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-500/25 font-black"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+              title={lang === "id" ? "Mode Desktop PC: Tampilan 3-kolom desktop" : "PC Mode: Classic 3-column desktop view"}
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              <span>PC</span>
+            </button>
+          </div>
+
+          <div className="w-px h-4 bg-white/10" />
+
           {/* Language Selector */}
           <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 shrink-0" role="group" aria-label={lang === "id" ? "Pilih Bahasa" : "Choose Language"}>
             <button
@@ -1902,6 +2396,24 @@ export default function App() {
 
         {/* Mobile-only compact interactive toolbar */}
         <div className="flex md:hidden items-center gap-1.5 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-1 shadow-inner">
+          {/* Display Mode toggle pill (mobile) */}
+          <button
+            onClick={() => {
+              const nextMode = deviceMode === "android" ? "pc" : "android";
+              handleSetDeviceMode(nextMode);
+              soundManager.playClick();
+            }}
+            className={`px-2 py-1.5 rounded-xl border text-[10px] font-extrabold flex items-center gap-1 cursor-pointer transition-all ${
+              deviceMode === "android"
+                ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                : "bg-blue-500/15 border-blue-500/40 text-blue-300"
+            }`}
+            title={lang === "id" ? "Beralih Mode Tampilan (Android / PC)" : "Toggle View Mode (Android / PC)"}
+          >
+            {deviceMode === "android" ? <Smartphone className="w-3 h-3 text-emerald-400" /> : <Monitor className="w-3 h-3 text-blue-400" />}
+            <span>{deviceMode === "android" ? "Android" : "PC"}</span>
+          </button>
+
           {/* AI Connection status pill (mobile) */}
           <button
             onClick={() => {
@@ -2059,20 +2571,76 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Main viewport Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* LEFT COLUMN PANEL: SQUAD SETTINGS */}
-        <div className="lg:col-span-3 flex flex-col gap-5 lg:overflow-y-auto lg:max-h-[85vh] pr-1 h-auto">
-          
-          {/* Identity settings */}
-          <Interactive3DCard glowColor="rgba(59, 130, 246, 0.45)">
-            <div className="p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-[10px] font-black text-[#5e6680] uppercase tracking-widest flex items-center gap-1.5 select-none">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> {t.clubIdentity}
-                </h4>
-              </div>
+      {/* Main viewport Workspace (Adaptive for Android Mobile / Tablet / PC Windows) */}
+      <div className={`flex-1 w-full flex flex-col items-center ${deviceMode === "android" ? "p-2 sm:p-4" : ""}`}>
+        <div
+          className={
+            deviceMode === "android"
+              ? `w-full bg-[#0a0c11]/95 backdrop-blur-md flex flex-col transition-all duration-300 relative border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.85)] ${
+                  androidViewportSize === "phone"
+                    ? "max-w-[460px] rounded-3xl my-2 overflow-hidden"
+                    : androidViewportSize === "tablet"
+                    ? "max-w-[820px] rounded-3xl my-2 overflow-hidden"
+                    : "max-w-5xl rounded-2xl my-2"
+                }`
+              : "w-full"
+          }
+        >
+          {/* Android Mode System Top Bar */}
+          {deviceMode === "android" && (
+            <AndroidStatusBar
+              viewportSize={androidViewportSize}
+              onChangeViewportSize={handleSetAndroidViewportSize}
+              deviceMode={deviceMode}
+              onChangeDeviceMode={handleSetDeviceMode}
+              isMuted={isMuted}
+              onToggleMute={() => {
+                const muted = soundManager.toggleMuted();
+                setIsMuted(muted);
+              }}
+              lang={lang}
+              onSetLang={handleSetLang}
+            />
+          )}
+
+          {/* Core Content Grid / Tab Layout */}
+          <main
+            className={
+              deviceMode === "android"
+                ? "flex-1 w-full p-2.5 sm:p-4 flex flex-col min-h-[580px]"
+                : "flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+            }
+          >
+            {/* LEFT COLUMN PANEL: SQUAD SETTINGS */}
+            {(deviceMode === "pc" || androidActiveTab === "squad") && (
+              <div
+                className={
+                  deviceMode === "android"
+                    ? "w-full max-w-2xl mx-auto flex flex-col gap-4 animate-fadeIn"
+                    : "lg:col-span-3 flex flex-col gap-5 lg:overflow-y-auto lg:max-h-[85vh] pr-1 h-auto"
+                }
+              >
+                {/* In Android Mode, add a prominent CTA to open the full Squad Management Sheet */}
+                {deviceMode === "android" && (
+                  <button
+                    onClick={() => {
+                      setIsSquadManagementOpen(true);
+                      soundManager.playClick();
+                    }}
+                    className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>{lang === "id" ? "Buka Pengelolaan Skuad (11 Starter & Cadangan)" : "Open Squad Management & Lineup"}</span>
+                  </button>
+                )}
+
+                {/* Identity settings panel (clean, calm 2D panel without 3D tilt) */}
+                <div className="relative rounded-3xl border border-blue-500/20 bg-[#0b0f19]/90 backdrop-blur-xl transition-all duration-200 overflow-hidden shadow-lg p-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-black text-[#5e6680] uppercase tracking-widest flex items-center gap-1.5 select-none">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> {t.clubIdentity}
+                    </h4>
+                  </div>
 
               <div className="flex items-center gap-2.5">
                 {/* Name Input */}
@@ -2260,12 +2828,21 @@ export default function App() {
                 </div>
               </div>
             </div>
-          </Interactive3DCard>
 
-        </div>
+            {/* Integrated Studio Formasi & Tactical Line Adjuster Panel in Left Column */}
+            {renderAIImageGen()}
+          </div>
+        )}
 
         {/* MIDDLE COLUMN WORKSPACE: PFP PITCH & MATCH STATE TITLE OVERGAMES */}
-        <div className="lg:col-span-6 flex flex-col gap-4 items-center h-full">
+        {(deviceMode === "pc" || androidActiveTab === "pitch") && (
+          <div
+            className={
+              deviceMode === "android"
+                ? "w-full flex flex-col gap-4 items-center animate-fadeIn"
+                : "lg:col-span-6 flex flex-col gap-4 items-center h-full"
+            }
+          >
 
           {/* DIGITAL FIELD SCREEN WITH VERTICAL BALL AND CONE CONTROLS */}
           <div className={`w-full flex transition-all duration-300 ${
@@ -2325,6 +2902,7 @@ export default function App() {
                     aria-expanded={showThemeDropdown}
                   >
                     <span className="text-sm sm:text-base shrink-0">
+                      {pitchTheme === "sporty-tosca" && "🌊"}
                       {pitchTheme === "emerald-grass" && "🌿"}
                       {pitchTheme === "premier-pitch" && "🏟️"}
                       {pitchTheme === "neon-hologram" && "⚡"}
@@ -2338,7 +2916,8 @@ export default function App() {
 
                   {/* Floating tooltip showing the current active style name */}
                   {!showThemeDropdown && (
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 opacity-0 group-hover/themeselect:opacity-100 transition-all duration-150 bg-[#0e1017]/95 border border-white/10 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-gray-200 backdrop-blur-md whitespace-nowrap z-50">
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 opacity-0 group-hover/themeselect:opacity-100 transition-all duration-150 bg-[#071c22]/95 border border-teal-400/25 px-2.5 py-1.5 rounded-xl shadow-2xl text-[9px] font-black tracking-wide text-teal-100 backdrop-blur-md whitespace-nowrap z-50">
+                      {pitchTheme === "sporty-tosca" && (lang === "id" ? "Toska Lembut Sporty" : "Soft Sporty Tosca")}
                       {pitchTheme === "emerald-grass" && (lang === "id" ? "Padang Rumput Hijau" : "Classic Grass")}
                       {pitchTheme === "premier-pitch" && (lang === "id" ? "Stadion Premier Rumput Strip" : "Premier Pitch")}
                       {pitchTheme === "neon-hologram" && (lang === "id" ? "Hologram Laser Cyber" : "Neon Hologram")}
@@ -2351,8 +2930,9 @@ export default function App() {
                   )}
 
                   {showThemeDropdown && (
-                    <div className="absolute left-0 top-full mt-1.5 w-44 sm:w-52 bg-[#0b0c10]/95 border border-white/[0.12] rounded-xl sm:rounded-2xl shadow-2xl z-55 overflow-hidden flex flex-col gap-0.5 p-1 animate-fadeIn backdrop-blur-md max-h-60 overflow-y-auto" role="menu">
+                    <div className="absolute left-0 top-full mt-1.5 w-48 sm:w-56 bg-[#06181e]/95 border border-teal-400/25 rounded-xl sm:rounded-2xl shadow-2xl z-55 overflow-hidden flex flex-col gap-0.5 p-1 animate-fadeIn backdrop-blur-md max-h-64 overflow-y-auto" role="menu">
                       {[
+                        { key: "sporty-tosca", label: lang === "id" ? "Toska Lembut Sporty" : "Soft Sporty Tosca", icon: "🌊" },
                         { key: "emerald-grass", label: lang === "id" ? "Padang Hijau" : "Classic Grass", icon: "🌿" },
                         { key: "premier-pitch", label: lang === "id" ? "Stadion Premier" : "Premier Pitch", icon: "🏟️" },
                         { key: "neon-hologram", label: lang === "id" ? "Hologram Cyber" : "Neon Hologram", icon: "⚡" },
@@ -2370,10 +2950,10 @@ export default function App() {
                               setPitchTheme(th.key as PitchTheme);
                               setShowThemeDropdown(false);
                             }}
-                            className={`w-full text-left px-2 py-1.5 sm:py-2 rounded-lg text-[9.5px] sm:text-[11px] font-bold flex items-center gap-2 cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+                            className={`w-full text-left px-2.5 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-[11px] font-bold flex items-center gap-2 cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none ${
                               isActive
-                                ? "bg-blue-600/25 border border-blue-500/30 text-blue-300"
-                                : "bg-transparent border border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
+                                ? "bg-teal-500/25 border border-teal-400/40 text-teal-200"
+                                : "bg-transparent border border-transparent text-teal-100/70 hover:bg-white/5 hover:text-white"
                             }`}
                             role="menuitem"
                             aria-label={th.label}
@@ -2442,7 +3022,7 @@ export default function App() {
                           setBrushSize(4);
                           setBrushStyle("solid");
                           setCustomBackgroundUrl(null);
-                          setPitchTheme("emerald-grass");
+                          setPitchTheme("sporty-tosca");
                           setDrawHistory([]);
                           setFrames([
                             {
@@ -2672,90 +3252,121 @@ export default function App() {
                 </div>
               )}
 
-                {/* Floating thin overlay for Default Formation Selector at the bottom-left inside the pitch */}
+                {/* Floating overlay for Default Formation Selector & Studio Trigger at the bottom-left inside the pitch */}
               {activeTool !== "draw" && !isPitchFullscreen && (
                 <div className="absolute bottom-[29%] sm:bottom-[18.5%] left-2.5 sm:left-4 z-45">
-                  <div className="relative group/formation">
+                  <div className="relative group/formation flex items-center gap-1.5">
                     <button
+                      type="button"
                       onClick={() => setShowFormationMenu(!showFormationMenu)}
-                      className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer border bg-[#071912]/80 hover:bg-[#071912]/95 border-emerald-500/30 hover:border-emerald-400/50 text-emerald-100 hover:text-white shadow-xl ring-1 ring-emerald-400/20 backdrop-blur-2xl active:scale-95 text-[9.5px] sm:text-[11px] font-black tracking-wide focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+                      className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer border bg-[#06181f]/90 hover:bg-[#08222b] border-teal-400/35 hover:border-teal-400/60 text-teal-100 hover:text-white shadow-xl backdrop-blur-md active:scale-95 text-[10px] sm:text-xs font-extrabold tracking-wide font-mono tabular-nums focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none"
                       aria-label={t.defaultFormation}
                       aria-haspopup="true"
                       aria-expanded={showFormationMenu}
                     >
-                      <LayoutGrid className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-emerald-400" />
+                      <LayoutGrid className="w-3.5 h-3.5 text-teal-400" />
                       <span>{formation}</span>
+                      <ChevronUp className={`w-3 h-3 text-teal-300 transition-transform ${showFormationMenu ? "rotate-180" : ""}`} />
                     </button>
-                    
-                    {/* Floating helpful description overlay */}
-                    {!showFormationMenu && (
-                      <div className="absolute left-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/formation:opacity-100 group-hover/formation:scale-100 transition-all duration-150 bg-[#071912]/95 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col gap-0.5 ring-1 ring-emerald-400/20 backdrop-blur-2xl whitespace-nowrap">
-                        <span className="text-[8px] font-black tracking-widest text-emerald-400 uppercase">{t.defaultFormation}</span>
-                        <span className="text-white font-extrabold text-[9px]">{lang === "id" ? "Klik ganti formasi" : "Click to change lineup"}</span>
-                      </div>
-                    )}
 
-                    {/* Dropdown list table descending downwards */}
+                    {/* Quick 1-click trigger to open Full Formation & Poster Studio Modal */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsFormationStudioModalOpen(true);
+                        setShowFormationMenu(false);
+                        soundManager.playClick();
+                      }}
+                      className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl flex items-center gap-1 transition-all cursor-pointer border bg-teal-500/20 hover:bg-teal-500/30 border-teal-400/40 text-teal-200 hover:text-white shadow-xl backdrop-blur-md active:scale-95 text-[10px] sm:text-[11px] font-bold whitespace-nowrap"
+                      title={lang === "id" ? "Buka Studio Formasi & Lini" : "Open Formation Studio"}
+                    >
+                      <Sliders className="w-3 h-3 text-teal-300" />
+                      <span className="hidden xs:inline">{lang === "id" ? "Studio Formasi" : "Studio"}</span>
+                    </button>
+
+                    {/* Popup menu opening UPWARDS (bottom-full mb-2) so it never gets clipped by the bench */}
                     {showFormationMenu && (
-                      <div className="absolute top-full mt-1.5 left-0 w-52 bg-[#071912]/95 backdrop-blur-2xl border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col divide-y divide-emerald-500/15 animate-fadeIn" role="menu">
-                        <div className="px-3 py-2 bg-emerald-500/10 flex justify-between items-center select-none">
-                          <span className="text-[8px] font-black tracking-wider text-emerald-300 uppercase">{lang === "id" ? "PILIHAN FORMASI" : "FORMATIONS LIST"}</span>
-                          <span className="text-[8px] text-emerald-400 font-bold uppercase">{lang === "id" ? "Tabel" : "Table"}</span>
+                      <div
+                        className="absolute bottom-full mb-2 left-0 w-60 bg-[#06181f]/98 backdrop-blur-2xl border border-teal-400/35 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50 overflow-hidden flex flex-col divide-y divide-teal-400/15 animate-fadeIn"
+                        role="menu"
+                      >
+                        <div className="px-3.5 py-2.5 bg-teal-500/15 flex justify-between items-center select-none">
+                          <span className="text-[10px] font-extrabold tracking-wider text-teal-200 uppercase">
+                            {lang === "id" ? "Pilih Formasi" : "Select Formation"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowFormationMenu(false);
+                              setIsFormationStudioModalOpen(true);
+                            }}
+                            className="text-[10px] text-teal-300 hover:text-white font-bold underline cursor-pointer"
+                          >
+                            {lang === "id" ? "Buka Studio" : "Open Studio"}
+                          </button>
                         </div>
-                        <div className="max-h-56 overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-500/20 scrollbar-track-transparent">
-                          {(() => {
-                            const formationsList = 
-                              sportMode === "futsal" ? [
-                                { key: "1-2-1", desc: lang === "id" ? "Diamond Taktikal" : "Tactical Diamond", icon: "💎" },
-                                { key: "2-2", desc: lang === "id" ? "Kotak Seimbang" : "Balanced Box", icon: "📦" },
-                                { key: "1-1-2", desc: lang === "id" ? "Y-Menyerang" : "Attacking Y", icon: "🔱" },
-                                { key: "3-1", desc: lang === "id" ? "Pyramid Bertahan" : "Defensive Pyramid", icon: "📐" }
-                              ] : sportMode === "minisoccer" ? [
-                                { key: "2-3-1", desc: lang === "id" ? "Sayap Agresif" : "Aggressive Wings", icon: "⚡" },
-                                { key: "3-2-1", desc: lang === "id" ? "Piramida Kokoh" : "Solid Pyramid", icon: "⛑️" },
-                                { key: "3-1-2", desc: lang === "id" ? "Ganda Striker" : "Double Attackers", icon: "🏹" },
-                                { key: "2-2-2", desc: lang === "id" ? "Simetris Box" : "Symmetric Box", icon: "⏹️" }
-                              ] : [
-                                { key: "4-3-3", desc: lang === "id" ? "Attack Klasik" : "Classic Attacking", icon: "⚔️" },
-                                { key: "4-4-2", desc: lang === "id" ? "Classic Seimbang" : "Classic Balanced", icon: "🛡️" },
-                                { key: "3-5-2", desc: lang === "id" ? "Kuasai Sayap" : "Midfield Domination", icon: "⛓️" },
-                                { key: "4-2-3-1", desc: lang === "id" ? "Taktis Modern" : "Modern Tactical", icon: "🎯" },
-                                { key: "3-4-3", desc: lang === "id" ? "Sangat Menyerang" : "Aggressive Attack", icon: "🔥" },
-                                { key: "4-5-1", desc: lang === "id" ? "Blok Bertahan" : "Defensive Block", icon: "🧱" },
-                                { key: "5-3-2", desc: lang === "id" ? "Ujung Bertahan" : "Ultra Defensive", icon: "🏔️" }
-                              ];
-                            return formationsList.map((item) => {
-                              const isSel = formation === item.key;
-                              return (
+
+                        <div className="max-h-64 overflow-y-auto scrollbar-thin">
+                          {customFormations.length > 0 && (
+                            <div className="p-1.5 border-b border-teal-400/15 bg-[#041014]/60">
+                              <span className="px-2 py-0.5 text-[9px] font-bold text-teal-300 uppercase block">
+                                {lang === "id" ? "Formasi Kustom Anda" : "Your Custom Formations"}
+                              </span>
+                              {customFormations.map((cf) => (
                                 <button
-                                  key={item.key}
+                                  key={cf.id}
+                                  type="button"
                                   onClick={() => {
-                                    applyPresetFormation(item.key as any);
+                                    handleApplyCustomFormation(cf);
                                     setShowFormationMenu(false);
                                   }}
-                                  className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-emerald-500/10 active:bg-emerald-500/20 transition-colors cursor-pointer text-xs focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none ${
-                                    isSel ? "bg-emerald-500/20 text-emerald-300 font-black" : "text-gray-300"
+                                  className={`w-full text-left px-2.5 py-1.5 rounded-xl flex items-center justify-between hover:bg-teal-500/15 transition-colors cursor-pointer text-xs ${
+                                    formation === cf.name ? "bg-teal-500/25 text-teal-200 font-bold" : "text-teal-100/80"
                                   }`}
-                                  role="menuitem"
-                                  aria-label={item.key}
-                                  aria-current={isSel ? "true" : "false"}
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs">{item.icon}</span>
-                                    <div className="flex flex-col">
-                                      <span className="font-extrabold tracking-wide uppercase text-[10.5px]">{item.key}</span>
-                                      <span className="text-[8px] text-gray-400 font-medium leading-none">{item.desc}</span>
-                                    </div>
-                                  </div>
-                                  {isSel && (
-                                    <span className="text-[7.5px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 font-black animate-pulse uppercase">
-                                      {lang === "id" ? "Aktif" : "Active"}
-                                    </span>
-                                  )}
+                                  <span className="truncate font-bold">★ {cf.name}</span>
+                                  <span className="text-[9px] font-mono text-teal-300/80 uppercase">{cf.sportMode}</span>
                                 </button>
-                              );
-                            });
-                          })()}
+                              ))}
+                            </div>
+                          )}
+
+                          {getAvailableFormationsForSport(sportMode).map((item) => {
+                            const isSel = formation === item.key;
+                            return (
+                              <button
+                                key={item.key}
+                                type="button"
+                                onClick={() => {
+                                  applyPresetFormation(item.key);
+                                  setShowFormationMenu(false);
+                                }}
+                                className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-teal-500/15 active:bg-teal-500/25 transition-colors cursor-pointer text-xs focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none ${
+                                  isSel ? "bg-teal-500/25 text-teal-200 font-extrabold" : "text-gray-200"
+                                }`}
+                                role="menuitem"
+                                aria-label={item.key}
+                                aria-current={isSel ? "true" : "false"}
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-xs">{item.icon}</span>
+                                  <div className="flex flex-col">
+                                    <span className="font-extrabold tracking-wide font-mono tabular-nums text-xs">
+                                      {item.key}
+                                    </span>
+                                    <span className="text-[9.5px] text-teal-200/65 font-medium leading-tight">
+                                      {item.desc}
+                                    </span>
+                                  </div>
+                                </div>
+                                {isSel && (
+                                  <span className="text-[9px] text-teal-300 font-bold">
+                                    {lang === "id" ? "Aktif" : "Active"}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -2763,9 +3374,9 @@ export default function App() {
                 </div>
               )}
 
-              {/* Tactical Telemetry HUD Component (Live Real-Pitch Stats, Phase Selector & Grid Controls) */}
+              {/* Tactical Telemetry HUD & Quick Corner Kick Situation Trigger Bar */}
               {!isPitchFullscreen && (
-                <div className="w-full flex justify-center mb-1.5">
+                <div className="w-full flex flex-col items-center gap-2 mb-2">
                   <TacticalTelemetryHUD
                     players={players}
                     items={items}
@@ -2783,8 +3394,57 @@ export default function App() {
                     isMeasureMode={isMeasureMode}
                     onToggleMeasureMode={() => setIsMeasureMode(!isMeasureMode)}
                     onOpenMatchSheet={() => setIsMatchSheetOpen(true)}
+                    onOpenCornerStudio={() => {
+                      if (deviceMode === "android") {
+                        setAndroidActiveTab("corner");
+                      } else {
+                        handleQuickCornerKick("left", "inswing-near");
+                      }
+                      soundManager.playClick();
+                    }}
                     lang={lang}
                   />
+
+                  {/* 1-Click Quick Situation & Corner Kick Simulator Bar */}
+                  <div className="w-full max-w-[580px] bg-[#071c22]/90 border border-teal-400/20 rounded-2xl px-2.5 py-2 flex items-center justify-between gap-1.5 overflow-x-auto scrollbar-none shadow-md">
+                    <span className="text-[10px] font-bold text-teal-300 shrink-0 flex items-center gap-1 pr-1">
+                      <Flag className="w-3.5 h-3.5 text-teal-400" />
+                      <span>{lang === "id" ? "Simulasi Cepat:" : "Quick Sim:"}</span>
+                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickCornerKick("left", "inswing-near")}
+                        className="px-2.5 py-1 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 border border-teal-400/35 text-teal-100 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+                      >
+                        <span>🚩 {lang === "id" ? "Corner Kiri (In-Swing)" : "Left Corner (In-Swing)"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickCornerKick("right", "outswing-far")}
+                        className="px-2.5 py-1 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 border border-teal-400/35 text-teal-100 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+                      >
+                        <span>🚩 {lang === "id" ? "Corner Kanan (Overload)" : "Right Corner (Overload)"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickCornerKick("right", "short-triangle")}
+                        className="px-2.5 py-1 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/25 text-teal-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+                      >
+                        <span>📐 {lang === "id" ? "Corner Pendek 2v1" : "Short Corner 2v1"}</span>
+                      </button>
+                      {frames.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={handleResetFrames}
+                          className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-teal-100/80 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+                        >
+                          <RotateCcw className="w-3 h-3 text-teal-300" />
+                          <span>{lang === "id" ? "Formasi Normal" : "Normal Lineup"}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -3500,71 +4160,185 @@ export default function App() {
 
             </div>
           </div>
+
+          {/* Inline Live Multi-Phase Simulation Player Bar (Appears whenever Corner Kick or Tactical Drill has >1 phases) */}
+          {frames.length > 1 && !isPitchFullscreen && (
+            <div className="w-full max-w-[580px] bg-[#071e24]/95 border border-teal-400/30 rounded-2xl p-3 shadow-lg flex flex-col gap-2.5 animate-fadeIn">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextPlay = !isInlineSimPlaying;
+                      setIsInlineSimPlaying(nextPlay);
+                      if (nextPlay) soundManager.playWhistle();
+                      else soundManager.playClick();
+                    }}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-sm whitespace-nowrap ${
+                      isInlineSimPlaying
+                        ? "bg-amber-400 text-slate-950"
+                        : "bg-teal-400 hover:bg-teal-300 text-slate-950"
+                    }`}
+                  >
+                    {isInlineSimPlaying ? (
+                      <>
+                        <Pause className="w-3.5 h-3.5 fill-current" />
+                        <span>{lang === "id" ? "Jeda Simulasi" : "Pause Sim"}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>{lang === "id" ? "Putar Simulasi" : "Play Sim"}</span>
+                      </>
+                    )}
+                  </button>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-white">
+                      {activeSimulationTitle || (lang === "id" ? "Simulasi Taktis Aktif" : "Active Tactical Simulation")}
+                    </span>
+                    <span className="text-[10px] text-teal-300 font-medium">
+                      {frames[activeFrameIndex]?.name}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Phase Stepper Buttons */}
+                <div className="flex items-center gap-1 bg-[#041115] p-1 rounded-xl border border-teal-400/20">
+                  {frames.map((frame, idx) => {
+                    const isCurrent = activeFrameIndex === idx;
+                    return (
+                      <button
+                        key={frame.id}
+                        type="button"
+                        onClick={() => {
+                          setIsInlineSimPlaying(false);
+                          handleSelectFrameIndex(idx);
+                          soundManager.playClick();
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap font-mono tabular-nums ${
+                          isCurrent
+                            ? "bg-teal-500 text-slate-950 shadow-sm"
+                            : "text-teal-100/70 hover:text-white"
+                        }`}
+                      >
+                        {lang === "id" ? `Fasa ${idx + 1}` : `Phase ${idx + 1}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Active Phase Coaching Instruction */}
+              {frames[activeFrameIndex]?.instruction && (
+                <div className="text-[11px] text-teal-100/90 bg-[#051419]/80 border border-teal-400/15 rounded-xl px-3 py-2 leading-relaxed">
+                  {frames[activeFrameIndex].instruction}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Android Quick Action Hub & Integrated Formation Studio under pitch */}
+          {deviceMode === "android" && (
+            <div className="w-full max-w-[580px] flex flex-col gap-3 pt-2 border-t border-teal-400/15 mt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsFormationStudioModalOpen(true);
+                    soundManager.playClick();
+                  }}
+                  className="min-h-[42px] px-3 py-2.5 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all whitespace-nowrap shadow-sm"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>{lang === "id" ? "Studio Formasi" : "Formation Studio"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAndroidActiveTab("corner");
+                    soundManager.playClick();
+                  }}
+                  className="min-h-[42px] px-3 py-2.5 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/35 text-teal-200 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
+                >
+                  <Flag className="w-3.5 h-3.5 text-teal-300" />
+                  <span>{lang === "id" ? "Studio Corner" : "Corner Studio"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSquadManagementOpen(true);
+                    soundManager.playClick();
+                  }}
+                  className="min-h-[42px] px-3 py-2.5 rounded-xl bg-[#082229] hover:bg-[#0b2d36] border border-teal-400/20 text-teal-100 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
+                >
+                  <Users className="w-3.5 h-3.5 text-teal-300" />
+                  <span>{lang === "id" ? "Kelola Skuad" : "Squad"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMatchSheetOpen(true);
+                    soundManager.playClick();
+                  }}
+                  className="min-h-[42px] px-3 py-2.5 rounded-xl bg-[#082229] hover:bg-[#0b2d36] border border-teal-400/20 text-teal-100 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-teal-300" />
+                  <span>{lang === "id" ? "Lembar Laga" : "Match Sheet"}</span>
+                </button>
+              </div>
+
+              {/* Integrated Formation & Poster Studio Panel directly below pitch in Android mode */}
+              {renderAIImageGen()}
+            </div>
+          )}
         </div>
+      )}
 
-        {/* RIGHT COLUMN COLUMN: BRUSH CONTROLS & ANIMATION TIMELINE */}
-        <div className="lg:col-span-3 flex flex-col gap-5 lg:overflow-y-auto lg:max-h-[85vh] pl-1 h-auto">
-
-          {/* Playbook Animated Keyframes timeline */}
-          <AnimationTimeline
-            frames={frames}
-            activeFrameIndex={activeFrameIndex}
-            setActiveFrameIndex={handleSelectFrameIndex}
-            onPlayStateChange={setIsPlayingTactic}
-            onResetFrames={handleResetFrames}
-            onSaveCurrentFrameAsNew={handleSaveCurrentAsNewFrame}
-            onUpdateFrameDuration={handleUpdateFrameDuration}
-            onUpdateAllFramesDuration={handleUpdateAllFramesDuration}
-            playSpeed={playSpeed}
-            setPlaySpeed={setPlaySpeed}
-            transitionType={transitionType}
-            setTransitionType={setTransitionType}
-            showMovementTrails={showMovementTrails}
-            setShowMovementTrails={setShowMovementTrails}
-            onDeleteFrame={handleDeleteFrame}
-            lang={lang}
-          />
-
-          {/* Tactical Drills Menu to load exercises */}
-          <TacticalDrills
-            onLoadDrill={handleLoadTacticalDrill}
-            currentFrames={frames}
-            currentSportMode={sportMode}
-            lang={lang}
-          />
-
-          {/* AI Formation Image Generator (Gemini Imagen) */}
-          <AIFormationImageGenerator
-            formation={formation}
-            teamName={teamName}
-            primaryColor={primaryColor}
-            gkColor={gkColor}
-            numberColor={numberColor}
-            players={players}
-            teamLogo={teamLogo}
-            teamJersey={teamJersey}
-            lang={lang}
-            managerName={managerName}
-            managerPhoto={managerPhoto}
-            isEnemyModeActive={isEnemyModeActive}
-          />
-
-          {/* AI Coach integration */}
-          <AICoach
-            key={settingsKey}
-            players={players}
-            items={items}
-            currentFormation={formation}
-            onLoadGeneratedPlay={handleLoadGeneratedPlay}
-            onApplyFormation={applyPresetFormation}
-            onOpenSettings={(tab) => {
-              setSettingsInitialTab(tab);
-              setIsSettingsModalOpen(true);
-            }}
-            lang={lang}
-          />
-        </div>
+        {/* RIGHT COLUMN: CORNER KICK SIMULATOR, TIMELINE & AI */}
+        {deviceMode === "pc" ? (
+          <div className="lg:col-span-3 flex flex-col gap-5 lg:overflow-y-auto lg:max-h-[85vh] pl-1 h-auto">
+            {renderCornerKickSimulator()}
+            {renderAnimationTimeline()}
+            {renderTacticalDrills()}
+            {renderAICoach()}
+          </div>
+        ) : (
+          <>
+            {androidActiveTab === "corner" && (
+              <div className="w-full max-w-2xl mx-auto flex flex-col gap-5 animate-fadeIn">
+                {renderCornerKickSimulator()}
+              </div>
+            )}
+            {androidActiveTab === "animation" && (
+              <div className="w-full max-w-2xl mx-auto flex flex-col gap-5 animate-fadeIn">
+                {renderAnimationTimeline()}
+                {renderTacticalDrills()}
+              </div>
+            )}
+            {androidActiveTab === "ai" && (
+              <div className="w-full max-w-2xl mx-auto flex flex-col gap-5 animate-fadeIn">
+                {renderAIImageGen()}
+                {renderAICoach()}
+              </div>
+            )}
+          </>
+        )}
       </main>
+
+      {/* Android Bottom Navigation */}
+      {deviceMode === "android" && (
+        <AndroidBottomNav
+          activeTab={androidActiveTab}
+          onChangeTab={setAndroidActiveTab}
+          onOpenSettings={() => {
+            setSettingsInitialTab("display");
+            setIsSettingsModalOpen(true);
+          }}
+          lang={lang}
+        />
+      )}
+    </div>
+  </div>
 
       {/* Official Automated Sponsor Acquisition & Advertising Portal */}
       <div className="max-w-7xl w-full mx-auto px-3 md:px-6 mb-6 select-none">
