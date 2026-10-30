@@ -138,9 +138,9 @@ export default function TacticalTelemetryHUD({
   ];
 
   return (
-    <div className="w-full max-w-[580px] flex flex-col gap-1.5 select-none z-40">
+    <div className="w-full max-w-[var(--pitch-max-w,580px)] flex flex-col gap-1 select-none z-40">
       {/* Unified Logo-Only Telemetry & Tactical Tool Dock (Hover reveals text above each tool) */}
-      <div className="w-full bg-[#071c22]/95 backdrop-blur-xl border border-teal-400/20 rounded-2xl px-2.5 py-1.5 shadow-[0_8px_24px_rgba(3,12,16,0.45)] flex flex-col gap-1.5">
+      <div className="w-full bg-[#071c22]/95 backdrop-blur-xl border border-teal-400/20 rounded-2xl px-2 py-1 shadow-[0_8px_24px_rgba(3,12,16,0.45)] flex flex-col gap-1">
         <div className="flex flex-wrap items-center justify-between gap-1.5">
           {/* Left: Compact Icon + Number Telemetry Pill (No text words; hover shows explanation above) */}
           <div className="relative group">

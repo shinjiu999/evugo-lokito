@@ -56,12 +56,22 @@ export default function AndroidBottomNav({
 
   return (
     <nav
-      aria-label={lang === "id" ? "Navigasi Bawah Android" : "Android Bottom Navigation"}
-      className="sticky bottom-0 left-0 right-0 z-50 bg-[#051419]/95 backdrop-blur-xl border-t border-teal-400/20 px-2 py-2 shadow-[0_-8px_30px_rgba(2,10,14,0.75)] select-none"
+      aria-label={lang === "id" ? "Navigasi Bawah HP & Tablet" : "Mobile & Tablet Bottom Navigation"}
+      className="shrink-0 w-full z-50 bg-[#051419]/95 backdrop-blur-xl border-t border-teal-400/20 px-2 py-1.5 shadow-[0_-8px_30px_rgba(2,10,14,0.75)] select-none"
     >
-      <div className="grid grid-cols-6 items-center max-w-xl mx-auto gap-1.5">
+      <div className="grid grid-cols-6 items-center max-w-2xl mx-auto gap-1.5">
         {navItems.map((item, idx) => {
           const isActive = activeTab === item.key;
+          const shortLabel =
+            item.key === "pitch"
+              ? lang === "id" ? "Lapangan" : "Pitch"
+              : item.key === "corner"
+              ? "Corner"
+              : item.key === "squad"
+              ? lang === "id" ? "Klub/Tim" : "Club"
+              : item.key === "animation"
+              ? lang === "id" ? "Animasi" : "Anim"
+              : "AI Coach";
           return (
             <div key={item.key} className="relative group flex justify-center">
               <button
@@ -70,18 +80,21 @@ export default function AndroidBottomNav({
                   onChangeTab(item.key);
                   soundManager.playClick();
                 }}
-                className={`w-full h-11 flex items-center justify-center rounded-xl transition-all duration-150 cursor-pointer relative ${
+                className={`w-full h-10 sm:h-11 px-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 rounded-xl transition-all duration-150 cursor-pointer relative ${
                   isActive
-                    ? "bg-teal-400 text-slate-950 shadow-[0_0_12px_rgba(45,212,191,0.35)]"
-                    : "bg-[#071c22]/80 hover:bg-white/10 border border-teal-400/15"
+                    ? "bg-teal-400 text-slate-950 shadow-[0_0_12px_rgba(45,212,191,0.35)] font-black"
+                    : "bg-[#071c22]/80 hover:bg-white/10 text-teal-100/80 border border-teal-400/15"
                 }`}
                 aria-label={item.label}
                 aria-current={isActive ? "page" : undefined}
               >
                 {isActive && (
-                  <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-teal-300" />
+                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full bg-teal-300" />
                 )}
-                <NanoBananaLogo tool={item.tool} size="md" active={isActive} />
+                <NanoBananaLogo tool={item.tool} size="sm" active={isActive} />
+                <span className="text-[8px] sm:text-[9.5px] font-extrabold uppercase tracking-tight leading-none truncate max-w-full">
+                  {shortLabel}
+                </span>
               </button>
               <ToolHoverTooltip
                 category={item.category}
@@ -93,7 +106,7 @@ export default function AndroidBottomNav({
           );
         })}
 
-        {/* Settings Logo-Only Button */}
+        {/* Settings Button */}
         <div className="relative group flex justify-center">
           <button
             type="button"
@@ -101,10 +114,13 @@ export default function AndroidBottomNav({
               onOpenSettings();
               soundManager.playClick();
             }}
-            className="w-full h-11 flex items-center justify-center rounded-xl transition-all duration-150 cursor-pointer bg-[#071c22]/80 hover:bg-white/10 border border-teal-400/15"
+            className="w-full h-10 sm:h-11 px-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 rounded-xl transition-all duration-150 cursor-pointer bg-[#071c22]/80 hover:bg-white/10 text-teal-100/80 border border-teal-400/15"
             aria-label={lang === "id" ? "Pengaturan" : "Settings"}
           >
-            <NanoBananaLogo tool="settings" size="md" />
+            <NanoBananaLogo tool="settings" size="sm" />
+            <span className="text-[8px] sm:text-[9.5px] font-extrabold uppercase tracking-tight leading-none truncate">
+              {lang === "id" ? "Setelan" : "Config"}
+            </span>
           </button>
           <ToolHoverTooltip
             category={lang === "id" ? "SISTEM" : "SYSTEM"}

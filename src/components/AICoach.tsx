@@ -300,28 +300,30 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
     settingsTitle: lang === "id" ? "Konfigurasikan Model AI & MCP Server" : "Configure AI Model & MCP Server"
   };
 
+  const [coachSubTab, setCoachSubTab] = useState<"generator" | "scout">("generator");
+
   return (
     <Interactive3DCard glowColor="rgba(16, 185, 129, 0.4)">
-      <div className="p-4 flex flex-col gap-4 relative">
-        {/* Section 6: Tactical AI Header & Language Pill */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-              <Sparkles className="w-4.5 h-4.5 animate-pulse" />
+      <div className="p-3 sm:p-3.5 flex flex-col gap-2.5 relative">
+        {/* Tactical AI Header */}
+        <div className="flex items-center justify-between border-b border-teal-400/15 pb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-white shadow-md shrink-0">
+              <Sparkles className="w-4 h-4" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <h3 className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 uppercase tracking-wider">
+                <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider truncate">
                   Tactical AI Coach
                 </h3>
-                <span className="text-[8px] bg-emerald-500/15 text-emerald-300 px-1.5 py-0.2 rounded-full border border-emerald-500/30 font-extrabold uppercase">
-                  {lang === "id" ? "✨ Indonesian AI" : "✨ English AI"}
+                <span className="text-[8px] text-teal-300 font-mono font-bold uppercase shrink-0">
+                  {lang === "id" ? "ID" : "EN"}
                 </span>
               </div>
-              <p className="text-[9.5px] text-gray-400 font-medium">{l.hubSubtitle}</p>
+              <p className="text-[9.5px] text-gray-400 font-medium truncate">{l.hubSubtitle}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => {
                 if (onOpenSettings) {
@@ -339,220 +341,205 @@ export default function AICoach({ players, items, currentFormation, onLoadGenera
           </div>
         </div>
 
-        {/* AI Mode Connection Recommendation & Status Banner */}
-        {(!customApiKey.trim() && !mcpEnabled) ? (
-          <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/25 via-[#18140a]/70 to-[#0c1612]/70 p-3 flex flex-col gap-2 shadow-[0_4px_16px_rgba(245,158,11,0.08)]">
-            <div className="flex items-start gap-2">
-              <span className="text-base leading-none mt-0.5 shrink-0">💡</span>
-              <div className="space-y-0.5 flex-1">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-[10.5px] font-black text-amber-300 uppercase tracking-wide">
-                    {lang === "id" ? "Disarankan: Sambungkan AI / MCP Anda" : "Recommended: Connect Your AI or MCP"}
+        {/* Sub-Tab Switcher inside AI Coach */}
+        <div className="grid grid-cols-2 gap-1 bg-[#041014] p-1 rounded-xl border border-teal-400/20">
+          <button
+            type="button"
+            onClick={() => setCoachSubTab("generator")}
+            className={`py-1 px-2 rounded-lg text-[10.5px] font-extrabold transition-all cursor-pointer ${
+              coachSubTab === "generator"
+                ? "bg-teal-400 text-slate-950 shadow-sm"
+                : "text-teal-100/70 hover:text-white"
+            }`}
+          >
+            {lang === "id" ? "1. Generator Taktik" : "1. Tactic Generator"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCoachSubTab("scout")}
+            className={`py-1 px-2 rounded-lg text-[10.5px] font-extrabold transition-all cursor-pointer ${
+              coachSubTab === "scout"
+                ? "bg-teal-400 text-slate-950 shadow-sm"
+                : "text-teal-100/70 hover:text-white"
+            }`}
+          >
+            {lang === "id" ? "2. Riset, Video & API" : "2. Scout, Video & API"}
+          </button>
+        </div>
+
+        {coachSubTab === "generator" ? (
+          <>
+            {/* Tactical Suggestion Highlight Card */}
+            <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-950/25 to-[#081812]/70 p-2.5 flex flex-col gap-2 shadow-[0_8px_20px_rgba(16,185,129,0.08)]">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="text-[10.5px] font-black text-white tracking-wide flex items-center gap-1">
+                    <span>⚡</span> {lang === "id" ? "Saran Taktis Cerdas" : "AI Tactical Suggestion"}
                   </span>
-                  <span className="text-[8px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">
-                    REKOMENDASI
+                  <span className="text-[9px] text-emerald-200/70 font-medium mt-0.5 leading-snug">
+                    {lang === "id"
+                      ? "Analisis formasi dan celah transisi lawan secara otomatis."
+                      : "Automatic tactical recommendations to optimize team structure."}
                   </span>
                 </div>
-                <p className="text-[9.5px] text-gray-300 leading-relaxed">
-                  {lang === "id"
-                    ? "Untuk mengaktifkan seluruh mode AI taktis secara maksimal, bebas batasan kuota publik, dan menjaga privasi strategi tim Anda, disarankan mengkoneksikan Kunci API AI atau server Model Context Protocol (MCP) pribadi Anda."
-                    : "For full AI tactical capabilities, rate-limit-free speed, and private club tactics protection, we recommend connecting your personal AI API Key or your own MCP server."}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenSettings) {
-                    onOpenSettings("gemini");
-                  } else {
-                    setActiveTab("ai");
-                    setIsSettingsOpen(true);
-                  }
-                }}
-                className="py-1.5 px-2 bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
-              >
-                <span>🔑</span>
-                <span>{lang === "id" ? "Sambung API Key" : "Connect API Key"}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenSettings) {
-                    onOpenSettings("mcp");
-                  } else {
-                    setActiveTab("mcp");
-                    setIsSettingsOpen(true);
-                  }
-                }}
-                className="py-1.5 px-2 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
-              >
-                <span>🌐</span>
-                <span>{lang === "id" ? "Sambung Server MCP" : "Connect MCP Server"}</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/20 px-3 py-2 flex items-center justify-between gap-2 shadow-sm">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-              <div className="truncate">
-                <span className="text-[10px] font-bold text-white block truncate">
-                  {lang === "id" ? "🟢 Mode AI Mandiri Aktif: " : "🟢 Self-Hosted AI Active: "}
-                  {customApiKey.trim() ? (lang === "id" ? "Kunci API AI Pribadi" : "Personal AI API Key") : `Server MCP (${mcpUrl})`}
-                </span>
-                <span className="text-[8.5px] text-emerald-400/80 font-mono block truncate">
-                  {customApiKey.trim() ? "Bebas batasan kuota publik • Respons instan" : `Tool: ${mcpTool}`}
+                <span className="text-[8px] font-black uppercase text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/25 shrink-0">
+                  PRO
                 </span>
               </div>
-            </div>
-            <button
-              onClick={() => {
-                if (onOpenSettings) {
-                  onOpenSettings(customApiKey.trim() ? "gemini" : "mcp");
-                } else {
-                  setIsSettingsOpen(true);
-                }
-              }}
-              className="text-[9px] text-emerald-300 hover:text-white bg-emerald-500/15 hover:bg-emerald-500/30 px-2 py-1 rounded-lg border border-emerald-500/25 font-bold shrink-0 transition-all cursor-pointer"
-            >
-              {lang === "id" ? "Kelola" : "Manage"}
-            </button>
-          </div>
-        )}
 
-        {/* Section 6: Tactical Suggestion Highlight Card */}
-        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-950/25 to-[#081812]/70 p-3 flex flex-col gap-2.5 shadow-[0_8px_20px_rgba(16,185,129,0.08)]">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex flex-col">
-              <span className="text-[10.5px] font-black text-white tracking-wide flex items-center gap-1">
-                <span>⚡</span> {lang === "id" ? "Saran Taktis Cerdas" : "AI Tactical Suggestion"}
-              </span>
-              <span className="text-[9px] text-emerald-200/70 font-medium mt-0.5 leading-snug">
-                {lang === "id" 
-                  ? "Analisis formasi dan celah transisi lawan untuk hasil optimal."
-                  : "Tactical recommendations to optimize team structure & counter-press."}
-              </span>
-            </div>
-            <span className="text-[8px] font-black uppercase text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/25 shrink-0">
-              PRO
-            </span>
-          </div>
-
-          <button
-            onClick={() => handleGenerate(lang === "id" ? "Buat animasi taktik menyerang cepat dan efisien dengan rotasi pemain dinamis" : "Create dynamic high-tempo build-up play with fluid player rotation")}
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-[11px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-500/20 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{lang === "id" ? "Add AI suggestion" : "Add AI suggestion"}</span>
-          </button>
-        </div>
-
-        {/* Preset selections */}
-        <div className="space-y-1.5">
-          <span className="text-[9.5px] uppercase font-black text-[#5e6680] tracking-wider block select-none">
-            {l.presetLabel}
-          </span>
-          <div className="grid grid-cols-2 gap-2">
-            {TACTICAL_PRESETS.map((preset) => (
               <button
-                key={preset.id}
-                onClick={() => handleGenerate(preset.prompt)}
+                onClick={() => handleGenerate(lang === "id" ? "Buat animasi taktik menyerang cepat dan efisien dengan rotasi pemain dinamis" : "Create dynamic high-tempo build-up play with fluid player rotation")}
                 disabled={loading}
-                className="text-left bg-white/5 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/30 rounded-xl p-2 transition-all text-xs text-gray-200 flex flex-col justify-between h-14 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-[11px] py-1.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-500/20 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               >
-                <span className="font-bold truncate w-full text-[11px]">{preset.label}</span>
-                <span className="text-[8px] text-gray-500 line-clamp-1">{preset.prompt}</span>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{lang === "id" ? "Terapkan Saran AI" : "Add AI Suggestion"}</span>
               </button>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        <div className="border-t border-white/[0.08]" aria-hidden="true" />
-
-        {/* Custom prompt entry */}
-        <div className="space-y-2">
-          <label htmlFor="ai-instruction-prompt-input" className="text-[9.5px] uppercase font-black text-[#5e6680] tracking-wider block">
-            {l.instructionLabel}
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="ai-instruction-prompt-input"
-              type="text"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={l.placeholder}
-              className="flex-1 bg-black/40 border border-white/10 text-xs rounded-xl px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500 font-medium"
-              disabled={loading}
-            />
-            <button
-              onClick={() => handleGenerate("")}
-              disabled={loading || !prompt.trim()}
-              className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-xs px-3.5 rounded-xl flex items-center gap-1.5 transition-all shadow-lg active:scale-95 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
-            >
-              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" /> {l.animateBtn}
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={handleAnalyzeSynergy}
-            className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 font-bold text-[10.5px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
-          >
-            <Activity className="w-3.5 h-3.5 animate-pulse text-emerald-400" aria-hidden="true" /> {l.scoutBtn}
-          </button>
-          <button
-            onClick={() => setIsYoutubeModalOpen(true)}
-            className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 font-bold text-[10.5px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
-          >
-            <span className="text-red-400" aria-hidden="true">📺</span>
-            <span>{lang === "id" ? "Analisis Video" : "Video Analysis"}</span>
-          </button>
-        </div>
-
-        {/* Section 6: Settings & Controls Toggle Section */}
-        <div className="border-t border-white/[0.08] pt-2.5 flex flex-col gap-2">
-          <span className="text-[9px] uppercase font-black text-[#5e6680] tracking-wider block">
-            {lang === "id" ? "PENGATURAN LANJUTAN" : "SETTINGS & ADVANCED"}
-          </span>
-          <div className="flex flex-col gap-1.5">
-            <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
-              <span className="text-[10px] text-gray-300 font-bold flex items-center gap-1.5">
-                <span>🎛️</span> {lang === "id" ? "Customizer Taktik" : "Tactical Customizer"}
+            {/* Preset selections */}
+            <div className="space-y-1">
+              <span className="text-[9.5px] uppercase font-black text-teal-200/70 tracking-wider block select-none">
+                {l.presetLabel}
               </span>
-              <input 
-                type="checkbox" 
-                defaultChecked 
-                className="accent-emerald-500 w-4 h-4 rounded cursor-pointer" 
-              />
-            </label>
-            <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
-              <span className="text-[10px] text-gray-300 font-bold flex items-center gap-1.5">
-                <span>⚙️</span> {lang === "id" ? "Customize Settings" : "Customize Settings"}
-              </span>
-              <input 
-                type="checkbox" 
-                defaultChecked 
-                className="accent-emerald-500 w-4 h-4 rounded cursor-pointer" 
-              />
-            </label>
-            <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
-              <span className="text-[10px] text-gray-300 font-bold flex items-center gap-1.5">
-                <span>📊</span> {lang === "id" ? "Statistik & Heatmap" : "Enable Telemetry & Heatmap"}
-              </span>
-              <input 
-                type="checkbox" 
-                defaultChecked 
-                className="accent-emerald-500 w-4 h-4 rounded cursor-pointer" 
-              />
-            </label>
-          </div>
-        </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {TACTICAL_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => handleGenerate(preset.prompt)}
+                    disabled={loading}
+                    className="text-left bg-white/5 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/30 rounded-xl p-2 transition-all text-xs text-gray-200 flex flex-col justify-between min-h-[48px] disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+                  >
+                    <span className="font-bold truncate w-full text-[10.5px]">{preset.label}</span>
+                    <span className="text-[8.5px] text-gray-400 line-clamp-1">{preset.prompt}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom prompt entry */}
+            <div className="space-y-1">
+              <label htmlFor="ai-instruction-prompt-input" className="text-[9.5px] uppercase font-black text-teal-200/70 tracking-wider block">
+                {l.instructionLabel}
+              </label>
+              <div className="flex gap-1.5">
+                <input
+                  id="ai-instruction-prompt-input"
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder={l.placeholder}
+                  className="flex-1 min-w-0 bg-black/40 border border-white/10 text-[11px] rounded-xl px-2.5 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-medium"
+                  disabled={loading}
+                />
+                <button
+                  onClick={() => handleGenerate("")}
+                  disabled={loading || !prompt.trim()}
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-[11px] px-3 rounded-xl flex items-center gap-1 transition-all shadow-lg active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+                >
+                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" /> {l.animateBtn}
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* AI Mode Connection Recommendation & Status Banner */}
+            {(!customApiKey.trim() && !mcpEnabled) ? (
+              <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/25 via-[#18140a]/70 to-[#0c1612]/70 p-2.5 flex flex-col gap-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-sm leading-none mt-0.5 shrink-0">💡</span>
+                  <div className="space-y-0.5 flex-1">
+                    <span className="text-[10px] font-black text-amber-300 uppercase tracking-wide block">
+                      {lang === "id" ? "Sambungkan AI / MCP Pribadi" : "Connect Personal AI / MCP"}
+                    </span>
+                    <p className="text-[9px] text-gray-300 leading-snug">
+                      {lang === "id"
+                        ? "Gunakan Kunci API AI atau server MCP pribadi Anda untuk kecepatan penuh bebas kuota publik."
+                        : "Connect your personal AI API Key or MCP server for full speed without public rate limits."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenSettings) {
+                        onOpenSettings("gemini");
+                      } else {
+                        setActiveTab("ai");
+                        setIsSettingsOpen(true);
+                      }
+                    }}
+                    className="py-1.5 px-2 bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
+                  >
+                    <span>🔑</span>
+                    <span>{lang === "id" ? "API Key" : "API Key"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenSettings) {
+                        onOpenSettings("mcp");
+                      } else {
+                        setActiveTab("mcp");
+                        setIsSettingsOpen(true);
+                      }
+                    }}
+                    className="py-1.5 px-2 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
+                  >
+                    <span>🌐</span>
+                    <span>{lang === "id" ? "Server MCP" : "MCP Server"}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/20 px-3 py-2 flex items-center justify-between gap-2 shadow-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                  <div className="truncate">
+                    <span className="text-[10px] font-bold text-white block truncate">
+                      {lang === "id" ? "Mode AI Mandiri Aktif: " : "Self-Hosted AI Active: "}
+                      {customApiKey.trim() ? (lang === "id" ? "Kunci API Pribadi" : "Personal API Key") : `MCP (${mcpUrl})`}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (onOpenSettings) {
+                      onOpenSettings(customApiKey.trim() ? "gemini" : "mcp");
+                    } else {
+                      setIsSettingsOpen(true);
+                    }
+                  }}
+                  className="text-[9px] text-emerald-300 hover:text-white bg-emerald-500/15 hover:bg-emerald-500/30 px-2 py-1 rounded-lg border border-emerald-500/25 font-bold shrink-0 transition-all cursor-pointer"
+                >
+                  {lang === "id" ? "Kelola" : "Manage"}
+                </button>
+              </div>
+            )}
+
+            {/* Scout & Video Analysis Buttons */}
+            <div className="grid grid-cols-1 gap-1.5">
+              <button
+                onClick={handleAnalyzeSynergy}
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-300 font-bold text-[10.5px] py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98]"
+              >
+                <Activity className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+                <span>{l.scoutBtn}</span>
+              </button>
+              <button
+                onClick={() => setIsYoutubeModalOpen(true)}
+                className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-300 font-bold text-[10.5px] py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98]"
+              >
+                <span aria-hidden="true">📺</span>
+                <span>{lang === "id" ? "Analisis Taktik dari Video YouTube" : "YouTube Tactical Video Analysis"}</span>
+              </button>
+            </div>
+          </>
+        )}
 
       {/* Loading state indicator */}
       {loading && (

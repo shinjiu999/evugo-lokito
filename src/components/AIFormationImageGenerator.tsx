@@ -72,6 +72,7 @@ interface AIFormationImageGeneratorProps {
   externalOpenPosterStudio?: boolean;
   onExternalClosePosterStudio?: () => void;
   viewMode?: "formation-only" | "poster-stage";
+  activeSubSection?: "all" | "presets" | "lines";
   onSwitchToPitch?: () => void;
   isPitchFullscreen?: boolean;
 }
@@ -114,9 +115,12 @@ export default function AIFormationImageGenerator({
   externalOpenPosterStudio = false,
   onExternalClosePosterStudio,
   viewMode = "formation-only",
+  activeSubSection = "all",
   onSwitchToPitch,
   isPitchFullscreen = false
 }: AIFormationImageGeneratorProps) {
+  const [internalStudioTab, setInternalStudioTab] = useState<"presets" | "lines">("presets");
+  const effectiveSubTab = activeSubSection === "all" ? internalStudioTab : activeSubSection;
   // Theme & Format State (Default to Soft Sporty Tosca)
   const [posterTheme, setPosterTheme] = useState<PosterTheme>("sporty_tosca");
   const [posterFormat, setPosterFormat] = useState<PosterFormat>("landscape");
@@ -548,323 +552,362 @@ export default function AIFormationImageGenerator({
     FWD: startingPlayers.filter((p) => p.role === "FWD").length
   };
 
-  const renderTacticalAdjusterControls = (isModal = false) => (
-    <div className="space-y-3.5">
-      {/* 1. Formation Preset Grid */}
-      {availableFormations.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-teal-200/90">
-              {lang === "id" ? "Pilih Bentuk Formasi Dasar" : "Select Base Formation"}
-            </span>
-            <span className="text-[11px] font-mono tabular-nums text-teal-300 font-semibold">
-              {formation} · {sportMode.toUpperCase()}
-            </span>
-          </div>
+  const renderTacticalAdjusterControls = (isModal = false) => {
+    const showPresets = isModal || effectiveSubTab === "presets";
+    const showLines = isModal || effectiveSubTab === "lines";
 
-          <div
-            className={`grid ${
-              isModal ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-3"
-            } gap-1.5 max-h-44 overflow-y-auto pr-0.5`}
-          >
-            {availableFormations.map((item) => {
-              const isSelected = formation === item.key;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => onSelectFormation && onSelectFormation(item.key)}
-                  className={`min-h-[42px] px-2 py-1.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-center ${
-                    isSelected
-                      ? "bg-teal-500/25 border-teal-400 text-white shadow-sm"
-                      : "bg-[#051419]/80 border-teal-400/15 text-teal-100/80 hover:border-teal-400/35 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-extrabold font-mono tabular-nums tracking-tight whitespace-nowrap">
-                      {item.key}
-                    </span>
-                    <span className="text-[11px] shrink-0">{item.icon}</span>
-                  </div>
-                  <span className="text-[9.5px] text-teal-200/65 truncate leading-tight">
-                    {item.desc}
-                  </span>
-                </button>
-              );
-            })}
+    return (
+      <div className="space-y-2.5">
+        {/* Internal Sub-Tab Switcher when not in modal and activeSubSection is "all" */}
+        {!isModal && activeSubSection === "all" && (
+          <div className="grid grid-cols-2 gap-1 bg-[#041014] p-1 rounded-xl border border-teal-400/20">
+            <button
+              type="button"
+              onClick={() => setInternalStudioTab("presets")}
+              className={`py-1.5 px-2 rounded-lg text-[10.5px] font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                internalStudioTab === "presets"
+                  ? "bg-teal-400 text-slate-950 shadow-sm"
+                  : "text-teal-100/70 hover:text-white"
+              }`}
+            >
+              <LayoutGrid className="w-3 h-3" />
+              <span>{lang === "id" ? "1. Formasi & Rakitan" : "1. Formations"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setInternalStudioTab("lines")}
+              className={`py-1.5 px-2 rounded-lg text-[10.5px] font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                internalStudioTab === "lines"
+                  ? "bg-teal-400 text-slate-950 shadow-sm"
+                  : "text-teal-100/70 hover:text-white"
+              }`}
+            >
+              <Sliders className="w-3 h-3" />
+              <span>{lang === "id" ? "2. Lini & Gaya Taktis" : "2. Lines & Style"}</span>
+            </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Custom Formations Saved by User */}
-      {customFormations.length > 0 && (
-        <div className="space-y-1.5 pt-1 border-t border-teal-400/15">
-          <span className="text-[10.5px] font-bold text-teal-300 block">
-            {lang === "id" ? "Formasi Kustom Tersimpan" : "Saved Custom Formations"}
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {customFormations.map((cf) => {
-              const isSel = formation === cf.name;
-              return (
-                <div
-                  key={cf.id}
-                  className={`inline-flex items-center rounded-xl border transition-all ${
-                    isSel
-                      ? "bg-teal-500/25 border-teal-400 text-white"
-                      : "bg-[#051419]/90 border-teal-400/20 text-teal-100/85 hover:border-teal-400/40"
-                  }`}
-                >
+        {/* 1. Formation Preset Grid */}
+        {showPresets && availableFormations.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10.5px] font-bold text-teal-200/90">
+                {lang === "id" ? "Pilih Bentuk Formasi Dasar" : "Select Base Formation"}
+              </span>
+              <span className="text-[10.5px] font-mono tabular-nums text-teal-300 font-semibold">
+                {formation} · {sportMode.toUpperCase()}
+              </span>
+            </div>
+
+            <div
+              className={`grid ${
+                isModal ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-3"
+              } gap-1.5`}
+            >
+              {availableFormations.map((item) => {
+                const isSelected = formation === item.key;
+                return (
                   <button
+                    key={item.key}
                     type="button"
-                    onClick={() => onApplyCustomFormation && onApplyCustomFormation(cf)}
-                    className="px-2.5 py-1.5 text-[11px] font-bold cursor-pointer whitespace-nowrap"
+                    onClick={() => onSelectFormation && onSelectFormation(item.key)}
+                    className={`min-h-[36px] px-2 py-1 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-center ${
+                      isSelected
+                        ? "bg-teal-500/25 border-teal-400 text-white shadow-sm"
+                        : "bg-[#051419]/80 border-teal-400/15 text-teal-100/80 hover:border-teal-400/35 hover:text-white"
+                    }`}
                   >
-                    ★ {cf.name}
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[11px] font-extrabold font-mono tabular-nums tracking-tight whitespace-nowrap">
+                        {item.key}
+                      </span>
+                      <span className="text-[10px] shrink-0">{item.icon}</span>
+                    </div>
+                    <span className="text-[8.5px] text-teal-200/65 truncate leading-tight">
+                      {item.desc}
+                    </span>
                   </button>
-                  {onDeleteCustomFormation && (
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Custom Formations Saved by User */}
+        {showPresets && customFormations.length > 0 && (
+          <div className="space-y-1 pt-1 border-t border-teal-400/15">
+            <span className="text-[10px] font-bold text-teal-300 block">
+              {lang === "id" ? "Formasi Kustom Tersimpan" : "Saved Custom Formations"}
+            </span>
+            <div className="flex flex-wrap gap-1">
+              {customFormations.map((cf) => {
+                const isSel = formation === cf.name;
+                return (
+                  <div
+                    key={cf.id}
+                    className={`inline-flex items-center rounded-xl border transition-all ${
+                      isSel
+                        ? "bg-teal-500/25 border-teal-400 text-white"
+                        : "bg-[#051419]/90 border-teal-400/20 text-teal-100/85 hover:border-teal-400/40"
+                    }`}
+                  >
                     <button
                       type="button"
-                      onClick={() => onDeleteCustomFormation(cf.id)}
-                      className="pr-2 pl-1 py-1.5 text-teal-200/50 hover:text-rose-400 cursor-pointer"
-                      title={lang === "id" ? "Hapus formasi kustom" : "Delete custom formation"}
+                      onClick={() => onApplyCustomFormation && onApplyCustomFormation(cf)}
+                      className="px-2 py-1 text-[10px] font-bold cursor-pointer whitespace-nowrap"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      ★ {cf.name}
                     </button>
-                  )}
-                </div>
-              );
-            })}
+                    {onDeleteCustomFormation && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteCustomFormation(cf.id)}
+                        className="pr-1.5 pl-1 py-1 text-teal-200/50 hover:text-rose-400 cursor-pointer"
+                        title={lang === "id" ? "Hapus formasi kustom" : "Delete custom formation"}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 2. 1-Click Tactical Style Presets */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-teal-200/90 flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5 text-teal-400" />
-            {lang === "id" ? "Gaya Taktis Instan (1-Klik)" : "1-Click Tactical Style"}
-          </span>
-          <button
-            type="button"
-            onClick={() => onApplyTacticalStyle && onApplyTacticalStyle("balanced")}
-            className="text-[10.5px] font-semibold text-teal-300 hover:text-teal-200 flex items-center gap-1 cursor-pointer"
-          >
-            <RotateCcw className="w-3 h-3" />
-            <span>{lang === "id" ? "Reset 50%" : "Reset 50%"}</span>
-          </button>
-        </div>
+        {/* 5. Save Current Pitch Positions as Custom Formation (shown under Presets tab) */}
+        {showPresets && onSaveCustomFormation && (
+          <div className="flex items-center gap-1.5 pt-1">
+            <input
+              type="text"
+              value={customFormName}
+              onChange={(e) => setCustomFormName(e.target.value)}
+              placeholder={
+                lang === "id"
+                  ? `Simpan rakitan (cth: ${formation} Attack)...`
+                  : `Save custom layout (e.g. ${formation} Pro)...`
+              }
+              className="flex-1 min-w-0 px-2.5 py-1.5 rounded-xl bg-[#051419] border border-teal-400/20 text-white text-[11px] placeholder:text-teal-200/40 focus:border-teal-400 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleSaveCustomClick}
+              className="min-h-[34px] px-2.5 py-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-extrabold text-[11px] flex items-center gap-1 cursor-pointer transition-all active:scale-95 whitespace-nowrap shrink-0"
+            >
+              {savedFeedback ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{lang === "id" ? "Tersimpan" : "Saved"}</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{lang === "id" ? "Simpan" : "Save"}</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
-        <div className="grid grid-cols-3 gap-1.5">
-          {TACTICAL_STYLES.map((style) => {
-            const isSelected = formationShape.stylePreset === style.id;
-            return (
+        {/* 2. 1-Click Tactical Style Presets */}
+        {showLines && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10.5px] font-bold text-teal-200/90 flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-teal-400" />
+                {lang === "id" ? "Gaya Taktis Instan (1-Klik)" : "1-Click Tactical Style"}
+              </span>
               <button
-                key={style.id}
                 type="button"
-                onClick={() => onApplyTacticalStyle && onApplyTacticalStyle(style.id)}
-                title={style.shortDesc}
-                className={`min-h-[40px] px-2 py-1.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center text-center whitespace-nowrap ${
-                  isSelected
-                    ? "bg-teal-400 text-slate-950 border-teal-300 shadow-sm font-extrabold"
-                    : "bg-[#051419]/80 border-teal-400/15 text-teal-100/80 hover:border-teal-400/35 hover:text-white"
-                }`}
+                onClick={() => onApplyTacticalStyle && onApplyTacticalStyle("balanced")}
+                className="text-[10px] font-semibold text-teal-300 hover:text-teal-200 flex items-center gap-1 cursor-pointer"
               >
-                {style.label}
+                <RotateCcw className="w-3 h-3" />
+                <span>{lang === "id" ? "Reset 50%" : "Reset 50%"}</span>
               </button>
-            );
-          })}
-        </div>
-      </div>
+            </div>
 
-      {/* 3. Real-Time Tactical Shape Sliders (Line Height, Team Width, Compactness) */}
-      <div className="bg-[#051419]/90 border border-teal-400/20 rounded-2xl p-3 space-y-3">
-        {/* Defensive Line Height */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="font-semibold text-teal-100 flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-teal-400" />
-              {lang === "id" ? "Garis Pertahanan (Line Height)" : "Defensive Line Height"}
-            </span>
-            <span className="font-mono tabular-nums font-bold text-teal-300">
-              {formationShape.lineHeight}% ·{" "}
-              {formationShape.lineHeight >= 65
-                ? lang === "id"
-                  ? "Garis Tinggi"
-                  : "High Line"
-                : formationShape.lineHeight <= 35
-                ? lang === "id"
-                  ? "Bertahan Dalam"
-                  : "Deep Line"
-                : lang === "id"
-                ? "Normal"
-                : "Medium"}
-            </span>
+            <div className="grid grid-cols-3 gap-1.5">
+              {TACTICAL_STYLES.map((style) => {
+                const isSelected = formationShape.stylePreset === style.id;
+                return (
+                  <button
+                    key={style.id}
+                    type="button"
+                    onClick={() => onApplyTacticalStyle && onApplyTacticalStyle(style.id)}
+                    title={style.shortDesc}
+                    className={`min-h-[34px] px-2 py-1 rounded-xl border text-[10.5px] font-bold transition-all cursor-pointer flex items-center justify-center text-center whitespace-nowrap ${
+                      isSelected
+                        ? "bg-teal-400 text-slate-950 border-teal-300 shadow-sm font-extrabold"
+                        : "bg-[#051419]/80 border-teal-400/15 text-teal-100/80 hover:border-teal-400/35 hover:text-white"
+                    }`}
+                  >
+                    {style.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={formationShape.lineHeight}
-            onChange={(e) =>
-              onChangeFormationShape &&
-              onChangeFormationShape({
-                lineHeight: parseInt(e.target.value, 10),
-                stylePreset: "custom"
-              })
-            }
-            className="w-full accent-teal-400 h-1.5 rounded-lg bg-teal-950 cursor-pointer"
-          />
-        </div>
+        )}
 
-        {/* Team Width */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="font-semibold text-teal-100 flex items-center gap-1.5">
-              <Compass className="w-3.5 h-3.5 text-teal-400" />
-              {lang === "id" ? "Lebar Tim (Team Width)" : "Team Width"}
-            </span>
-            <span className="font-mono tabular-nums font-bold text-teal-300">
-              {formationShape.teamWidth}% ·{" "}
-              {formationShape.teamWidth >= 65
-                ? lang === "id"
-                  ? "Melebar"
-                  : "Wide"
-                : formationShape.teamWidth <= 35
-                ? lang === "id"
-                  ? "Sempit"
-                  : "Narrow"
-                : lang === "id"
-                ? "Seimbang"
-                : "Balanced"}
-            </span>
+        {/* 3. Real-Time Tactical Shape Sliders (Line Height, Team Width, Compactness) */}
+        {showLines && (
+          <div className="bg-[#051419]/90 border border-teal-400/20 rounded-2xl p-2.5 space-y-2.5">
+            {/* Defensive Line Height */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10.5px]">
+                <span className="font-semibold text-teal-100 flex items-center gap-1.5">
+                  <Shield className="w-3 h-3 text-teal-400" />
+                  {lang === "id" ? "Garis Pertahanan" : "Defensive Line"}
+                </span>
+                <span className="font-mono tabular-nums font-bold text-teal-300">
+                  {formationShape.lineHeight}% ·{" "}
+                  {formationShape.lineHeight >= 65
+                    ? lang === "id"
+                      ? "Tinggi"
+                      : "High"
+                    : formationShape.lineHeight <= 35
+                    ? lang === "id"
+                      ? "Dalam"
+                      : "Deep"
+                    : lang === "id"
+                    ? "Normal"
+                    : "Med"}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={formationShape.lineHeight}
+                onChange={(e) =>
+                  onChangeFormationShape &&
+                  onChangeFormationShape({
+                    lineHeight: parseInt(e.target.value, 10),
+                    stylePreset: "custom"
+                  })
+                }
+                className="w-full accent-teal-400 h-1.5 rounded-lg bg-teal-950 cursor-pointer"
+              />
+            </div>
+
+            {/* Team Width */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10.5px]">
+                <span className="font-semibold text-teal-100 flex items-center gap-1.5">
+                  <Compass className="w-3 h-3 text-teal-400" />
+                  {lang === "id" ? "Lebar Tim" : "Team Width"}
+                </span>
+                <span className="font-mono tabular-nums font-bold text-teal-300">
+                  {formationShape.teamWidth}% ·{" "}
+                  {formationShape.teamWidth >= 65
+                    ? lang === "id"
+                      ? "Lebar"
+                      : "Wide"
+                    : formationShape.teamWidth <= 35
+                    ? lang === "id"
+                      ? "Sempit"
+                      : "Narrow"
+                    : lang === "id"
+                    ? "Seimbang"
+                    : "Balanced"}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={formationShape.teamWidth}
+                onChange={(e) =>
+                  onChangeFormationShape &&
+                  onChangeFormationShape({
+                    teamWidth: parseInt(e.target.value, 10),
+                    stylePreset: "custom"
+                  })
+                }
+                className="w-full accent-teal-400 h-1.5 rounded-lg bg-teal-950 cursor-pointer"
+              />
+            </div>
+
+            {/* Vertical Compactness */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10.5px]">
+                <span className="font-semibold text-teal-100 flex items-center gap-1.5">
+                  <Target className="w-3 h-3 text-teal-400" />
+                  {lang === "id" ? "Kerapatan Lini" : "Compactness"}
+                </span>
+                <span className="font-mono tabular-nums font-bold text-teal-300">
+                  {formationShape.compactness}% ·{" "}
+                  {formationShape.compactness >= 65
+                    ? lang === "id"
+                      ? "Rapat"
+                      : "Tight"
+                    : formationShape.compactness <= 35
+                    ? lang === "id"
+                      ? "Renggang"
+                      : "Stretched"
+                    : lang === "id"
+                    ? "Ideal"
+                    : "Standard"}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={formationShape.compactness}
+                onChange={(e) =>
+                  onChangeFormationShape &&
+                  onChangeFormationShape({
+                    compactness: parseInt(e.target.value, 10),
+                    stylePreset: "custom"
+                  })
+                }
+                className="w-full accent-teal-400 h-1.5 rounded-lg bg-teal-950 cursor-pointer"
+              />
+            </div>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={formationShape.teamWidth}
-            onChange={(e) =>
-              onChangeFormationShape &&
-              onChangeFormationShape({
-                teamWidth: parseInt(e.target.value, 10),
-                stylePreset: "custom"
-              })
-            }
-            className="w-full accent-teal-400 h-1.5 rounded-lg bg-teal-950 cursor-pointer"
-          />
-        </div>
+        )}
 
-        {/* Vertical Compactness */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="font-semibold text-teal-100 flex items-center gap-1.5">
-              <Target className="w-3.5 h-3.5 text-teal-400" />
-              {lang === "id" ? "Kerapatan Lini (Compactness)" : "Line Compactness"}
-            </span>
-            <span className="font-mono tabular-nums font-bold text-teal-300">
-              {formationShape.compactness}% ·{" "}
-              {formationShape.compactness >= 65
-                ? lang === "id"
-                  ? "Sangat Rapat"
-                  : "Tight"
-                : formationShape.compactness <= 35
-                ? lang === "id"
-                  ? "Merenggang"
-                  : "Stretched"
-                : lang === "id"
-                ? "Ideal"
-                : "Standard"}
-            </span>
+        {/* 4. Auto-Fit Role & Smart Position Alignment */}
+        {showLines && (
+          <div className="flex items-center justify-between gap-2 bg-[#051419]/80 border border-teal-400/15 rounded-2xl p-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none min-w-0">
+              <input
+                type="checkbox"
+                checked={formationShape.autoFitRoles}
+                onChange={(e) =>
+                  onChangeFormationShape &&
+                  onChangeFormationShape({ autoFitRoles: e.target.checked })
+                }
+                className="rounded accent-teal-400 w-3.5 h-3.5 shrink-0"
+              />
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10.5px] font-bold text-white truncate">
+                  {lang === "id" ? "Auto-Fit Role" : "Auto-Fit Roles"}
+                </span>
+                <span className="text-[9px] text-teal-200/65 truncate">
+                  {lang === "id" ? "Sinkron GK/DEF/MID/FWD" : "Sync GK/DEF/MID/FWD"}
+                </span>
+              </div>
+            </label>
+
+            {onAutoFitRoles && (
+              <button
+                type="button"
+                onClick={onAutoFitRoles}
+                className="min-h-[34px] px-2.5 py-1 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 border border-teal-400/35 text-teal-200 text-[10.5px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95 whitespace-nowrap shrink-0"
+              >
+                <Wand2 className="w-3.5 h-3.5 text-teal-300" />
+                <span>{lang === "id" ? "Rapikan" : "Snap Fit"}</span>
+              </button>
+            )}
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={formationShape.compactness}
-            onChange={(e) =>
-              onChangeFormationShape &&
-              onChangeFormationShape({
-                compactness: parseInt(e.target.value, 10),
-                stylePreset: "custom"
-              })
-            }
-            className="w-full accent-teal-400 h-1.5 rounded-lg bg-teal-950 cursor-pointer"
-          />
-        </div>
-      </div>
-
-      {/* 4. Auto-Fit Role & Smart Position Alignment */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-[#051419]/80 border border-teal-400/15 rounded-2xl p-2.5">
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={formationShape.autoFitRoles}
-            onChange={(e) =>
-              onChangeFormationShape &&
-              onChangeFormationShape({ autoFitRoles: e.target.checked })
-            }
-            className="rounded accent-teal-400 w-4 h-4"
-          />
-          <div className="flex flex-col">
-            <span className="text-[11px] font-bold text-white">
-              {lang === "id" ? "Auto-Fit Role Otomatis" : "Auto-Fit Player Roles"}
-            </span>
-            <span className="text-[9.5px] text-teal-200/65">
-              {lang === "id"
-                ? "Sesuaikan GK, DEF, MID, FWD saat ganti formasi"
-                : "Sync GK, DEF, MID, FWD roles on formation change"}
-            </span>
-          </div>
-        </label>
-
-        {onAutoFitRoles && (
-          <button
-            type="button"
-            onClick={onAutoFitRoles}
-            className="min-h-[38px] px-3 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 border border-teal-400/35 text-teal-200 text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 whitespace-nowrap shrink-0"
-          >
-            <Wand2 className="w-3.5 h-3.5 text-teal-300" />
-            <span>{lang === "id" ? "Rapikan Posisi" : "Snap & Fit Roles"}</span>
-          </button>
         )}
       </div>
-
-      {/* 5. Save Current Pitch Positions as Custom Formation */}
-      {onSaveCustomFormation && (
-        <div className="flex items-center gap-1.5 pt-0.5">
-          <input
-            type="text"
-            value={customFormName}
-            onChange={(e) => setCustomFormName(e.target.value)}
-            placeholder={
-              lang === "id"
-                ? `Simpan rakitan (cth: ${formation} Attack)...`
-                : `Save custom layout (e.g. ${formation} Pro)...`
-            }
-            className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-[#051419] border border-teal-400/20 text-white text-xs placeholder:text-teal-200/40 focus:border-teal-400 focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={handleSaveCustomClick}
-            className="min-h-[38px] px-3 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-extrabold text-xs flex items-center gap-1 cursor-pointer transition-all active:scale-95 whitespace-nowrap shrink-0"
-          >
-            {savedFeedback ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                <span>{lang === "id" ? "Tersimpan" : "Saved"}</span>
-              </>
-            ) : (
-              <>
-                <Plus className="w-3.5 h-3.5" />
-                <span>{lang === "id" ? "Simpan" : "Save"}</span>
-              </>
-            )}
-          </button>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   // =========================================================================
   // MODE A: POSTER-STAGE (DITEMPATKAN DI ZONA LAPANGAN DENGAN UKURAN MAKSIMAL)
@@ -1010,17 +1053,17 @@ export default function AIFormationImageGenerator({
           )}
         </div>
 
-        {/* 2. PANGGUNG KANVAS POSTER HD (UKURAN MAKSIMAL SETARA LAPANGAN TAKTIS) */}
+        {/* 2. PANGGUNG KANVAS POSTER HD (AUTO-RESIZE MENGIKUTI LAYAR PC TANPA SCROLL) */}
         <div
           id="tacticalPitchWrapper"
           className={`relative w-full rounded-3xl border-2 border-teal-400/35 bg-[#041014] shadow-[0_22px_60px_rgba(0,0,0,0.75)] overflow-hidden flex items-center justify-center transition-all duration-300 ${
             isPitchFullscreen
-              ? "max-h-[76vh] min-h-[480px]"
+              ? "max-h-[76vh] min-h-[320px]"
               : posterFormat === "landscape"
-              ? "aspect-[4/3] min-h-[420px]"
+              ? "aspect-[4/3] max-h-[calc(100vh-265px)]"
               : posterFormat === "square"
-              ? "aspect-square min-h-[480px]"
-              : "aspect-[3/4] sm:aspect-[9/14] min-h-[560px]"
+              ? "aspect-square max-h-[calc(100vh-265px)]"
+              : "aspect-[3/4] sm:aspect-[9/14] max-h-[calc(100vh-265px)]"
           }`}
         >
           {/* Subtle Stadium Grid Backdrop */}

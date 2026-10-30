@@ -502,6 +502,7 @@ export default function CornerKickSimulator({
   const [selectedScheme, setSelectedScheme] = useState<CornerSchemeId>("inswing-near");
   const [defenseType, setDefenseType] = useState<CornerDefenseType>("hybrid");
   const [justApplied, setJustApplied] = useState(false);
+  const [cornerSubTab, setCornerSubTab] = useState<"schemes" | "roles">("schemes");
 
   const currentScheme = CORNER_SCHEMES.find((s) => s.id === selectedScheme) || CORNER_SCHEMES[0];
   const simPreview = generateCornerSimulationData(players, cornerSide, selectedScheme, defenseType, lang);
@@ -533,29 +534,22 @@ export default function CornerKickSimulator({
 
   return (
     <Interactive3DCard glowColor="rgba(45, 212, 191, 0.25)">
-      <div className="p-4 sm:p-5 flex flex-col gap-4 select-none">
+      <div className="p-3 sm:p-3.5 flex flex-col gap-2.5 select-none">
         {/* Top Header */}
-        <div className="flex items-center justify-between border-b border-teal-400/15 pb-3">
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2">
-              <Flag className="w-4 h-4 text-teal-400 shrink-0" />
-              <h3 className="text-sm font-bold text-white tracking-tight font-display">
-                {lang === "id" ? "Studio Simulasi Corner Kick" : "Corner Kick Set-Piece Studio"}
-              </h3>
-            </div>
-            <p className="text-[11px] text-teal-200/70">
-              {lang === "id"
-                ? "Rancang & jalankan simulasi bola mati 3-fasa otomatis dengan formasi lawan"
-                : "Design & run 3-phase automated corner kick routines against box defenses"}
-            </p>
+        <div className="flex items-center justify-between border-b border-teal-400/15 pb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Flag className="w-4 h-4 text-teal-400 shrink-0" />
+            <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight font-display truncate">
+              {lang === "id" ? "Studio Simulasi Corner Kick" : "Corner Kick Set-Piece Studio"}
+            </h3>
           </div>
-          <span className="text-[11px] font-mono tabular-nums text-teal-300">
+          <span className="text-[10.5px] font-mono tabular-nums text-teal-300 shrink-0">
             {currentScheme.successRate}
           </span>
         </div>
 
         {/* High-Contrast Interactive Isometric SVG Tactical Preview Banner */}
-        <div className="relative w-full h-36 sm:h-40 rounded-2xl overflow-hidden border border-teal-400/25 bg-gradient-to-b from-[#07262d] via-[#093038] to-[#061c21] shadow-inner">
+        <div className="relative w-full h-24 xl:h-28 rounded-2xl overflow-hidden border border-teal-400/25 bg-gradient-to-b from-[#07262d] via-[#093038] to-[#061c21] shadow-inner shrink-0">
           <svg
             viewBox="0 0 100 45"
             preserveAspectRatio="xMidYMid slice"
@@ -620,43 +614,65 @@ export default function CornerKickSimulator({
           </svg>
 
           {/* Scrim Overlay with Scheme Metadata */}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#041217]/95 via-[#041217]/60 to-transparent px-3.5 py-2.5 flex items-end justify-between gap-2">
-            <div>
-              <div className="text-[10px] font-medium text-teal-300 flex items-center gap-1.5">
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#041217]/95 via-[#041217]/65 to-transparent px-3 py-1.5 flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[9.5px] font-medium text-teal-300 flex items-center gap-1 truncate">
                 <span>{lang === "id" ? currentScheme.deliveryType.id : currentScheme.deliveryType.en}</span>
                 <span aria-hidden="true">·</span>
                 <span>{lang === "id" ? currentScheme.targetZoneLabel.id : currentScheme.targetZoneLabel.en}</span>
               </div>
-              <div className="text-xs font-bold text-white mt-0.5">
+              <div className="text-[11px] font-bold text-white truncate">
                 {lang === "id" ? currentScheme.title.id : currentScheme.title.en}
               </div>
             </div>
             <button
               type="button"
               onClick={() => handleTriggerSimulation(true)}
-              className="px-3 py-1.5 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
+              className="px-2.5 py-1 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-bold text-[10.5px] flex items-center gap-1 shadow-md transition-all cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
             >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>{lang === "id" ? "Putar di Lapangan" : "Play on Pitch"}</span>
+              <Play className="w-3 h-3 fill-current" />
+              <span>{lang === "id" ? "Putar" : "Play"}</span>
             </button>
           </div>
         </div>
 
-        {/* Step 1: Corner Side & Opponent Defense Controls */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {/* Corner Side Switcher */}
-          <div className="bg-[#06151a]/80 border border-teal-400/15 rounded-xl p-2 flex flex-col gap-1.5">
-            <span className="text-[10px] font-semibold text-teal-200/70">
-              {lang === "id" ? "1. Sisi Tendangan Sudut" : "1. Corner Kick Side"}
-            </span>
-            <div className="grid grid-cols-2 gap-1 bg-[#040f13] p-1 rounded-lg">
+        {/* Sub-Tab Switcher: Skema & Sisi vs Penugasan Pemain */}
+        <div className="grid grid-cols-2 gap-1 bg-[#041014] p-1 rounded-xl border border-teal-400/20">
+          <button
+            type="button"
+            onClick={() => setCornerSubTab("schemes")}
+            className={`py-1 px-2 rounded-lg text-[10.5px] font-extrabold transition-all cursor-pointer ${
+              cornerSubTab === "schemes"
+                ? "bg-teal-400 text-slate-950 shadow-sm"
+                : "text-teal-100/70 hover:text-white"
+            }`}
+          >
+            {lang === "id" ? "1. Skema & Sisi" : "1. Schemes & Side"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCornerSubTab("roles")}
+            className={`py-1 px-2 rounded-lg text-[10.5px] font-extrabold transition-all cursor-pointer ${
+              cornerSubTab === "roles"
+                ? "bg-teal-400 text-slate-950 shadow-sm"
+                : "text-teal-100/70 hover:text-white"
+            }`}
+          >
+            {lang === "id" ? "2. Tugas Pemain & Lawan" : "2. Player Roles & Def"}
+          </button>
+        </div>
+
+        {cornerSubTab === "schemes" ? (
+          <>
+            {/* Corner Side Switcher */}
+            <div className="grid grid-cols-2 gap-1.5 bg-[#040f13] p-1 rounded-xl border border-teal-400/15">
               <button
                 type="button"
                 onClick={() => {
                   setCornerSide("left");
                   soundManager.playClick();
                 }}
-                className={`py-1.5 px-2.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`py-1 px-2 rounded-lg text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   cornerSide === "left"
                     ? "bg-teal-500 text-slate-950 font-bold shadow-sm"
                     : "text-teal-100/70 hover:text-white"
@@ -670,7 +686,7 @@ export default function CornerKickSimulator({
                   setCornerSide("right");
                   soundManager.playClick();
                 }}
-                className={`py-1.5 px-2.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`py-1 px-2 rounded-lg text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   cornerSide === "right"
                     ? "bg-teal-500 text-slate-950 font-bold shadow-sm"
                     : "text-teal-100/70 hover:text-white"
@@ -679,158 +695,149 @@ export default function CornerKickSimulator({
                 🚩 {lang === "id" ? "Sudut Kanan" : "Right Corner"}
               </button>
             </div>
-          </div>
 
-          {/* Opponent Defense Setup */}
-          <div className="bg-[#06151a]/80 border border-teal-400/15 rounded-xl p-2 flex flex-col gap-1.5">
-            <span className="text-[10px] font-semibold text-teal-200/70">
-              {lang === "id" ? "2. Pertahanan Lawan di Kotak" : "2. Opponent Box Defense"}
-            </span>
-            <div className="grid grid-cols-4 gap-1 bg-[#040f13] p-1 rounded-lg">
-              {(
-                [
-                  { id: "hybrid", label: "Hybrid" },
-                  { id: "zonal", label: "Zonal" },
-                  { id: "man", label: "Man" },
-                  { id: "none", label: lang === "id" ? "Polos" : "None" }
-                ] as const
-              ).map((def) => (
-                <button
-                  key={def.id}
-                  type="button"
-                  onClick={() => {
-                    setDefenseType(def.id);
-                    soundManager.playClick();
-                  }}
-                  className={`py-1.5 px-1.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                    defenseType === def.id
-                      ? "bg-teal-500/25 text-teal-200 border border-teal-400/40 font-bold"
-                      : "text-teal-100/60 hover:text-white"
-                  }`}
-                >
-                  {def.label}
-                </button>
-              ))}
+            {/* Select Corner Kick Tactical Scheme (Compact 2-column grid) */}
+            <div className="grid grid-cols-2 gap-1.5">
+              {CORNER_SCHEMES.map((scheme) => {
+                const isSelected = selectedScheme === scheme.id;
+                return (
+                  <button
+                    key={scheme.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedScheme(scheme.id);
+                      soundManager.playClick();
+                    }}
+                    className={`text-left p-2 rounded-xl border transition-all cursor-pointer flex flex-col gap-0.5 ${
+                      isSelected
+                        ? "bg-teal-500/20 border-teal-400/60 text-white shadow-sm"
+                        : "bg-[#06151a]/70 border-teal-400/10 text-teal-100/80 hover:border-teal-400/30 hover:bg-[#081c22]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[11px] font-bold text-white truncate">
+                        {lang === "id" ? scheme.title.id : scheme.title.en}
+                      </span>
+                      <span className="text-[9px] font-mono text-teal-300 shrink-0">
+                        {scheme.badge}
+                      </span>
+                    </div>
+                    <p className="text-[9.5px] text-teal-100/65 line-clamp-1 leading-tight">
+                      {lang === "id" ? scheme.subtitle.id : scheme.subtitle.en}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
-          </div>
-        </div>
+          </>
+        ) : (
+          <>
+            {/* Opponent Defense Setup */}
+            <div className="bg-[#06151a]/80 border border-teal-400/15 rounded-xl p-2 flex flex-col gap-1">
+              <span className="text-[10px] font-semibold text-teal-200/75">
+                {lang === "id" ? "Pertahanan Lawan di Kotak Penalti" : "Opponent Box Defense"}
+              </span>
+              <div className="grid grid-cols-4 gap-1 bg-[#040f13] p-1 rounded-lg">
+                {(
+                  [
+                    { id: "hybrid", label: "Hybrid" },
+                    { id: "zonal", label: "Zonal" },
+                    { id: "man", label: "Man" },
+                    { id: "none", label: lang === "id" ? "Polos" : "None" }
+                  ] as const
+                ).map((def) => (
+                  <button
+                    key={def.id}
+                    type="button"
+                    onClick={() => {
+                      setDefenseType(def.id);
+                      soundManager.playClick();
+                    }}
+                    className={`py-1 px-1.5 rounded-md text-[10.5px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                      defenseType === def.id
+                        ? "bg-teal-500/25 text-teal-200 border border-teal-400/40 font-bold"
+                        : "text-teal-100/60 hover:text-white"
+                    }`}
+                  >
+                    {def.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        {/* Step 2: Select Corner Kick Tactical Scheme */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-teal-200/80">
-              {lang === "id" ? "3. Pilih Skema Taktik Corner Kick" : "3. Select Corner Tactical Routine"}
-            </span>
-            <span className="text-[11px] text-teal-300/70">
-              {lang === "id" ? "3 Fasa Gerakan Otomatis" : "3 Automated Phases"}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {CORNER_SCHEMES.map((scheme) => {
-              const isSelected = selectedScheme === scheme.id;
-              return (
-                <button
-                  key={scheme.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedScheme(scheme.id);
-                    soundManager.playClick();
-                  }}
-                  className={`text-left p-2.5 rounded-xl border transition-all cursor-pointer flex flex-col gap-1 ${
-                    isSelected
-                      ? "bg-teal-500/15 border-teal-400/50 text-white shadow-sm"
-                      : "bg-[#06151a]/70 border-teal-400/10 text-teal-100/80 hover:border-teal-400/30 hover:bg-[#081c22]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-white truncate">
-                      {lang === "id" ? scheme.title.id : scheme.title.en}
-                    </span>
-                    <span className="text-[10px] font-mono text-teal-300 shrink-0">
-                      {scheme.badge}
-                    </span>
+            {/* Assigned Key Roles Summary */}
+            <div className="bg-[#06151a]/90 border border-teal-400/15 rounded-xl p-2.5 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-[10.5px] text-teal-200/80 font-semibold">
+                <span>{lang === "id" ? "Penugasan Otomatis Pemain Kunci" : "Key Player Assignments"}</span>
+                <span className="font-mono text-[9.5px] text-teal-300">11v11</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 text-[10.5px]">
+                <div className="bg-[#092027] rounded-lg px-2 py-1 border border-teal-400/10">
+                  <div className="text-[9px] text-teal-300/70">{lang === "id" ? "Eksekutor" : "Taker"}</div>
+                  <div className="font-bold text-white truncate font-mono tabular-nums">
+                    #{simPreview.roles.taker?.number ?? 10} {simPreview.roles.taker?.name ?? "Playmaker"}
                   </div>
-                  <p className="text-[11px] text-teal-100/65 line-clamp-2 leading-snug">
-                    {lang === "id" ? scheme.subtitle.id : scheme.subtitle.en}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Assigned Key Roles Summary */}
-        <div className="bg-[#06151a]/90 border border-teal-400/15 rounded-xl p-3 flex flex-col gap-2">
-          <div className="flex items-center justify-between text-[11px] text-teal-200/80 font-semibold">
-            <span>{lang === "id" ? "Penugasan Otomatis Pemain Kunci" : "Automated Key Player Assignments"}</span>
-            <span className="font-mono text-[10px] text-teal-300">11v11 Set-Piece</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-            <div className="bg-[#092027] rounded-lg px-2.5 py-1.5 border border-teal-400/10">
-              <div className="text-[10px] text-teal-300/70">{lang === "id" ? "Eksekutor Corner" : "Corner Taker"}</div>
-              <div className="font-bold text-white truncate font-mono tabular-nums">
-                #{simPreview.roles.taker?.number ?? 10} {simPreview.roles.taker?.name ?? "Playmaker"}
+                </div>
+                <div className="bg-[#092027] rounded-lg px-2 py-1 border border-teal-400/10">
+                  <div className="text-[9px] text-teal-300/70">{lang === "id" ? "Tiang Dekat" : "Near-Post"}</div>
+                  <div className="font-bold text-white truncate font-mono tabular-nums">
+                    #{simPreview.roles.nearPost?.number ?? 9} {simPreview.roles.nearPost?.name ?? "Striker"}
+                  </div>
+                </div>
+                <div className="bg-[#092027] rounded-lg px-2 py-1 border border-teal-400/10">
+                  <div className="text-[9px] text-teal-300/70">{lang === "id" ? "Tiang Jauh" : "Far-Post"}</div>
+                  <div className="font-bold text-white truncate font-mono tabular-nums">
+                    #{simPreview.roles.farPost?.number ?? 3} {simPreview.roles.farPost?.name ?? "Center Back"}
+                  </div>
+                </div>
+                <div className="bg-[#092027] rounded-lg px-2 py-1 border border-teal-400/10">
+                  <div className="text-[9px] text-teal-300/70">{lang === "id" ? "Blokir Kiper" : "GK Screen"}</div>
+                  <div className="font-bold text-white truncate font-mono tabular-nums">
+                    #{simPreview.roles.gkScreen?.number ?? 11} {simPreview.roles.gkScreen?.name ?? "Winger"}
+                  </div>
+                </div>
+                <div className="bg-[#092027] rounded-lg px-2 py-1 border border-teal-400/10">
+                  <div className="text-[9px] text-teal-300/70">{lang === "id" ? "Lini Kedua" : "Edge Volley"}</div>
+                  <div className="font-bold text-white truncate font-mono tabular-nums">
+                    #{simPreview.roles.edgeShooter?.number ?? 8} {simPreview.roles.edgeShooter?.name ?? "Midfielder"}
+                  </div>
+                </div>
+                <div className="bg-[#092027] rounded-lg px-2 py-1 border border-teal-400/10">
+                  <div className="text-[9px] text-teal-300/70">{lang === "id" ? "Rest Defense" : "Rest Defense"}</div>
+                  <div className="font-bold text-white truncate font-mono tabular-nums">
+                    #{simPreview.roles.restDefense?.number ?? 4} {simPreview.roles.restDefense?.name ?? "Defender"}
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="bg-[#092027] rounded-lg px-2.5 py-1.5 border border-teal-400/10">
-              <div className="text-[10px] text-teal-300/70">{lang === "id" ? "Serbu Tiang Dekat" : "Near-Post Runner"}</div>
-              <div className="font-bold text-white truncate font-mono tabular-nums">
-                #{simPreview.roles.nearPost?.number ?? 9} {simPreview.roles.nearPost?.name ?? "Striker"}
-              </div>
-            </div>
-            <div className="bg-[#092027] rounded-lg px-2.5 py-1.5 border border-teal-400/10">
-              <div className="text-[10px] text-teal-300/70">{lang === "id" ? "Target Tiang Jauh" : "Far-Post Target"}</div>
-              <div className="font-bold text-white truncate font-mono tabular-nums">
-                #{simPreview.roles.farPost?.number ?? 3} {simPreview.roles.farPost?.name ?? "Center Back"}
-              </div>
-            </div>
-            <div className="bg-[#092027] rounded-lg px-2.5 py-1.5 border border-teal-400/10">
-              <div className="text-[10px] text-teal-300/70">{lang === "id" ? "Blokir Kiper / Opsi" : "GK Screen / Short"}</div>
-              <div className="font-bold text-white truncate font-mono tabular-nums">
-                #{simPreview.roles.gkScreen?.number ?? 11} {simPreview.roles.gkScreen?.name ?? "Winger"}
-              </div>
-            </div>
-            <div className="bg-[#092027] rounded-lg px-2.5 py-1.5 border border-teal-400/10">
-              <div className="text-[10px] text-teal-300/70">{lang === "id" ? "Penembak Lini 2" : "Edge Volley"}</div>
-              <div className="font-bold text-white truncate font-mono tabular-nums">
-                #{simPreview.roles.edgeShooter?.number ?? 8} {simPreview.roles.edgeShooter?.name ?? "Midfielder"}
-              </div>
-            </div>
-            <div className="bg-[#092027] rounded-lg px-2.5 py-1.5 border border-teal-400/10">
-              <div className="text-[10px] text-teal-300/70">{lang === "id" ? "Rest Defense" : "Rest Defense"}</div>
-              <div className="font-bold text-white truncate font-mono tabular-nums">
-                #{simPreview.roles.restDefense?.number ?? 4} {simPreview.roles.restDefense?.name ?? "Defender"}
-              </div>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+        <div className="grid grid-cols-2 gap-1.5 pt-0.5">
           <button
             type="button"
             onClick={() => handleTriggerSimulation(false)}
-            className="flex-1 py-2.5 px-4 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/35 text-teal-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
+            className="py-2 px-2.5 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/35 text-teal-200 font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-98 whitespace-nowrap"
           >
-            <Eye className="w-4 h-4 text-teal-300" />
-            <span>{lang === "id" ? "Pasang Posisi Awal (Fasa 1)" : "Set Initial Positions (Phase 1)"}</span>
+            <Eye className="w-3.5 h-3.5 text-teal-300 shrink-0" />
+            <span className="truncate">{lang === "id" ? "Posisi Fasa 1" : "Set Phase 1"}</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleTriggerSimulation(true)}
-            className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-300 hover:to-emerald-300 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20 transition-all cursor-pointer active:scale-98"
+            className="py-2 px-2.5 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-300 hover:to-emerald-300 text-slate-950 font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-lg shadow-teal-500/20 transition-all cursor-pointer active:scale-98 whitespace-nowrap"
           >
             {justApplied ? (
               <>
-                <CheckCircle2 className="w-4 h-4 text-slate-950" />
-                <span>{lang === "id" ? "Simulasi Corner Aktif!" : "Corner Simulation Active!"}</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-slate-950 shrink-0" />
+                <span className="truncate">{lang === "id" ? "Aktif!" : "Active!"}</span>
               </>
             ) : (
               <>
-                <Play className="w-4 h-4 fill-current text-slate-950" />
-                <span>{lang === "id" ? "Terapkan & Putar Simulasi (3 Fasa)" : "Apply & Play Simulation (3 Phases)"}</span>
+                <Play className="w-3.5 h-3.5 fill-current text-slate-950 shrink-0" />
+                <span className="truncate">{lang === "id" ? "Putar 3 Fasa" : "Play 3 Phases"}</span>
               </>
             )}
           </button>

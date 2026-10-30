@@ -1936,11 +1936,11 @@ export default function Pitch({
     ? `fixed top-[82px] bottom-[20px] left-3 right-3 m-auto max-w-[580px] max-h-[calc(100vh-112px)] aspect-[4/5.2] sm:aspect-[4/4.3] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
     : (isFullscreen && !isMobileOrTablet)
       ? `relative w-[50vh] sm:w-[68vh] aspect-[4/5.2] sm:aspect-[4/4.3] rounded-3xl overflow-hidden border-4 transition-all select-none rotate-90 origin-center ${pitchWrapperClass}`
-      : `relative w-full ${isFullscreen ? "max-w-[720px] md:max-w-[850px] max-h-[82vh]" : "max-w-[580px]"} aspect-[4/5.2] sm:aspect-[4/4.3] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
+      : `relative w-full ${isFullscreen ? "max-w-[720px] md:max-w-[850px] max-h-[82vh]" : "max-w-[var(--pitch-max-w,580px)]"} aspect-[4/5.2] sm:aspect-[4/4.3] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
 
   return (
-    <div className="w-full flex flex-col md:flex-row items-start justify-center gap-4 relative">
-      <div className="w-full flex flex-col items-center gap-2 min-w-0">
+    <div className="w-full flex flex-col md:flex-row items-start justify-center gap-2.5 relative">
+      <div className="w-full flex flex-col items-center gap-1.5 min-w-0">
       
       {/* Mobile drawing fullscreen backdrop & controls overlay */}
       {isMobileDrawActive && (
@@ -3803,21 +3803,21 @@ export default function Pitch({
 
       {/* EXTERNAL BOTTOM TACTICAL CONTROL BAR SLOT (JUST OUTSIDE THE PITCH) */}
       {!isMobileDrawActive && bottomControls && (
-        <div className="relative w-full max-w-[580px] z-45 hover:z-[110] focus-within:z-[110]">
+        <div className="relative w-full max-w-[var(--pitch-max-w,580px)] z-45 hover:z-[110] focus-within:z-[110]">
           {bottomControls}
         </div>
       )}
 
       {/* EXTERNAL DETACHED SQUAD BENCH (DUGOUT) PANEL OUTSIDE THE PITCH */}
       {!isMobileDrawActive && !isFullscreen && (
-        <div className="relative w-full max-w-[580px] bg-[#06181f]/95 backdrop-blur-xl border border-teal-400/25 rounded-2xl flex flex-col justify-start p-2.5 sm:p-3 shadow-[0_12px_32px_rgba(0,0,0,0.45)] z-40 hover:z-[115]">
-          <div className="flex items-center justify-between gap-2 mb-2 select-none shrink-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Compact Bench Emblem + Count Badge (Hover reveals full title above) */}
+        <div className="relative w-full max-w-[var(--pitch-max-w,580px)] bg-[#06181f]/95 backdrop-blur-xl border border-teal-400/25 rounded-2xl flex flex-col justify-start px-2.5 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.45)] z-40 hover:z-[115]">
+          <div className="flex flex-wrap gap-1.5 overflow-visible w-full items-center">
+            {/* Inline Compact Bench Emblem + Sort Controls */}
+            <div className="flex items-center gap-1 mr-0.5 select-none shrink-0">
               <div className="relative group">
-                <div className="px-2 py-1 rounded-xl bg-[#041217] border border-teal-400/25 flex items-center gap-1.5 cursor-default">
+                <div className="h-7 px-1.5 rounded-xl bg-[#041217] border border-teal-400/25 flex items-center gap-1 cursor-default">
                   <NanoBananaLogo tool="squad" size="xs" />
-                  <span className="px-1.5 py-0.2 rounded-md bg-teal-500/20 text-teal-200 text-[9px] font-extrabold font-mono">
+                  <span className="px-1 py-0.2 rounded bg-teal-500/20 text-teal-200 text-[9px] font-extrabold font-mono">
                     {players.filter((p) => !p.isStarting).length}
                   </span>
                 </div>
@@ -3828,15 +3828,14 @@ export default function Pitch({
                 />
               </div>
 
-              {/* Logo-Only Bench Sorting Controls (Hover reveals text above each tool) */}
-              <div className="flex items-center gap-1 bg-[#041115] border border-teal-400/20 rounded-xl p-0.5">
+              <div className="flex items-center gap-0.5 bg-[#041115] border border-teal-400/20 rounded-xl p-0.5">
                 {/* Sort by Role */}
                 <div className="relative group">
                   <button
                     type="button"
                     onClick={() => handleBenchSort("role")}
                     aria-label={lang === "id" ? "Urutkan Posisi" : "Sort by Role"}
-                    className={`w-6.5 h-6.5 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+                    className={`w-6 h-6 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
                       benchSortBy === "role"
                         ? "bg-teal-400 text-slate-950 shadow-sm"
                         : "text-teal-300 hover:bg-white/10"
@@ -3857,7 +3856,7 @@ export default function Pitch({
                     type="button"
                     onClick={() => handleBenchSort("number")}
                     aria-label={lang === "id" ? "Urutkan Nomor Punggung" : "Sort by Shirt Number"}
-                    className={`w-6.5 h-6.5 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+                    className={`w-6 h-6 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
                       benchSortBy === "number"
                         ? "bg-teal-400 text-slate-950 shadow-sm"
                         : "text-teal-300 hover:bg-white/10"
@@ -3878,7 +3877,7 @@ export default function Pitch({
                     type="button"
                     onClick={() => handleBenchSort("name")}
                     aria-label={lang === "id" ? "Urutkan Nama A-Z" : "Sort Alphabetically A-Z"}
-                    className={`w-6.5 h-6.5 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+                    className={`w-6 h-6 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
                       benchSortBy === "name"
                         ? "bg-teal-400 text-slate-950 shadow-sm"
                         : "text-teal-300 hover:bg-white/10"
@@ -3894,9 +3893,6 @@ export default function Pitch({
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5 overflow-visible w-full items-center pb-0.5">
             <AnimatePresence>
               {(() => {
                 let subs = players.filter((p) => !p.isStarting);

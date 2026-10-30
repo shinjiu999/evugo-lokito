@@ -6,7 +6,6 @@ import TacticalTelemetryHUD from "./components/TacticalTelemetryHUD";
 import MatchBriefingSheetModal from "./components/MatchBriefingSheetModal";
 import AICoach from "./components/AICoach";
 import AIFormationImageGenerator from "./components/AIFormationImageGenerator";
-import SponsorAcquisitionPortal from "./components/SponsorAcquisitionPortal";
 import AnimationTimeline from "./components/AnimationTimeline";
 import TacticalDrills from "./components/TacticalDrills";
 import { TacticalDrill } from "./data/tacticalDrills";
@@ -610,7 +609,18 @@ export default function App() {
   const [showDrawConfig, setShowDrawConfig] = useState(true);
   const [showColorPickerPopup, setShowColorPickerPopup] = useState(false);
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(true);
-  const [pcRightTab, setPcRightTab] = useState<"corner" | "animation" | "ai">("corner");
+  const [pcRightTab, setPcRightTab] = useState<"corner" | "animation" | "drills" | "ai">("corner");
+  const [pcLeftTab, setPcLeftTab] = useState<"club" | "formation" | "lines">("club");
+  const [pcScreenTab, setPcScreenTab] = useState<"split" | "pitch" | "club" | "sim">("split");
+  const [mobileAnimSubTab, setMobileAnimSubTab] = useState<"timeline" | "drills">("timeline");
+  const [mobileAiSubTab, setMobileAiSubTab] = useState<"coach" | "studio">("coach");
+  const [tabletSplitMode, setTabletSplitMode] = useState<boolean>(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 740 && window.innerWidth < 1024 && window.innerHeight >= 520 : false
+  );
+  const [pcViewport, setPcViewport] = useState<{ width: number; height: number }>(() => ({
+    width: typeof window !== "undefined" ? window.innerWidth : 1440,
+    height: typeof window !== "undefined" ? window.innerHeight : 900
+  }));
   const [isDrawLocked, setIsDrawLocked] = useState<boolean>(false);
   const [activeSketchLayer, setActiveSketchLayer] = useState<number>(1);
   const [visibleSketchLayers, setVisibleSketchLayers] = useState<number[]>([1, 2, 3]);
@@ -641,7 +651,7 @@ export default function App() {
   const [showTacticalGrid, setShowTacticalGrid] = useState<boolean>(false);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
 
-  // Auto-detect Device & Display Mode (PC vs HP/Android layout adaptation without manual switch)
+  // Auto-detect Device & Display Mode (PC vs HP/Android/Tablet layout adaptation without manual switch)
   const detectAutoDeviceMode = (): DeviceViewMode => {
     if (typeof window === "undefined") return "pc";
     return window.innerWidth < 1024 ? "android" : "pc";
@@ -649,11 +659,28 @@ export default function App() {
 
   const [deviceMode, setDeviceMode] = useState<DeviceViewMode>(detectAutoDeviceMode);
   const [androidActiveTab, setAndroidActiveTab] = useState<AndroidActiveTab>("pitch");
-  const [showClubIdentityBar, setShowClubIdentityBar] = useState<boolean>(true);
+  const [showClubIdentityBar, setShowClubIdentityBar] = useState<boolean>(false);
 
   useEffect(() => {
     const handleResize = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      setPcViewport({ width: w, height: h });
       setDeviceMode(detectAutoDeviceMode());
+      // Auto-switch PC workspace into full-screen tabs if window height or width is compact
+      if (w >= 1024 && (w < 1220 || h < 650)) {
+        setPcScreenTab((prev) => (prev === "split" ? "pitch" : prev));
+      } else if (w >= 1280 && h >= 680) {
+        setPcScreenTab((prev) => (prev === "pitch" ? "split" : prev));
+      }
+      // Auto-adapt Tablet between 2-panel split mode (landscape/wide) and 1-panel full-screen tabs (portrait/compact)
+      if (w >= 640 && w < 1024) {
+        if (w < 740 || h < 500) {
+          setTabletSplitMode(false);
+        }
+      } else {
+        setTabletSplitMode(false);
+      }
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -2102,9 +2129,13 @@ export default function App() {
     />
   );
 
-  const renderAIImageGen = (viewMode: "formation-only" | "poster-stage" = "formation-only") => (
+  const renderAIImageGen = (
+    viewMode: "formation-only" | "poster-stage" = "formation-only",
+    subSection: "all" | "presets" | "lines" = "all"
+  ) => (
     <AIFormationImageGenerator
       viewMode={viewMode}
+      activeSubSection={subSection}
       onSwitchToPitch={() => setPitchZoneMode("pitch")}
       isPitchFullscreen={isPitchFullscreen}
       formation={formation}
@@ -2165,8 +2196,35 @@ export default function App() {
     />
   );
 
+  // Compute dynamic pitch max-width on PC, Tablet, and HP so that Header + Top Bar + Telemetry + Pitch + Bottom Bar + Bench + Nav fit 100% inside 100dvh without vertical scrolling
+  const isCompactPcScreen = pcViewport.width < 1220 || pcViewport.height < 650;
+  const isTabletViewport = pcViewport.width >= 640 && pcViewport.width < 1024;
+  const isTabletDualPanel = deviceMode === "android" && isTabletViewport && tabletSplitMode;
+
+  const reservedVerticalPx =
+    deviceMode === "pc"
+      ? (showClubIdentityBar ? 58 : 0) + (pitchZoneMode === "pitch" ? 265 : 185) + (frames.length > 1 ? 56 : 0)
+      : (showClubIdentityBar ? 54 : 0) + (pitchZoneMode === "pitch" ? 290 : 210) + (frames.length > 1 ? 58 : 0);
+
+  const availablePitchHeightPx = Math.max(195, pcViewport.height - reservedVerticalPx);
+  const heightBasedPitchMaxW = Math.floor(availablePitchHeightPx * (4 / 4.3));
+
+  const widthBasedPitchMaxW =
+    deviceMode === "pc"
+      ? pcScreenTab === "split"
+        ? Math.floor(Math.min(pcViewport.width * 0.44, 550))
+        : Math.floor(Math.min(pcViewport.width * 0.72, 640))
+      : isTabletDualPanel
+      ? Math.floor(Math.min(pcViewport.width * 0.5 - 48, 460))
+      : Math.floor(Math.min(pcViewport.width - 52, 540));
+
+  const maxPitchWidthPx = Math.max(185, Math.min(heightBasedPitchMaxW, widthBasedPitchMaxW));
+
   return (
-    <div className="relative min-h-screen bg-[#061318] bg-[linear-gradient(to_right,#2dd4bf08_1px,transparent_1px),linear-gradient(to_bottom,#2dd4bf08_1px,transparent_1px)] bg-[size:28px_28px] text-white flex flex-col font-sans antialiased overflow-x-hidden">
+    <div
+      style={{ "--pitch-max-w": `${maxPitchWidthPx}px` } as React.CSSProperties}
+      className="relative h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#061318] bg-[linear-gradient(to_right,#2dd4bf08_1px,transparent_1px),linear-gradient(to_bottom,#2dd4bf08_1px,transparent_1px)] bg-[size:28px_28px] text-white flex flex-col font-sans antialiased overflow-x-hidden"
+    >
       
       {/* Global floating button to exit presentation mode */}
       {isPitchFullscreen && (
@@ -2185,21 +2243,123 @@ export default function App() {
       <div className="absolute bottom-20 right-1/4 w-[480px] h-[480px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none z-0" />
       
       {/* Header bar Navigation - Soft Sporty Tosca Frosted Glass */}
-      <header className="h-16 flex items-center justify-between px-3 md:px-6 border-b border-teal-400/15 bg-[#051419]/90 backdrop-blur-md z-40 shadow-[0_4px_30px_rgba(2,10,14,0.55)] select-none">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-md shadow-teal-500/25">
-            <svg className="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <header className="h-12 shrink-0 flex items-center justify-between px-2.5 sm:px-4 md:px-5 border-b border-teal-400/15 bg-[#051419]/90 backdrop-blur-md z-40 shadow-[0_4px_30px_rgba(2,10,14,0.55)] select-none gap-2">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-teal-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-md shadow-teal-500/25">
+            <svg className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
           <div>
-            <h1 className="text-sm md:text-base font-extrabold tracking-tight text-white font-display">{t.appTitle}</h1>
-            <p className="text-[10px] text-teal-200/70 font-medium tracking-wide hidden sm:block">{t.appSubtitle}</p>
+            <h1 className="text-xs md:text-sm font-extrabold tracking-tight text-white font-display leading-tight">{t.appTitle}</h1>
+            <p className="text-[9px] text-teal-200/70 font-medium tracking-wide hidden xl:block leading-none">{t.appSubtitle}</p>
           </div>
         </div>
 
+        {/* Tablet Layout Mode Switcher (1 Layar Tab vs 2 Panel Split) */}
+        {deviceMode === "android" && isTabletViewport && (
+          <div className="hidden sm:flex lg:hidden items-center gap-1 bg-[#041115]/95 border border-teal-400/25 rounded-xl p-1 shadow-inner">
+            <button
+              type="button"
+              onClick={() => {
+                setTabletSplitMode(false);
+                soundManager.playClick();
+              }}
+              className={`h-7 px-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all ${
+                !tabletSplitMode
+                  ? "bg-teal-400 text-slate-950 font-black shadow-sm"
+                  : "text-teal-100/70 hover:text-white"
+              }`}
+            >
+              <span>📱 {lang === "id" ? "Mode Tab" : "Tab Mode"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTabletSplitMode(true);
+                if (androidActiveTab === "pitch") {
+                  setAndroidActiveTab("squad");
+                }
+                soundManager.playClick();
+              }}
+              className={`h-7 px-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all ${
+                tabletSplitMode
+                  ? "bg-teal-400 text-slate-950 font-black shadow-sm"
+                  : "text-teal-100/70 hover:text-white"
+              }`}
+            >
+              <span>📟 {lang === "id" ? "2 Panel Tablet" : "2-Panel Split"}</span>
+            </button>
+          </div>
+        )}
+
+        {/* PC Screen / Workspace Tab Switcher (Auto-adapts when screen is compact + manual tab switching anytime) */}
+        {deviceMode === "pc" && (
+          <div
+            role="tablist"
+            aria-label={lang === "id" ? "Tab Layar Kerja PC" : "PC Workspace Screen Tabs"}
+            className="hidden lg:flex items-center gap-1 bg-[#041115]/95 border border-teal-400/25 rounded-xl p-1 shadow-inner"
+          >
+            {([
+              {
+                id: "split" as const,
+                label: lang === "id" ? "3 Panel" : "3 Panels",
+                title: lang === "id" ? "Tampilan Lengkap 3 Kolom Tanpa Scroll" : "Full 3-Column Zero-Scroll Workspace",
+                icon: "🖥️"
+              },
+              {
+                id: "pitch" as const,
+                label: lang === "id" ? "Lapangan" : "Pitch",
+                title: lang === "id" ? "Fokus Layar Lapangan Taktis / Poster HD" : "Focus Tactical Pitch / Poster HD Screen",
+                icon: "⚽"
+              },
+              {
+                id: "club" as const,
+                label: lang === "id" ? "Klub & Formasi" : "Club & Formation",
+                title: lang === "id" ? "Layar Identitas Klub, Manajer & Studio Formasi" : "Club Identity, Manager & Formation Studio Screen",
+                icon: "🛡️"
+              },
+              {
+                id: "sim" as const,
+                label: lang === "id" ? "Simulasi & AI" : "Sim & AI",
+                title: lang === "id" ? "Layar Simulasi Corner, Animasi, Latihan & AI Coach" : "Corner Sim, Animation, Drills & AI Coach Screen",
+                icon: "🧠"
+              }
+            ]).map((tab) => {
+              const isActive = pcScreenTab === tab.id;
+              return (
+                <div key={tab.id} className="relative group">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => {
+                      setPcScreenTab(tab.id);
+                      soundManager.playClick();
+                    }}
+                    className={`h-7 px-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                      isActive
+                        ? "bg-teal-400 text-slate-950 shadow-sm font-black"
+                        : "text-teal-100/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <span className="text-[11px]">{tab.icon}</span>
+                    <span>{tab.label}</span>
+                  </button>
+                  <ToolHoverTooltip
+                    category={isCompactPcScreen ? "AUTO TAB LAYAR PC" : "SWITCH LAYAR PC"}
+                    title={tab.title}
+                    badge={isActive ? "AKTIF" : undefined}
+                    placement="bottom"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Global Toolbar controls - Logo-only with Hover Tooltips */}
-        <div className="hidden md:flex items-center gap-1.5 bg-[#071c22]/90 border border-teal-400/20 rounded-2xl p-1 shadow-inner">
+        <div className="hidden md:flex items-center gap-1.5 bg-[#071c22]/90 border border-teal-400/20 rounded-2xl p-1 shadow-inner shrink-0">
           {/* Language Selector */}
           <div className="flex bg-[#041115] border border-teal-400/20 rounded-xl p-0.5 shrink-0" role="group" aria-label={lang === "id" ? "Pilih Bahasa" : "Choose Language"}>
             <div className="relative group">
@@ -2526,321 +2686,412 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Main viewport Workspace (Auto-adaptive for Mobile/Android & PC Desktop) */}
-      <div className="flex-1 w-full flex flex-col items-center">
-        <div className="w-full flex-1 flex flex-col">
+      {/* Main viewport Workspace (Auto-adaptive for Mobile/Android, Tablet & PC Desktop without vertical scroll) */}
+      <div className="flex-1 min-h-0 w-full flex flex-col items-center overflow-hidden">
+        <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
           {/* Core Content Grid / Tab Layout */}
           <main
             className={
               deviceMode === "android"
-                ? "flex-1 w-full p-2.5 sm:p-4 flex flex-col min-h-[580px]"
-                : "flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+                ? isTabletDualPanel
+                  ? "flex-1 min-h-0 w-full px-3 py-2 grid grid-cols-12 gap-3 items-stretch overflow-hidden"
+                  : "flex-1 min-h-0 w-full px-2 py-1.5 sm:px-3 sm:py-2 flex flex-col overflow-hidden"
+                : "flex-1 min-h-0 max-w-[1600px] w-full mx-auto px-3 py-2 lg:px-4 lg:py-2 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-stretch overflow-hidden"
             }
           >
-            {/* LEFT COLUMN PANEL: SQUAD SETTINGS */}
-            {(deviceMode === "pc" || androidActiveTab === "squad") && (
+            {/* LEFT COLUMN PANEL: SQUAD & FORMATION TABS */}
+            {((deviceMode === "pc" && (pcScreenTab === "split" || pcScreenTab === "club")) ||
+              (deviceMode === "android" && !isTabletDualPanel && androidActiveTab === "squad")) && (
               <div
                 className={
                   deviceMode === "android"
-                    ? "w-full max-w-2xl mx-auto flex flex-col gap-4 animate-fadeIn"
-                    : "lg:col-span-3 flex flex-col gap-5 lg:overflow-y-auto lg:max-h-[85vh] pr-1 h-auto"
+                    ? "w-full max-w-2xl mx-auto flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden animate-fadeIn"
+                    : pcScreenTab === "club"
+                    ? "lg:col-span-12 grid grid-cols-1 lg:grid-cols-3 gap-4 h-full min-h-0 overflow-hidden items-start animate-fadeIn"
+                    : "lg:col-span-3 flex flex-col gap-2.5 h-full min-h-0 overflow-hidden"
                 }
               >
-                {/* In Android Mode, add a prominent CTA to open the full Squad Management Sheet */}
+                {/* In Android/HP/Tablet Mode, add a prominent CTA to open the full Squad Management Sheet */}
                 {deviceMode === "android" && (
                   <button
                     onClick={() => {
                       setIsSquadManagementOpen(true);
                       soundManager.playClick();
                     }}
-                    className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
+                    className="w-full py-2 px-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 transition-all cursor-pointer shrink-0"
                   >
-                    <Users className="w-4 h-4" />
+                    <Users className="w-3.5 h-3.5" />
                     <span>{lang === "id" ? "Buka Pengelolaan Skuad (11 Starter & Cadangan)" : "Open Squad Management & Lineup"}</span>
                   </button>
                 )}
 
+                {/* Sub-Tab Switcher (Klub & Tim | Formasi | Lini & Gaya) for both PC Split Mode AND HP/Tablet Squad Tab so it never overflows vertically */}
+                {(deviceMode === "android" || (deviceMode === "pc" && pcScreenTab === "split")) && (
+                  <div className="bg-[#071c22]/95 border border-teal-400/25 rounded-2xl p-1 grid grid-cols-3 gap-1 shadow-[0_8px_24px_rgba(3,12,16,0.45)] shrink-0">
+                    {([
+                      { id: "club" as const, label: lang === "id" ? "Klub & Tim" : "Club & Team" },
+                      { id: "formation" as const, label: lang === "id" ? "Formasi" : "Formation" },
+                      { id: "lines" as const, label: lang === "id" ? "Lini & Gaya" : "Lines & Style" }
+                    ]).map((tab) => {
+                      const active = pcLeftTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => {
+                            setPcLeftTab(tab.id);
+                            soundManager.playClick();
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer truncate ${
+                            active
+                              ? "bg-teal-400 text-slate-950 font-black shadow-sm"
+                              : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Identity & Quick Club Hub Panel (Soft Sporty Tosca) */}
-                <div className="relative rounded-2xl border border-teal-400/25 bg-[#071c22]/90 backdrop-blur-xl transition-all duration-200 overflow-hidden shadow-[0_12px_32px_rgba(3,12,16,0.5)] p-4 flex flex-col gap-3.5">
-                  <div className="flex items-center justify-between border-b border-teal-400/15 pb-2.5">
-                    <h4 className="text-xs font-extrabold text-white uppercase tracking-wide flex items-center gap-2 select-none">
-                      <span className="w-2 h-2 rounded-full bg-teal-400" />
-                      <span>{t.clubIdentity}</span>
-                    </h4>
-                    <span className="text-[10px] font-mono text-teal-300 font-bold">
-                      {players.filter((p) => p.isStarting).length} {lang === "id" ? "Starter" : "Starters"} • {players.filter((p) => !p.isStarting).length} {lang === "id" ? "Cadangan" : "Bench"}
-                    </span>
-                  </div>
-
-                  {/* Club Name, Logo & Jersey Row */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 relative">
-                      <label className="text-[9.5px] font-bold text-teal-200/75 uppercase tracking-wider mb-1 block">
-                        {t.mainTeamName}
-                      </label>
-                      <input
-                        type="text"
-                        value={teamName}
-                        onChange={(e) => handleUpdateTeamName(e.target.value)}
-                        placeholder="Team A"
-                        aria-label={t.clubIdentity}
-                        className="w-full bg-[#041217] border border-teal-400/25 rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-teal-400 transition-all font-bold tracking-wide"
-                      />
-                    </div>
-
-                    {/* Upload Logo */}
-                    <div className="flex flex-col items-center shrink-0">
-                      <span className="text-[9px] font-bold text-teal-200/70 uppercase mb-1">Logo</span>
-                      {teamLogo ? (
-                        <div className="relative w-9 h-9 bg-[#041217] border border-teal-400/30 rounded-xl overflow-hidden flex items-center justify-center group/logo-view">
-                          <img src={teamLogo} className="w-full h-full object-contain p-1" alt="Team Logo" />
-                          <button
-                            type="button"
-                            onClick={() => setTeamLogo(null)}
-                            className="absolute inset-0 bg-rose-950/90 opacity-0 group-hover/logo-view:opacity-100 flex items-center justify-center transition-all text-rose-300 font-bold text-xs cursor-pointer"
-                            aria-label="Remove Team Logo"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <label
-                          title={t.chooseLogo}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#041217] hover:bg-[#08222a] border-teal-400/25 hover:border-teal-400/50 text-teal-300 hover:text-white active:scale-95"
-                        >
-                          <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  if (event.target?.result) {
-                                    setTeamLogo(event.target.result as string);
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                            className="sr-only"
-                            aria-label={t.chooseLogo}
-                          />
-                        </label>
-                      )}
-                    </div>
-
-                    {/* Upload Jersey */}
-                    <div className="flex flex-col items-center shrink-0">
-                      <span className="text-[9px] font-bold text-teal-200/70 uppercase mb-1">Jersey</span>
-                      {teamJersey ? (
-                        <div className="relative w-9 h-9 bg-[#041217] border border-teal-400/30 rounded-xl overflow-hidden flex items-center justify-center group/jersey-view">
-                          <img src={teamJersey} className="w-full h-full object-contain p-1" alt="Team Jersey" />
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateTeamJersey(null)}
-                            className="absolute inset-0 bg-rose-950/90 opacity-0 group-hover/jersey-view:opacity-100 flex items-center justify-center transition-all text-rose-300 font-bold text-xs cursor-pointer"
-                            aria-label="Remove Team Jersey"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <label
-                          title={t.chooseJersey}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#041217] hover:bg-[#08222a] border-teal-400/25 hover:border-teal-400/50 text-emerald-300 hover:text-white active:scale-95"
-                        >
-                          <Shirt className="w-3.5 h-3.5" aria-hidden="true" />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  if (event.target?.result) {
-                                    handleUpdateTeamJersey(event.target.result as string);
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                            className="sr-only"
-                            aria-label={t.chooseJersey}
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Manager Profile Row */}
-                  <div className="flex items-end gap-2 pt-2 border-t border-teal-400/15">
-                    <div className="flex-1">
-                      <label className="text-[9.5px] font-bold text-teal-200/75 uppercase tracking-wider mb-1 block">
-                        {t.managerProfile}
-                      </label>
-                      <input
-                        type="text"
-                        value={managerName}
-                        onChange={(e) => handleUpdateManagerName(e.target.value)}
-                        placeholder="COACH"
-                        aria-label={t.managerName}
-                        className="w-full bg-[#041217] border border-teal-400/25 rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-teal-400 transition-all font-bold tracking-wide font-mono"
-                      />
-                    </div>
-
-                    <div className="flex flex-col items-center shrink-0">
-                      <span className="text-[9px] font-bold text-teal-200/70 uppercase mb-1">
-                        {lang === "id" ? "Foto" : "Photo"}
+                {(pcScreenTab === "club" || pcLeftTab === "club") && (
+                  <div className="relative rounded-2xl border border-teal-400/25 bg-[#071c22]/90 backdrop-blur-xl transition-all duration-200 overflow-hidden shadow-[0_12px_32px_rgba(3,12,16,0.5)] p-3.5 flex flex-col gap-3">
+                    <div className="flex items-center justify-between border-b border-teal-400/15 pb-2">
+                      <h4 className="text-xs font-extrabold text-white uppercase tracking-wide flex items-center gap-2 select-none">
+                        <span className="w-2 h-2 rounded-full bg-teal-400" />
+                        <span>{t.clubIdentity}</span>
+                      </h4>
+                      <span className="text-[10px] font-mono text-teal-300 font-bold">
+                        {players.filter((p) => p.isStarting).length} {lang === "id" ? "Starter" : "Starters"} • {players.filter((p) => !p.isStarting).length} {lang === "id" ? "Cadangan" : "Bench"}
                       </span>
-                      {managerPhoto ? (
-                        <div className="relative w-9 h-9 bg-[#041217] border border-teal-400/30 rounded-xl overflow-hidden flex items-center justify-center group/photo-view">
-                          <img src={managerPhoto} className="w-full h-full object-cover" alt="Manager" />
+                    </div>
+
+                    {/* Club Name, Logo & Jersey Row */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 relative">
+                        <label className="text-[9.5px] font-bold text-teal-200/75 uppercase tracking-wider mb-1 block">
+                          {t.mainTeamName}
+                        </label>
+                        <input
+                          type="text"
+                          value={teamName}
+                          onChange={(e) => handleUpdateTeamName(e.target.value)}
+                          placeholder="Team A"
+                          aria-label={t.clubIdentity}
+                          className="w-full bg-[#041217] border border-teal-400/25 rounded-xl px-3 py-1.5 text-xs text-white uppercase focus:outline-none focus:border-teal-400 transition-all font-bold tracking-wide"
+                        />
+                      </div>
+
+                      {/* Upload Logo */}
+                      <div className="flex flex-col items-center shrink-0">
+                        <span className="text-[9px] font-bold text-teal-200/70 uppercase mb-1">Logo</span>
+                        {teamLogo ? (
+                          <div className="relative w-9 h-9 bg-[#041217] border border-teal-400/30 rounded-xl overflow-hidden flex items-center justify-center group/logo-view">
+                            <img src={teamLogo} className="w-full h-full object-contain p-1" alt="Team Logo" />
+                            <button
+                              type="button"
+                              onClick={() => setTeamLogo(null)}
+                              className="absolute inset-0 bg-rose-950/90 opacity-0 group-hover/logo-view:opacity-100 flex items-center justify-center transition-all text-rose-300 font-bold text-xs cursor-pointer"
+                              aria-label="Remove Team Logo"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <label
+                            title={t.chooseLogo}
+                            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#041217] hover:bg-[#08222a] border-teal-400/25 hover:border-teal-400/50 text-teal-300 hover:text-white active:scale-95"
+                          >
+                            <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    if (event.target?.result) {
+                                      setTeamLogo(event.target.result as string);
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="sr-only"
+                              aria-label={t.chooseLogo}
+                            />
+                          </label>
+                        )}
+                      </div>
+
+                      {/* Upload Jersey */}
+                      <div className="flex flex-col items-center shrink-0">
+                        <span className="text-[9px] font-bold text-teal-200/70 uppercase mb-1">Jersey</span>
+                        {teamJersey ? (
+                          <div className="relative w-9 h-9 bg-[#041217] border border-teal-400/30 rounded-xl overflow-hidden flex items-center justify-center group/jersey-view">
+                            <img src={teamJersey} className="w-full h-full object-contain p-1" alt="Team Jersey" />
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateTeamJersey(null)}
+                              className="absolute inset-0 bg-rose-950/90 opacity-0 group-hover/jersey-view:opacity-100 flex items-center justify-center transition-all text-rose-300 font-bold text-xs cursor-pointer"
+                              aria-label="Remove Team Jersey"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <label
+                            title={t.chooseJersey}
+                            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#041217] hover:bg-[#08222a] border-teal-400/25 hover:border-teal-400/50 text-emerald-300 hover:text-white active:scale-95"
+                          >
+                            <Shirt className="w-3.5 h-3.5" aria-hidden="true" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    if (event.target?.result) {
+                                      handleUpdateTeamJersey(event.target.result as string);
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="sr-only"
+                              aria-label={t.chooseJersey}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Manager Profile Row */}
+                    <div className="flex items-end gap-2 pt-2 border-t border-teal-400/15">
+                      <div className="flex-1">
+                        <label className="text-[9.5px] font-bold text-teal-200/75 uppercase tracking-wider mb-1 block">
+                          {t.managerProfile}
+                        </label>
+                        <input
+                          type="text"
+                          value={managerName}
+                          onChange={(e) => handleUpdateManagerName(e.target.value)}
+                          placeholder="COACH"
+                          aria-label={t.managerName}
+                          className="w-full bg-[#041217] border border-teal-400/25 rounded-xl px-3 py-1.5 text-xs text-white uppercase focus:outline-none focus:border-teal-400 transition-all font-bold tracking-wide font-mono"
+                        />
+                      </div>
+
+                      <div className="flex flex-col items-center shrink-0">
+                        <span className="text-[9px] font-bold text-teal-200/70 uppercase mb-1">
+                          {lang === "id" ? "Foto" : "Photo"}
+                        </span>
+                        {managerPhoto ? (
+                          <div className="relative w-9 h-9 bg-[#041217] border border-teal-400/30 rounded-xl overflow-hidden flex items-center justify-center group/photo-view">
+                            <img src={managerPhoto} className="w-full h-full object-cover" alt="Manager" />
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateManagerPhoto(null)}
+                              className="absolute inset-0 bg-rose-950/90 opacity-0 group-hover/photo-view:opacity-100 flex items-center justify-center transition-all text-rose-300 font-bold text-xs cursor-pointer"
+                              aria-label={t.deletePhoto}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <label
+                            title={t.uploadPhoto}
+                            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#041217] hover:bg-[#08222a] border-teal-400/25 hover:border-teal-400/50 text-teal-200 hover:text-white active:scale-95"
+                          >
+                            <span className="text-sm">👔</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    if (event.target?.result) {
+                                      handleUpdateManagerPhoto(event.target.result as string);
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="sr-only"
+                              aria-label={t.uploadPhoto}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Quick Club Actions Row (Logo-Only with Hover Tooltips Above) */}
+                    <div className="grid grid-cols-4 gap-2 pt-1">
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsSquadManagementOpen(true);
+                            soundManager.playClick();
+                          }}
+                          aria-label={lang === "id" ? "Kelola Skuad" : "Manage Squad"}
+                          className="w-full h-9 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/30 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                        >
+                          <NanoBananaLogo tool="squad" size="md" />
+                        </button>
+                        <ToolHoverTooltip
+                          category={lang === "id" ? "MANAJEMEN TIM" : "TEAM ROSTER"}
+                          title={lang === "id" ? "Kelola Skuad & Urutkan" : "Manage & Sort Squad"}
+                          align="left"
+                        />
+                      </div>
+
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsFormationStudioModalOpen(true);
+                            soundManager.playClick();
+                          }}
+                          aria-label={lang === "id" ? "Studio Formasi" : "Formation Studio"}
+                          className="w-full h-9 rounded-xl bg-[#041217] hover:bg-teal-500/15 border border-teal-400/25 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                        >
+                          <NanoBananaLogo tool="studio" size="md" />
+                        </button>
+                        <ToolHoverTooltip
+                          category={lang === "id" ? "STUDIO TAKTIS" : "TACTICAL STUDIO"}
+                          title={lang === "id" ? "Studio Formasi & Lini" : "Formation & Line Studio"}
+                        />
+                      </div>
+
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPitchZoneMode((prev) => (prev === "poster" ? "pitch" : "poster"));
+                            if (deviceMode === "android") {
+                              setAndroidActiveTab("pitch");
+                            }
+                            soundManager.playClick();
+                          }}
+                          aria-label={lang === "id" ? "Switch ke Studio Poster HD di Zona Lapangan" : "Switch to HD Poster Studio in Pitch Zone"}
+                          className={`w-full h-9 rounded-xl border flex items-center justify-center cursor-pointer transition-all active:scale-95 ${
+                            pitchZoneMode === "poster"
+                              ? "bg-teal-400 text-slate-950 border-teal-300 shadow-sm"
+                              : "bg-[#041217] hover:bg-teal-500/15 border-teal-400/25"
+                          }`}
+                        >
+                          <NanoBananaLogo tool="poster" size="md" active={pitchZoneMode === "poster"} />
+                        </button>
+                        <ToolHoverTooltip
+                          category="ZONA LAPANGAN"
+                          title={
+                            pitchZoneMode === "poster"
+                              ? lang === "id"
+                                ? "Kembali ke Lapangan Taktis"
+                                : "Switch to Tactical Pitch"
+                              : lang === "id"
+                              ? "Switch ke Studio Poster HD"
+                              : "Switch to HD Poster Studio"
+                          }
+                        />
+                      </div>
+
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTvModeOpen(true);
+                            soundManager.playClick();
+                          }}
+                          aria-label={lang === "id" ? "Layar Siaran TV" : "TV Broadcast"}
+                          className="w-full h-9 rounded-xl bg-[#041217] hover:bg-teal-500/15 border border-teal-400/25 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                        >
+                          <NanoBananaLogo tool="tv" size="md" />
+                        </button>
+                        <ToolHoverTooltip
+                          category={lang === "id" ? "SIARAN LANGSUNG" : "TV BROADCAST"}
+                          title={lang === "id" ? "Presentasi Layar Siaran TV" : "TV Broadcast Lineup Screen"}
+                          align="right"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Formation Switcher Strip inside Club Tab */}
+                    {(deviceMode === "android" || (deviceMode === "pc" && pcScreenTab === "split")) && (
+                      <div className="pt-2 border-t border-teal-400/15 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9.5px] font-bold text-teal-200/80 uppercase tracking-wider">
+                            {lang === "id" ? "Formasi Aktif" : "Active Formation"}
+                          </span>
+                          <span className="text-[10px] font-mono font-black text-teal-300 bg-teal-500/15 px-2 py-0.5 rounded-lg border border-teal-400/30">
+                            {formation}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
                           <button
                             type="button"
-                            onClick={() => handleUpdateManagerPhoto(null)}
-                            className="absolute inset-0 bg-rose-950/90 opacity-0 group-hover/photo-view:opacity-100 flex items-center justify-center transition-all text-rose-300 font-bold text-xs cursor-pointer"
-                            aria-label={t.deletePhoto}
+                            onClick={() => setPcLeftTab("formation")}
+                            className="py-1.5 px-2.5 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/30 text-[10px] font-extrabold text-teal-200 hover:text-white uppercase tracking-wider transition-all cursor-pointer"
                           >
-                            ✕
+                            {lang === "id" ? "⚡ Pilih Formasi" : "⚡ Formations"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPcLeftTab("lines")}
+                            className="py-1.5 px-2.5 rounded-xl bg-[#041217] hover:bg-teal-500/15 border border-teal-400/25 text-[10px] font-extrabold text-teal-200/80 hover:text-white uppercase tracking-wider transition-all cursor-pointer"
+                          >
+                            {lang === "id" ? "📐 Lini & Gaya" : "📐 Tactical Lines"}
                           </button>
                         </div>
-                      ) : (
-                        <label
-                          title={t.uploadPhoto}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#041217] hover:bg-[#08222a] border-teal-400/25 hover:border-teal-400/50 text-teal-200 hover:text-white active:scale-95"
-                        >
-                          <span className="text-sm">👔</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  if (event.target?.result) {
-                                    handleUpdateManagerPhoto(event.target.result as string);
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                            className="sr-only"
-                            aria-label={t.uploadPhoto}
-                          />
-                        </label>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
+                )}
 
-                  {/* Quick Club Actions Row (Logo-Only with Hover Tooltips Above) */}
-                  <div className="grid grid-cols-4 gap-2 pt-1">
-                    <div className="relative group">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsSquadManagementOpen(true);
-                          soundManager.playClick();
-                        }}
-                        aria-label={lang === "id" ? "Kelola Skuad" : "Manage Squad"}
-                        className="w-full h-10 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/30 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                      >
-                        <NanoBananaLogo tool="squad" size="md" />
-                      </button>
-                      <ToolHoverTooltip
-                        category={lang === "id" ? "MANAJEMEN TIM" : "TEAM ROSTER"}
-                        title={lang === "id" ? "Kelola Skuad & Urutkan" : "Manage & Sort Squad"}
-                        align="left"
-                      />
-                    </div>
-
-                    <div className="relative group">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsFormationStudioModalOpen(true);
-                          soundManager.playClick();
-                        }}
-                        aria-label={lang === "id" ? "Studio Formasi" : "Formation Studio"}
-                        className="w-full h-10 rounded-xl bg-[#041217] hover:bg-teal-500/15 border border-teal-400/25 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                      >
-                        <NanoBananaLogo tool="studio" size="md" />
-                      </button>
-                      <ToolHoverTooltip
-                        category={lang === "id" ? "STUDIO TAKTIS" : "TACTICAL STUDIO"}
-                        title={lang === "id" ? "Studio Formasi & Lini" : "Formation & Line Studio"}
-                      />
-                    </div>
-
-                    <div className="relative group">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPitchZoneMode((prev) => (prev === "poster" ? "pitch" : "poster"));
-                          if (deviceMode === "android") {
-                            setAndroidActiveTab("pitch");
-                          }
-                          soundManager.playClick();
-                        }}
-                        aria-label={lang === "id" ? "Switch ke Studio Poster HD di Zona Lapangan" : "Switch to HD Poster Studio in Pitch Zone"}
-                        className={`w-full h-10 rounded-xl border flex items-center justify-center cursor-pointer transition-all active:scale-95 ${
-                          pitchZoneMode === "poster"
-                            ? "bg-teal-400 text-slate-950 border-teal-300 shadow-sm"
-                            : "bg-[#041217] hover:bg-teal-500/15 border-teal-400/25"
-                        }`}
-                      >
-                        <NanoBananaLogo tool="poster" size="md" active={pitchZoneMode === "poster"} />
-                      </button>
-                      <ToolHoverTooltip
-                        category="ZONA LAPANGAN"
-                        title={
-                          pitchZoneMode === "poster"
-                            ? lang === "id"
-                              ? "Kembali ke Lapangan Taktis"
-                              : "Switch to Tactical Pitch"
-                            : lang === "id"
-                            ? "Switch ke Studio Poster HD"
-                            : "Switch to HD Poster Studio"
-                        }
-                      />
-                    </div>
-
-                    <div className="relative group">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTvModeOpen(true);
-                          soundManager.playClick();
-                        }}
-                        aria-label={lang === "id" ? "Layar Siaran TV" : "TV Broadcast"}
-                        className="w-full h-10 rounded-xl bg-[#041217] hover:bg-teal-500/15 border border-teal-400/25 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                      >
-                        <NanoBananaLogo tool="tv" size="md" />
-                      </button>
-                      <ToolHoverTooltip
-                        category={lang === "id" ? "SIARAN LANGSUNG" : "TV BROADCAST"}
-                        title={lang === "id" ? "Presentasi Layar Siaran TV" : "TV Broadcast Lineup Screen"}
-                        align="right"
-                      />
-                    </div>
+                {/* Integrated Studio Formasi & Tactical Line Adjuster Panel in Left Column / Squad Tab */}
+                {(deviceMode === "android" || (deviceMode === "pc" && pcScreenTab === "split")) && pcLeftTab === "formation" && (
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 scrollbar-thin animate-fadeIn">
+                    {renderAIImageGen("formation-only", "presets")}
                   </div>
-                </div>
-
-                {/* Integrated Studio Formasi & Tactical Line Adjuster Panel in Left Column */}
-                {renderAIImageGen()}
+                )}
+                {(deviceMode === "android" || (deviceMode === "pc" && pcScreenTab === "split")) && pcLeftTab === "lines" && (
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 scrollbar-thin animate-fadeIn">
+                    {renderAIImageGen("formation-only", "lines")}
+                  </div>
+                )}
+                {deviceMode === "pc" && pcScreenTab === "club" && (
+                  <>
+                    <div className="h-full min-h-0 overflow-y-auto pr-1 scrollbar-thin">
+                      {renderAIImageGen("formation-only", "presets")}
+                    </div>
+                    <div className="h-full min-h-0 overflow-y-auto pr-1 scrollbar-thin">
+                      {renderAIImageGen("formation-only", "lines")}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
         {/* MIDDLE COLUMN WORKSPACE: PFP PITCH & MATCH STATE TITLE OVERGAMES */}
-        {(deviceMode === "pc" || androidActiveTab === "pitch") && (
+        {((deviceMode === "pc" && (pcScreenTab === "split" || pcScreenTab === "pitch")) ||
+          (deviceMode === "android" && (isTabletDualPanel || androidActiveTab === "pitch"))) && (
           <div
             className={
               deviceMode === "android"
-                ? "w-full flex flex-col gap-4 items-center animate-fadeIn"
-                : "lg:col-span-6 flex flex-col gap-4 items-center h-full"
+                ? isTabletDualPanel
+                  ? "col-span-6 flex flex-col gap-1.5 items-center justify-start h-full min-h-0 overflow-hidden animate-fadeIn"
+                  : "w-full flex-1 min-h-0 flex flex-col gap-1.5 items-center justify-start overflow-hidden animate-fadeIn"
+                : pcScreenTab === "pitch"
+                ? "lg:col-span-12 flex flex-col gap-2 items-center justify-center h-full min-h-0 animate-fadeIn"
+                : "lg:col-span-6 flex flex-col gap-2 items-center justify-start h-full min-h-0"
             }
           >
 
@@ -2848,21 +3099,21 @@ export default function App() {
           <div className={`w-full flex transition-all duration-300 ${
             isPitchFullscreen 
               ? "fixed inset-0 z-[120] bg-[#07080a] flex-row gap-4 items-center justify-center p-4 md:p-8 overflow-hidden animate-fadeIn"
-              : "flex-row gap-2.5 sm:gap-4 items-start justify-center relative"
+              : "flex-row gap-2 sm:gap-3 items-start justify-center relative"
           }`}>
             <div className={`flex-1 min-w-0 w-full relative group/pitch transition-all duration-300 flex flex-col items-center ${
               isPitchFullscreen 
                 ? "h-full max-h-[96vh] max-w-none justify-center gap-2 overflow-y-auto" 
-                : "max-w-[580px]"
+                : "max-w-[var(--pitch-max-w,580px)]"
             }`}>
               {/* BAR KONTROL ATAS LUAR LAPANGAN (EXTERNAL TOP PITCH CONTROL BAR & TELEMETRY HUD) */}
-              <div className="w-full flex flex-col items-center gap-2 mb-2">
+              <div className="w-full flex flex-col items-center gap-1.5 mb-1.5">
                 {/* Top Bar: Theme Selector (Left) | Club Identity & Live Status (Center) | Fullscreen & Reset (Right) */}
                 <div
                   id="pitch-top-control-bar"
                   role="toolbar"
                   aria-label={lang === "id" ? "Bar kontrol atas luar lapangan" : "Top pitch control bar"}
-                  className={`relative w-full max-w-[580px] bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-2.5 sm:px-3.5 py-2 flex items-center justify-between gap-2 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl ${
+                  className={`relative w-full max-w-[var(--pitch-max-w,580px)] bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-2.5 sm:px-3 py-1.5 flex items-center justify-between gap-2 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl ${
                     showThemeDropdown ? "z-[110]" : "z-45"
                   }`}
                 >
@@ -3166,7 +3417,7 @@ export default function App() {
                   {!isPitchFullscreen && showClubIdentityBar && (
                     <div
                       id="pitch-club-identity-bar"
-                      className="w-full max-w-[580px] bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-3 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-xl flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 animate-fadeIn z-40"
+                      className="w-full max-w-[var(--pitch-max-w,580px)] bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-xl flex flex-col sm:flex-row items-stretch sm:items-center gap-2 animate-fadeIn z-40"
                     >
                       {/* Team Logo + Team Name Input */}
                       <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -4401,9 +4652,9 @@ export default function App() {
 
           {/* Inline Live Multi-Phase Simulation Player Bar (Appears whenever Corner Kick or Tactical Drill has >1 phases) */}
           {frames.length > 1 && !isPitchFullscreen && (
-            <div className="w-full max-w-[580px] bg-[#071e24]/95 border border-teal-400/30 rounded-2xl p-3 shadow-lg flex flex-col gap-2.5 animate-fadeIn">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+            <div className="w-full max-w-[var(--pitch-max-w,580px)] bg-[#071e24]/95 border border-teal-400/30 rounded-2xl px-2.5 py-1.5 shadow-lg flex flex-col gap-1 animate-fadeIn shrink-0">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -4412,7 +4663,7 @@ export default function App() {
                       if (nextPlay) soundManager.playWhistle();
                       else soundManager.playClick();
                     }}
-                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-sm whitespace-nowrap ${
+                    className={`px-2.5 py-1 rounded-xl font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-all shadow-sm whitespace-nowrap ${
                       isInlineSimPlaying
                         ? "bg-amber-400 text-slate-950"
                         : "bg-teal-400 hover:bg-teal-300 text-slate-950"
@@ -4420,28 +4671,25 @@ export default function App() {
                   >
                     {isInlineSimPlaying ? (
                       <>
-                        <Pause className="w-3.5 h-3.5 fill-current" />
-                        <span>{lang === "id" ? "Jeda Simulasi" : "Pause Sim"}</span>
+                        <Pause className="w-3 h-3 fill-current" />
+                        <span>{lang === "id" ? "Jeda" : "Pause"}</span>
                       </>
                     ) : (
                       <>
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>{lang === "id" ? "Putar Simulasi" : "Play Sim"}</span>
+                        <Play className="w-3 h-3 fill-current" />
+                        <span>{lang === "id" ? "Putar" : "Play"}</span>
                       </>
                     )}
                   </button>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-white">
-                      {activeSimulationTitle || (lang === "id" ? "Simulasi Taktis Aktif" : "Active Tactical Simulation")}
-                    </span>
-                    <span className="text-[10px] text-teal-300 font-medium">
-                      {frames[activeFrameIndex]?.name}
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[10px] font-bold text-white truncate max-w-[160px]">
+                      {activeSimulationTitle || (lang === "id" ? "Simulasi Taktis" : "Tactical Sim")}
                     </span>
                   </div>
                 </div>
 
                 {/* Phase Stepper Buttons */}
-                <div className="flex items-center gap-1 bg-[#041115] p-1 rounded-xl border border-teal-400/20">
+                <div className="flex items-center gap-1 bg-[#041115] p-0.5 rounded-xl border border-teal-400/20">
                   {frames.map((frame, idx) => {
                     const isCurrent = activeFrameIndex === idx;
                     return (
@@ -4453,169 +4701,40 @@ export default function App() {
                           handleSelectFrameIndex(idx);
                           soundManager.playClick();
                         }}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap font-mono tabular-nums ${
+                        className={`px-2 py-0.5 rounded-lg text-[9.5px] font-bold transition-all cursor-pointer whitespace-nowrap font-mono tabular-nums ${
                           isCurrent
                             ? "bg-teal-500 text-slate-950 shadow-sm"
                             : "text-teal-100/70 hover:text-white"
                         }`}
                       >
-                        {lang === "id" ? `Fasa ${idx + 1}` : `Phase ${idx + 1}`}
+                        {lang === "id" ? `F${idx + 1}` : `P${idx + 1}`}
                       </button>
                     );
                   })}
                 </div>
               </div>
-
-              {/* Active Phase Coaching Instruction */}
-              {frames[activeFrameIndex]?.instruction && (
-                <div className="text-[11px] text-teal-100/90 bg-[#051419]/80 border border-teal-400/15 rounded-xl px-3 py-2 leading-relaxed">
-                  {frames[activeFrameIndex].instruction}
-                </div>
-              )}
             </div>
           )}
 
-          {/* Android Quick Action Hub (Logo-Only + Hover Tooltip Above) & Integrated Formation Studio under pitch */}
+          {/* Compact HP & Tablet Quick Action Dock directly below pitch (no duplicate stacked formation studio) */}
           {deviceMode === "android" && (
-            <div className="w-full max-w-[580px] flex flex-col gap-3 pt-2 border-t border-teal-400/15 mt-1">
-              <div className="grid grid-cols-5 gap-2">
-                <div className="relative group">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsFormationStudioModalOpen(true);
-                      soundManager.playClick();
-                    }}
-                    aria-label={lang === "id" ? "Studio Formasi" : "Formation Studio"}
-                    className="w-full h-11 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95"
-                  >
-                    <NanoBananaLogo tool="studio" size="md" active={true} />
-                  </button>
-                  <ToolHoverTooltip
-                    category={lang === "id" ? "STUDIO TAKTIS" : "STUDIO"}
-                    title={lang === "id" ? "Studio Formasi & Lini" : "Formation Studio"}
-                    align="left"
-                  />
-                </div>
-
-                <div className="relative group">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPitchZoneMode((prev) => (prev === "poster" ? "pitch" : "poster"));
-                      soundManager.playClick();
-                    }}
-                    aria-label={lang === "id" ? "Switch ke Poster HD" : "Switch to HD Poster"}
-                    className={`w-full h-11 rounded-xl border flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95 ${
-                      pitchZoneMode === "poster"
-                        ? "bg-teal-400 text-slate-950 border-teal-300"
-                        : "bg-teal-500/20 hover:bg-teal-500/30 border-teal-400/40"
-                    }`}
-                  >
-                    <NanoBananaLogo tool="poster" size="md" active={pitchZoneMode === "poster"} />
-                  </button>
-                  <ToolHoverTooltip
-                    category="POSTER HD"
-                    title={
-                      pitchZoneMode === "poster"
-                        ? lang === "id"
-                          ? "Kembali ke Lapangan Taktis"
-                          : "Back to Tactical Pitch"
-                        : lang === "id"
-                        ? "Switch ke Studio Poster HD"
-                        : "Switch to HD Poster Studio"
-                    }
-                  />
-                </div>
-
-                <div className="relative group">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAndroidActiveTab("corner");
-                      soundManager.playClick();
-                    }}
-                    aria-label={lang === "id" ? "Studio Corner" : "Corner Studio"}
-                    className="w-full h-11 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/35 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                  >
-                    <NanoBananaLogo tool="corner_sim" size="md" />
-                  </button>
-                  <ToolHoverTooltip
-                    category="SET-PIECE"
-                    title={lang === "id" ? "Simulasi Corner Kick" : "Corner Kick Simulator"}
-                  />
-                </div>
-
-                <div className="relative group">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsSquadManagementOpen(true);
-                      soundManager.playClick();
-                    }}
-                    aria-label={lang === "id" ? "Kelola Skuad" : "Squad"}
-                    className="w-full h-11 rounded-xl bg-[#082229] hover:bg-[#0b2d36] border border-teal-400/20 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                  >
-                    <NanoBananaLogo tool="squad" size="md" />
-                  </button>
-                  <ToolHoverTooltip
-                    category={lang === "id" ? "SKUAD" : "SQUAD"}
-                    title={lang === "id" ? "Kelola Pemain & Nomor" : "Manage Squad"}
-                  />
-                </div>
-
-                <div className="relative group">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMatchSheetOpen(true);
-                      soundManager.playClick();
-                    }}
-                    aria-label={lang === "id" ? "Lembar Laga" : "Match Sheet"}
-                    className="w-full h-11 rounded-xl bg-[#082229] hover:bg-[#0b2d36] border border-teal-400/20 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                  >
-                    <NanoBananaLogo tool="briefing" size="md" />
-                  </button>
-                  <ToolHoverTooltip
-                    category="BRIEFING"
-                    title={lang === "id" ? "Lembar Taktik Pertandingan" : "Matchday Tactical Sheet"}
-                    align="right"
-                  />
-                </div>
-              </div>
-
-              {/* Integrated Formation & Poster Studio Panel directly below pitch in Android mode */}
-              {renderAIImageGen()}
-            </div>
-          )}
-        </div>
-      )}
-
-        {/* RIGHT COLUMN: SEGMENTED TACTICAL COMMAND DOCK (LOGO-ONLY TABS WITH HOVER TOOLTIP ABOVE) */}
-        {deviceMode === "pc" ? (
-          <div className="lg:col-span-3 flex flex-col gap-3.5 lg:max-h-[88vh] pl-1 h-auto">
-            {/* Clean Logo-Only Segmented Tab Switcher for Right Column */}
-            <div className="bg-[#071c22]/95 border border-teal-400/25 rounded-2xl p-1.5 grid grid-cols-3 gap-1.5 shadow-[0_10px_28px_rgba(3,12,16,0.45)] shrink-0">
+            <div className="w-full max-w-[var(--pitch-max-w,580px)] grid grid-cols-5 gap-1.5 pt-1 shrink-0">
               <div className="relative group">
                 <button
                   type="button"
                   onClick={() => {
-                    setPcRightTab("corner");
+                    setAndroidActiveTab("squad");
+                    setPcLeftTab("formation");
                     soundManager.playClick();
                   }}
-                  aria-label={lang === "id" ? "Simulasi Corner Kick" : "Corner Kick Simulator"}
-                  className={`w-full h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all active:scale-95 ${
-                    pcRightTab === "corner"
-                      ? "bg-teal-400 text-slate-950 shadow-sm"
-                      : "text-teal-100/75 hover:text-white hover:bg-white/5"
-                  }`}
+                  aria-label={lang === "id" ? "Tab Formasi & Lini" : "Formation Tab"}
+                  className="w-full h-8.5 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95"
                 >
-                  <NanoBananaLogo tool="corner_sim" size="md" active={pcRightTab === "corner"} />
+                  <NanoBananaLogo tool="studio" size="sm" active={true} />
                 </button>
                 <ToolHoverTooltip
-                  category="SET-PIECE LAB"
-                  title={lang === "id" ? "Simulasi Situasi Corner Kick" : "Corner Kick Situation Simulator"}
-                  badge={pcRightTab === "corner" ? "AKTIF" : undefined}
+                  category={lang === "id" ? "TAB FORMASI" : "FORMATION"}
+                  title={lang === "id" ? "Buka Tab Formasi & Lini" : "Open Formation & Lines Tab"}
                   align="left"
                 />
               </div>
@@ -4624,22 +4743,29 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    setPcRightTab("animation");
+                    setPitchZoneMode((prev) => (prev === "poster" ? "pitch" : "poster"));
                     soundManager.playClick();
                   }}
-                  aria-label={lang === "id" ? "Animasi & Latihan Taktis" : "Animation & Tactical Drills"}
-                  className={`w-full h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all active:scale-95 ${
-                    pcRightTab === "animation"
-                      ? "bg-teal-400 text-slate-950 shadow-sm"
-                      : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                  aria-label={lang === "id" ? "Switch ke Poster HD" : "Switch to HD Poster"}
+                  className={`w-full h-8.5 rounded-xl border flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95 ${
+                    pitchZoneMode === "poster"
+                      ? "bg-teal-400 text-slate-950 border-teal-300"
+                      : "bg-teal-500/20 hover:bg-teal-500/30 border-teal-400/40"
                   }`}
                 >
-                  <NanoBananaLogo tool="animation" size="md" active={pcRightTab === "animation"} />
+                  <NanoBananaLogo tool="poster" size="sm" active={pitchZoneMode === "poster"} />
                 </button>
                 <ToolHoverTooltip
-                  category="KEYFRAME TIMELINE"
-                  title={lang === "id" ? "Animasi Pergerakan & Skenario Latihan" : "Movement Animation & Tactical Drills"}
-                  badge={pcRightTab === "animation" ? "AKTIF" : undefined}
+                  category="POSTER HD"
+                  title={
+                    pitchZoneMode === "poster"
+                      ? lang === "id"
+                        ? "Kembali ke Lapangan Taktis"
+                        : "Back to Tactical Pitch"
+                      : lang === "id"
+                      ? "Switch ke Studio Poster HD"
+                      : "Switch to HD Poster Studio"
+                  }
                 />
               </div>
 
@@ -4647,73 +4773,377 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    setPcRightTab("ai");
+                    setAndroidActiveTab("corner");
                     soundManager.playClick();
                   }}
-                  aria-label={lang === "id" ? "Pelatih Taktik AI" : "AI Tactical Coach"}
-                  className={`w-full h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all active:scale-95 ${
-                    pcRightTab === "ai"
-                      ? "bg-teal-400 text-slate-950 shadow-sm"
-                      : "text-teal-100/75 hover:text-white hover:bg-white/5"
-                  }`}
+                  aria-label={lang === "id" ? "Studio Corner" : "Corner Studio"}
+                  className="w-full h-8.5 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/35 flex items-center justify-center cursor-pointer transition-all active:scale-95"
                 >
-                  <NanoBananaLogo tool="ai_coach" size="md" active={pcRightTab === "ai"} />
+                  <NanoBananaLogo tool="corner_sim" size="sm" />
                 </button>
                 <ToolHoverTooltip
-                  category="GEMINI PLAYMAKER"
-                  title={lang === "id" ? "Analisis & Pelatih Taktik AI" : "AI Tactical Coach & Scout"}
-                  badge={pcRightTab === "ai" ? "AKTIF" : undefined}
+                  category="SET-PIECE"
+                  title={lang === "id" ? "Simulasi Corner Kick" : "Corner Kick Simulator"}
+                />
+              </div>
+
+              <div className="relative group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSquadManagementOpen(true);
+                    soundManager.playClick();
+                  }}
+                  aria-label={lang === "id" ? "Kelola Skuad" : "Squad"}
+                  className="w-full h-8.5 rounded-xl bg-[#082229] hover:bg-[#0b2d36] border border-teal-400/20 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                >
+                  <NanoBananaLogo tool="squad" size="sm" />
+                </button>
+                <ToolHoverTooltip
+                  category={lang === "id" ? "SKUAD" : "SQUAD"}
+                  title={lang === "id" ? "Kelola Pemain & Nomor" : "Manage Squad"}
+                />
+              </div>
+
+              <div className="relative group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMatchSheetOpen(true);
+                    soundManager.playClick();
+                  }}
+                  aria-label={lang === "id" ? "Lembar Laga" : "Match Sheet"}
+                  className="w-full h-8.5 rounded-xl bg-[#082229] hover:bg-[#0b2d36] border border-teal-400/20 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                >
+                  <NanoBananaLogo tool="briefing" size="sm" />
+                </button>
+                <ToolHoverTooltip
+                  category="BRIEFING"
+                  title={lang === "id" ? "Lembar Taktik Pertandingan" : "Matchday Tactical Sheet"}
                   align="right"
                 />
               </div>
             </div>
+          )}
+        </div>
+      )}
 
-            {/* Active Tab Content Container */}
-            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 scrollbar-thin">
-              {pcRightTab === "corner" && (
-                <div className="flex flex-col gap-4 animate-fadeIn">
+        {/* RIGHT COLUMN: SEGMENTED TACTICAL COMMAND DOCK (4 TABS SO NOTHING STACKS OR SCROLLS VERTICALLY) */}
+        {deviceMode === "pc" ? (
+          (pcScreenTab === "split" || pcScreenTab === "sim") && (
+            <div
+              className={
+                pcScreenTab === "sim"
+                  ? "lg:col-span-12 flex flex-col gap-3 h-full min-h-0 overflow-hidden animate-fadeIn"
+                  : "lg:col-span-3 flex flex-col gap-2.5 h-full min-h-0 overflow-hidden pl-1"
+              }
+            >
+              {/* Clean 4-Tab Segmented Switcher for Right Column (Corner | Animasi | Drills | AI Coach) */}
+              <div className="bg-[#071c22]/95 border border-teal-400/25 rounded-2xl p-1 grid grid-cols-4 gap-1 shadow-[0_10px_28px_rgba(3,12,16,0.45)] shrink-0">
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPcRightTab("corner");
+                      soundManager.playClick();
+                    }}
+                    aria-label={lang === "id" ? "Simulasi Corner Kick" : "Corner Kick Simulator"}
+                    className={`w-full h-9 rounded-xl flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95 ${
+                      pcRightTab === "corner"
+                        ? "bg-teal-400 text-slate-950 shadow-sm font-black"
+                        : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <NanoBananaLogo tool="corner_sim" size="sm" active={pcRightTab === "corner"} />
+                    {pcScreenTab === "sim" && (
+                      <span className="text-[10px] font-extrabold uppercase">Corner</span>
+                    )}
+                  </button>
+                  <ToolHoverTooltip
+                    category="SET-PIECE LAB"
+                    title={lang === "id" ? "Simulasi Situasi Corner Kick" : "Corner Kick Situation Simulator"}
+                    badge={pcRightTab === "corner" ? "AKTIF" : undefined}
+                    align="left"
+                  />
+                </div>
+
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPcRightTab("animation");
+                      soundManager.playClick();
+                    }}
+                    aria-label={lang === "id" ? "Animasi Pergerakan" : "Movement Animation"}
+                    className={`w-full h-9 rounded-xl flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95 ${
+                      pcRightTab === "animation"
+                        ? "bg-teal-400 text-slate-950 shadow-sm font-black"
+                        : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <NanoBananaLogo tool="animation" size="sm" active={pcRightTab === "animation"} />
+                    {pcScreenTab === "sim" && (
+                      <span className="text-[10px] font-extrabold uppercase">{lang === "id" ? "Animasi" : "Animation"}</span>
+                    )}
+                  </button>
+                  <ToolHoverTooltip
+                    category="KEYFRAME TIMELINE"
+                    title={lang === "id" ? "Linimasa Animasi Pergerakan" : "Movement Animation Timeline"}
+                    badge={pcRightTab === "animation" ? "AKTIF" : undefined}
+                  />
+                </div>
+
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPcRightTab("drills");
+                      soundManager.playClick();
+                    }}
+                    aria-label={lang === "id" ? "Skenario Latihan Taktis" : "Tactical Drills"}
+                    className={`w-full h-9 rounded-xl flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95 ${
+                      pcRightTab === "drills"
+                        ? "bg-teal-400 text-slate-950 shadow-sm font-black"
+                        : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <NanoBananaLogo tool="briefing" size="sm" active={pcRightTab === "drills"} />
+                    {pcScreenTab === "sim" && (
+                      <span className="text-[10px] font-extrabold uppercase">{lang === "id" ? "Latihan" : "Drills"}</span>
+                    )}
+                  </button>
+                  <ToolHoverTooltip
+                    category="TACTICAL DRILLS"
+                    title={lang === "id" ? "Pustaka Skenario Latihan Taktis" : "Tactical Drills Playbook"}
+                    badge={pcRightTab === "drills" ? "AKTIF" : undefined}
+                  />
+                </div>
+
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPcRightTab("ai");
+                      soundManager.playClick();
+                    }}
+                    aria-label={lang === "id" ? "Pelatih Taktik AI" : "AI Tactical Coach"}
+                    className={`w-full h-9 rounded-xl flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95 ${
+                      pcRightTab === "ai"
+                        ? "bg-teal-400 text-slate-950 shadow-sm font-black"
+                        : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <NanoBananaLogo tool="ai_coach" size="sm" active={pcRightTab === "ai"} />
+                    {pcScreenTab === "sim" && (
+                      <span className="text-[10px] font-extrabold uppercase">AI Coach</span>
+                    )}
+                  </button>
+                  <ToolHoverTooltip
+                    category="GEMINI PLAYMAKER"
+                    title={lang === "id" ? "Analisis & Pelatih Taktik AI" : "AI Tactical Coach & Scout"}
+                    badge={pcRightTab === "ai" ? "AKTIF" : undefined}
+                    align="right"
+                  />
+                </div>
+              </div>
+
+              {/* Active Tab Content Container */}
+              <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 flex flex-col gap-3 scrollbar-thin">
+                {pcRightTab === "corner" && (
+                  <div className="flex flex-col gap-3 animate-fadeIn max-w-3xl w-full mx-auto">
+                    {renderCornerKickSimulator()}
+                  </div>
+                )}
+
+                {pcRightTab === "animation" && (
+                  <div className="flex flex-col gap-3 animate-fadeIn max-w-3xl w-full mx-auto">
+                    {renderAnimationTimeline()}
+                  </div>
+                )}
+
+                {pcRightTab === "drills" && (
+                  <div className="flex flex-col gap-3 animate-fadeIn max-w-3xl w-full mx-auto">
+                    {renderTacticalDrills()}
+                  </div>
+                )}
+
+                {pcRightTab === "ai" && (
+                  <div className="flex flex-col gap-3 animate-fadeIn max-w-3xl w-full mx-auto">
+                    {renderAICoach()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        ) : (
+          /* HP & TABLET ZERO-SCROLL TABBED PANELS (OR TABLET RIGHT PANEL IN 2-PANEL SPLIT MODE) */
+          (isTabletDualPanel || androidActiveTab !== "pitch") && (
+            <div
+              className={
+                isTabletDualPanel
+                  ? "col-span-6 flex flex-col gap-2.5 h-full min-h-0 overflow-hidden animate-fadeIn"
+                  : "w-full max-w-2xl mx-auto flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden animate-fadeIn"
+              }
+            >
+              {/* In Tablet 2-Panel Split Mode, if active tab is squad (or pitch fallback), render Club/Formation sub-tabs here */}
+              {isTabletDualPanel && (androidActiveTab === "squad" || androidActiveTab === "pitch") && (
+                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+                  <div className="bg-[#071c22]/95 border border-teal-400/25 rounded-2xl p-1 grid grid-cols-3 gap-1 shrink-0">
+                    {([
+                      { id: "club" as const, label: lang === "id" ? "Klub & Tim" : "Club & Team" },
+                      { id: "formation" as const, label: lang === "id" ? "Formasi" : "Formation" },
+                      { id: "lines" as const, label: lang === "id" ? "Lini & Gaya" : "Lines & Style" }
+                    ]).map((tab) => {
+                      const active = pcLeftTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => {
+                            setPcLeftTab(tab.id);
+                            soundManager.playClick();
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer truncate ${
+                            active
+                              ? "bg-teal-400 text-slate-950 font-black shadow-sm"
+                              : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 scrollbar-thin">
+                    {pcLeftTab === "club" && (
+                      <div className="rounded-2xl border border-teal-400/25 bg-[#071c22]/90 p-3 flex flex-col gap-2.5">
+                        <div className="flex items-center justify-between border-b border-teal-400/15 pb-1.5">
+                          <span className="text-xs font-extrabold text-white uppercase">{t.clubIdentity}</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsSquadManagementOpen(true)}
+                            className="px-2.5 py-1 rounded-lg bg-teal-400 text-slate-950 font-black text-[10px] uppercase cursor-pointer"
+                          >
+                            {lang === "id" ? "Kelola Skuad" : "Manage Squad"}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] font-bold text-teal-200/75 uppercase block mb-1">{t.mainTeamName}</label>
+                            <input
+                              type="text"
+                              value={teamName}
+                              onChange={(e) => handleUpdateTeamName(e.target.value)}
+                              className="w-full bg-[#041217] border border-teal-400/25 rounded-xl px-2.5 py-1.5 text-xs text-white font-bold uppercase"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-teal-200/75 uppercase block mb-1">{t.managerProfile}</label>
+                            <input
+                              type="text"
+                              value={managerName}
+                              onChange={(e) => handleUpdateManagerName(e.target.value)}
+                              className="w-full bg-[#041217] border border-teal-400/25 rounded-xl px-2.5 py-1.5 text-xs text-white font-bold uppercase font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {pcLeftTab === "formation" && renderAIImageGen("formation-only", "presets")}
+                    {pcLeftTab === "lines" && renderAIImageGen("formation-only", "lines")}
+                  </div>
+                </div>
+              )}
+
+              {androidActiveTab === "corner" && (
+                <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 scrollbar-thin">
                   {renderCornerKickSimulator()}
                 </div>
               )}
 
-              {pcRightTab === "animation" && (
-                <div className="flex flex-col gap-4 animate-fadeIn">
-                  {renderAnimationTimeline()}
-                  {renderTacticalDrills()}
+              {androidActiveTab === "animation" && (
+                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+                  {/* 2-Tab Switcher for Animation vs Tactical Drills on HP & Tablet */}
+                  <div className="bg-[#071c22]/95 border border-teal-400/25 rounded-2xl p-1 grid grid-cols-2 gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileAnimSubTab("timeline");
+                        soundManager.playClick();
+                      }}
+                      className={`py-1.5 px-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                        mobileAnimSubTab === "timeline"
+                          ? "bg-teal-400 text-slate-950 font-black shadow-sm"
+                          : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      🎬 {lang === "id" ? "Linimasa Animasi" : "Animation Timeline"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileAnimSubTab("drills");
+                        soundManager.playClick();
+                      }}
+                      className={`py-1.5 px-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                        mobileAnimSubTab === "drills"
+                          ? "bg-teal-400 text-slate-950 font-black shadow-sm"
+                          : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      🏋️ {lang === "id" ? "Skenario Latihan" : "Tactical Drills"}
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 scrollbar-thin">
+                    {mobileAnimSubTab === "timeline" ? renderAnimationTimeline() : renderTacticalDrills()}
+                  </div>
                 </div>
               )}
 
-              {pcRightTab === "ai" && (
-                <div className="flex flex-col gap-4 animate-fadeIn">
-                  {renderAICoach()}
+              {androidActiveTab === "ai" && (
+                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+                  {/* 2-Tab Switcher for AI Coach vs Studio Formasi on HP & Tablet */}
+                  <div className="bg-[#071c22]/95 border border-teal-400/25 rounded-2xl p-1 grid grid-cols-2 gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileAiSubTab("coach");
+                        soundManager.playClick();
+                      }}
+                      className={`py-1.5 px-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                        mobileAiSubTab === "coach"
+                          ? "bg-teal-400 text-slate-950 font-black shadow-sm"
+                          : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      🧠 {lang === "id" ? "Pelatih Taktik AI" : "AI Tactical Coach"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileAiSubTab("studio");
+                        soundManager.playClick();
+                      }}
+                      className={`py-1.5 px-2.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                        mobileAiSubTab === "studio"
+                          ? "bg-teal-400 text-slate-950 font-black shadow-sm"
+                          : "text-teal-100/75 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      📐 {lang === "id" ? "Studio Formasi" : "Formation Studio"}
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 scrollbar-thin">
+                    {mobileAiSubTab === "coach" ? renderAICoach() : renderAIImageGen("formation-only", "all")}
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-        ) : (
-          <>
-            {androidActiveTab === "corner" && (
-              <div className="w-full max-w-2xl mx-auto flex flex-col gap-5 animate-fadeIn">
-                {renderCornerKickSimulator()}
-              </div>
-            )}
-            {androidActiveTab === "animation" && (
-              <div className="w-full max-w-2xl mx-auto flex flex-col gap-5 animate-fadeIn">
-                {renderAnimationTimeline()}
-                {renderTacticalDrills()}
-              </div>
-            )}
-            {androidActiveTab === "ai" && (
-              <div className="w-full max-w-2xl mx-auto flex flex-col gap-5 animate-fadeIn">
-                {renderAIImageGen()}
-                {renderAICoach()}
-              </div>
-            )}
-          </>
+          )
         )}
       </main>
 
-      {/* Android Bottom Navigation */}
+      {/* Android / HP / Tablet Bottom Navigation */}
       {deviceMode === "android" && (
         <AndroidBottomNav
           activeTab={androidActiveTab}
@@ -4728,13 +5158,8 @@ export default function App() {
     </div>
   </div>
 
-      {/* Official Automated Sponsor Acquisition & Advertising Portal */}
-      <div className="max-w-7xl w-full mx-auto px-3 md:px-6 mb-6 select-none">
-        <SponsorAcquisitionPortal lang={lang} />
-      </div>
-
-      {/* FOOTER CLUBS CREATER */}
-      <footer className="bg-slate-950/60 border-t border-slate-900 py-3.5 px-6 flex justify-between items-center text-xs text-slate-500 mt-auto select-none">
+      {/* FOOTER CLUBS CREATER (Shown on PC; hidden on HP/Tablet where Bottom Nav is active) */}
+      <footer className="hidden lg:flex bg-slate-950/60 border-t border-slate-900 py-1 px-6 justify-between items-center text-[10px] text-slate-500 mt-auto shrink-0 select-none">
         <span>{t.footerTitle}</span>
         <span>{t.footerSubtitle}</span>
       </footer>

@@ -8,6 +8,25 @@
 }
 
 @layer base {
+  html {
+    /* Auto-resize text & rem-based UI elements on HP (Mobile) based on screen width & height */
+    font-size: clamp(11px, min(3.2vw, 1.62vh), 14px);
+  }
+
+  @media (min-width: 640px) and (max-width: 1023px) {
+    html {
+      /* Auto-resize text & rem-based UI elements on Tablet (Portrait & Landscape) */
+      font-size: clamp(11.5px, min(1.85vw, 1.68vh), 14.5px);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    html {
+      /* Auto-resize text & rem-based UI elements proportionally to PC screen width & height */
+      font-size: clamp(11.5px, min(1.02vw, 1.72vh), 15.5px);
+    }
+  }
+
   body {
     background-color: #061318;
     color: #f0fdfa;
