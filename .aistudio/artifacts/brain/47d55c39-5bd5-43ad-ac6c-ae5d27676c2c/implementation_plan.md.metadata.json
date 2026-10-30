@@ -1,6 +1,6 @@
 {
-  "summary":  "Rencana implementasi komprehensif untuk memperbaiki bug dan meningkatkan fitur Studio Formasi (Pengatur Formasi Taktis Lapangan + Studio Poster Formasi HD) dengan antarmuka Soft Sporty Tosca yang simpel namun advance.",
-  "updatedAt":  "2026-10-29T17:32:14.403019923Z",
+  "summary":  "Rencana implementasi penempatan Studio Poster Lineup HD di zona lapangan tengah dengan tombol Switch di bar kontrol atas luar lapangan serta bar kustomisasi ringkas di atas dan bawah kanvas poster agar ukuran poster maksimal setara lapangan taktis.",
+  "updatedAt":  "2026-10-30T08:35:34.661964717Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

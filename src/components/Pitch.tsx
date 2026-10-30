@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useCallback, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
+import { useEffect, useRef, useState, useCallback, ReactNode, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Player, TacticalItem, DrawingStroke, AnimationFrame, PitchTheme, TacticalOverlayMode } from "../types";
 import { Trash2, AlertCircle, Sparkles, Plus, X, ZoomIn, ZoomOut, RotateCcw, Slash, ArrowUpRight, Eraser, Undo, Redo, Maximize2, Minimize2, Layers, Eye, EyeOff, ChevronUp, ChevronDown, Ruler, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { soundManager } from "../utils/sound";
+import { NanoBananaLogo, ToolHoverTooltip } from "./NanoBananaToolIcon";
 
 interface PitchProps {
   players: Player[];
@@ -66,6 +67,7 @@ interface PitchProps {
     order?: "asc" | "desc",
     target?: "all" | "starters" | "bench"
   ) => void;
+  bottomControls?: ReactNode;
 }
 
 // Catmull-Rom spline interpolation helpers for elegant, smooth drawing curves
@@ -182,7 +184,8 @@ export default function Pitch({
   managerPhoto = null,
   isFullscreen = false,
   onToggleFullscreen,
-  onSortPlayers
+  onSortPlayers,
+  bottomControls
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -195,6 +198,11 @@ export default function Pitch({
   // Laser distance and pass angle measurement states
   const [measureSourceId, setMeasureSourceId] = useState<string | null>(null);
   const [measureTargetId, setMeasureTargetId] = useState<string | null>(null);
+
+  // Overlap cluster interaction states (fan-out & focus specific stacked player)
+  const [hoveredClusterId, setHoveredClusterId] = useState<string | null>(null);
+  const [pinnedClusterId, setPinnedClusterId] = useState<string | null>(null);
+  const [focusedStackEntityId, setFocusedStackEntityId] = useState<string | null>(null);
 
   // RAF throttling refs for ultra-smooth drag-and-drop tracking
   const rafIdRef = useRef<number | null>(null);
@@ -1487,11 +1495,11 @@ export default function Pitch({
 
       const precision = isSnapToGrid ? 1 : 3;
       const x = Math.max(2, Math.min(98, parseFloat(adjustedX.toFixed(precision))));
-      const y = Math.max(2, Math.min(98, parseFloat(adjustedY.toFixed(precision))));
+      const y = Math.max(2, Math.min(102, parseFloat(adjustedY.toFixed(precision))));
 
       // Find nearest starting player (different from current dragged player)
       let targetId: string | null = null;
-      let nearestDist = isSnapToGrid ? 9 : 3; // Tight threshold in free mode so player swaps don't trigger too early/magnetically
+      let nearestDist = isSnapToGrid ? 6.5 : 2.5; // Tight threshold so players can stack/cluster without accidental swap
       starters.forEach((starter) => {
         if (starter.id !== draggedId) {
           const dist = Math.hypot(starter.x - x, starter.y - y);
@@ -1624,8 +1632,8 @@ export default function Pitch({
           }
         } else {
           const activePlayer = players.find((p) => p.id === draggedId);
-          // Auto demote to bench if dragged to bottom sidebar zone (y > 85%)
-          if (activePlayer && activePlayer.isStarting && activePlayer.y > 84) {
+          // Auto demote to bench if dragged to bottom touchline / external dugout zone (y > 96%)
+          if (activePlayer && activePlayer.isStarting && activePlayer.y > 96) {
             onDemotePlayer(draggedId);
           }
         }
@@ -1633,12 +1641,11 @@ export default function Pitch({
         const activeItem = items.find((itm) => itm.id === draggedId);
         if (activeItem) {
           // If the item has been dragged outside the actual playing pitch boundaries:
-          // Left < 3% or Right > 97% or Top < 3% or Bottom field bounds (entering dugout) > 84%
           if (
-            activeItem.x < 3 ||
-            activeItem.x > 97 ||
-            activeItem.y < 3 ||
-            activeItem.y > 84
+            activeItem.x < 2 ||
+            activeItem.x > 98 ||
+            activeItem.y < 2 ||
+            activeItem.y > 97
           ) {
             onRemoveItem(draggedId);
           }
@@ -1768,7 +1775,7 @@ export default function Pitch({
         clientX >= rect.left &&
         clientX <= rect.right &&
         clientY >= rect.top &&
-        clientY <= rect.top + rect.height * 0.84
+        clientY <= rect.bottom
       ) {
         // Find if there is a starting player near the release point
         let nearestStarterId: string | null = null;
@@ -1805,14 +1812,14 @@ export default function Pitch({
   const theme = pitchTheme || "emerald-grass";
 
   // Auto sizing scale calculators based on current layout width to follow device sizes beautifully.
-  // We use 540px as the normal baseline.
+  // Slightly more compact player dots so tactical clusters & set-piece formations stay clean and legible.
   const scaleFactor = Math.min(1.1, Math.max(0.65, pitchWidth / 540));
-  const jerseySize = Math.max(28, Math.min(52, Math.round(48 * scaleFactor)));
-  const fontSize = Math.max(9, Math.min(14, Math.round(13 * scaleFactor)));
-  const nameFontSize = Math.max(7.5, Math.min(10.5, Math.round(10 * scaleFactor)));
-  const ballSize = Math.max(16, Math.min(26, Math.round(24 * scaleFactor)));
-  const ballEmojiSize = Math.max(8, Math.min(14, Math.round(12 * scaleFactor)));
-  const coneSize = Math.max(15, Math.min(26, Math.round(24 * scaleFactor)));
+  const jerseySize = Math.max(24, Math.min(40, Math.round(36 * scaleFactor)));
+  const fontSize = Math.max(8.5, Math.min(12.5, Math.round(11 * scaleFactor)));
+  const nameFontSize = Math.max(7, Math.min(9.5, Math.round(8.5 * scaleFactor)));
+  const ballSize = Math.max(15, Math.min(24, Math.round(21 * scaleFactor)));
+  const ballEmojiSize = Math.max(8, Math.min(13, Math.round(11 * scaleFactor)));
+  const coneSize = Math.max(14, Math.min(24, Math.round(21 * scaleFactor)));
   
   let lineStroke = "#ffffff";
   let lineOpacity = 0.55;
@@ -1926,13 +1933,14 @@ export default function Pitch({
   }
 
   const wrapperClass = isMobileDrawActive
-    ? `fixed top-[82px] bottom-[20px] left-3 right-3 m-auto max-w-[580px] max-h-[calc(100vh-112px)] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
+    ? `fixed top-[82px] bottom-[20px] left-3 right-3 m-auto max-w-[580px] max-h-[calc(100vh-112px)] aspect-[4/5.2] sm:aspect-[4/4.3] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
     : (isFullscreen && !isMobileOrTablet)
-      ? `relative w-[50vh] sm:w-[68vh] aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none rotate-90 origin-center ${pitchWrapperClass}`
-      : `relative w-full ${isFullscreen ? "max-w-[720px] md:max-w-[850px] max-h-[88vh]" : "max-w-[580px]"} aspect-[4/6.5] sm:aspect-[4/5] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
+      ? `relative w-[50vh] sm:w-[68vh] aspect-[4/5.2] sm:aspect-[4/4.3] rounded-3xl overflow-hidden border-4 transition-all select-none rotate-90 origin-center ${pitchWrapperClass}`
+      : `relative w-full ${isFullscreen ? "max-w-[720px] md:max-w-[850px] max-h-[82vh]" : "max-w-[580px]"} aspect-[4/5.2] sm:aspect-[4/4.3] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
 
   return (
-    <div className="w-full flex flex-col md:flex-row items-center justify-center gap-4 relative">
+    <div className="w-full flex flex-col md:flex-row items-start justify-center gap-4 relative">
+      <div className="w-full flex flex-col items-center gap-2 min-w-0">
       
       {/* Mobile drawing fullscreen backdrop & controls overlay */}
       {isMobileDrawActive && (
@@ -1940,6 +1948,93 @@ export default function Pitch({
           id="mobileDrawFullscreenContainer" 
           className="fixed inset-0 z-[140] bg-slate-950/80 backdrop-blur-sm overflow-hidden select-none animate-fade-in"
         />
+      )}
+
+      {/* External Contextual Banners (Swap & Laser Measure) Outside Pitch Grass */}
+      {selectedSubPlayerId && (() => {
+        const selPlayer = players.find((p) => p.id === selectedSubPlayerId);
+        if (!selPlayer) return null;
+        return (
+          <div className="w-full max-w-[580px] z-50 flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl border bg-[#071c22]/95 border-amber-400/45 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              <div className="relative flex items-center justify-center w-7 h-7 rounded-xl bg-amber-500/15 border border-amber-400/35 text-amber-300 shrink-0 animate-pulse">
+                <span className="text-[10px] font-black uppercase">🔄</span>
+              </div>
+              <div className="flex flex-col min-w-0 leading-tight">
+                <span className="text-[9.5px] uppercase font-black tracking-wider text-amber-300">
+                  {lang === "id" ? "Proses Swap Aktif" : "Active Swap Process"}
+                </span>
+                <span className="text-white text-xs font-bold truncate">
+                  {lang === "id"
+                    ? `Pilih pengganti untuk ${selPlayer.name}`
+                    : `Select swap partner for ${selPlayer.name}`}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedSubPlayerId(null);
+                soundManager.playClick();
+              }}
+              className="p-1.5 rounded-xl hover:bg-white/10 text-gray-300 hover:text-white transition-all shrink-0 border border-white/10 cursor-pointer"
+              title={lang === "id" ? "Batalkan" : "Cancel"}
+            >
+              <X size={14} className="stroke-[2.5]" />
+            </button>
+          </div>
+        );
+      })()}
+
+      {isMeasureMode && (
+        <div className="w-full max-w-[580px] z-45 flex items-center justify-between p-2.5 rounded-2xl bg-[#071c22]/95 backdrop-blur-xl border border-amber-400/40 shadow-[0_8px_24px_rgba(0,0,0,0.45)] animate-fadeIn">
+          <div className="flex items-center gap-2 text-xs">
+            <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+              <Ruler className="w-3.5 h-3.5" />
+            </div>
+            <div className="text-[11px] sm:text-xs">
+              {!measureEntityA ? (
+                <span className="text-amber-200 font-bold">
+                  {lang === "id" ? "Pilih atlet/item pertama untuk mengukur jarak..." : "Click first player/item to measure..."}
+                </span>
+              ) : !measureEntityB ? (
+                <span className="text-white font-bold">
+                  {lang === "id" ? `Terpilih: #${measureEntityA.number || ""} ${measureEntityA.name} ➔ Klik atlet kedua` : `Selected: #${measureEntityA.number || ""} ${measureEntityA.name} ➔ Click second player`}
+                </span>
+              ) : (
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <span className="font-extrabold text-white">
+                    #{measureEntityA.number || ""} {measureEntityA.name} ➔ #{measureEntityB.number || ""} {measureEntityB.name}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">
+                    {measureDistMeters}m
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                    {measureAngleDeg > 0 ? `+${measureAngleDeg}` : measureAngleDeg}°
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded font-black border ${measureIsObstructed ? "bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse" : "bg-teal-500/20 text-teal-300 border-teal-500/40"}`}>
+                    {measureIsObstructed ? (lang === "id" ? `⚠️ Terhalang (${measureObstructingEnemy})` : `⚠️ Intercepted (${measureObstructingEnemy})`) : (lang === "id" ? "✓ Jalur Bebas" : "✓ Open Lane")}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {measureEntityA && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMeasureSourceId(null);
+                setMeasureTargetId(null);
+              }}
+              className="px-2 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold transition-all cursor-pointer shrink-0 ml-2"
+            >
+              {lang === "id" ? "Reset" : "Clear"}
+            </button>
+          )}
+        </div>
       )}
 
       {/* Visual Canvas Wrapper representing standard soccer green pitch */}
@@ -1979,6 +2074,7 @@ export default function Pitch({
             target.tagName === "canvas"
           ) {
             setSelectedSubPlayerId(null);
+            setPinnedClusterId(null);
           }
         }}
         className={wrapperClass}
@@ -1988,41 +2084,6 @@ export default function Pitch({
           backgroundPosition: "center"
         }}
       >
-        {/* Floating Instruction Banner for Click-to-Swap / Substitution */}
-        {selectedSubPlayerId && (() => {
-          const selPlayer = players.find((p) => p.id === selectedSubPlayerId);
-          if (!selPlayer) return null;
-          return (
-            <div className="absolute top-4 left-4 right-4 z-50 flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border bg-[#090d16]/95 border-amber-500/40 shadow-[0_8px_32px_rgba(245,158,11,0.25)] backdrop-blur-md">
-              <div className="flex items-center gap-2.5 overflow-hidden">
-                <div className="relative flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0 animate-pulse">
-                  <span className="text-[10px] font-black uppercase">🔄</span>
-                </div>
-                <div className="flex flex-col min-w-0 leading-tight">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-amber-400/80">
-                    {lang === "id" ? "Proses Swap Aktif" : "Active Swap Process"}
-                  </span>
-                  <span className="text-white text-xs font-bold truncate">
-                    {lang === "id" 
-                      ? `Pilih pengganti untuk ${selPlayer.name}`
-                      : `Select swap partner for ${selPlayer.name}`}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedSubPlayerId(null);
-                  soundManager.playClick();
-                }}
-                className="p-1 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-all shrink-0 border border-transparent hover:border-white/10"
-                title={lang === "id" ? "Batalkan" : "Cancel"}
-              >
-                <X size={14} className="stroke-[2.5]" />
-              </button>
-            </div>
-          );
-        })()}
 
         {/* Animated, High-Stakes Theme Background Graphics */}
         {!customBackgroundUrl && (
@@ -2197,7 +2258,7 @@ export default function Pitch({
 
         {/* Stadium tactical markings standard overlay SVG */}
         <svg
-          className="absolute inset-0 w-full h-[72%] sm:h-[84%] pointer-events-none z-10"
+          className="absolute inset-0 w-full h-full pointer-events-none z-10"
           style={{ opacity: lineOpacity }}
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
@@ -2566,7 +2627,7 @@ export default function Pitch({
         {/* DYNAMIC TACTICAL MOVEMENT TRAILS */}
         {showMovementTrails && activeFrameIndex > 0 && frames && frames[activeFrameIndex - 1] && (
           <svg
-            className="absolute inset-0 w-full h-[72%] sm:h-[84%] pointer-events-none z-15"
+            className="absolute inset-0 w-full h-full pointer-events-none z-15"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
           >
@@ -2769,340 +2830,778 @@ export default function Pitch({
           </svg>
         )}
 
-        {/* Floating Laser Pass Measurement HUD Banner */}
-        {isMeasureMode && (
-          <div className="absolute top-2 left-2 right-2 z-40 flex items-center justify-between p-2 rounded-2xl bg-black/85 backdrop-blur-md border border-amber-400/40 shadow-[0_4px_20px_rgba(0,0,0,0.6)] animate-fadeIn">
-            <div className="flex items-center gap-2 text-xs">
-              <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-                <Ruler className="w-3.5 h-3.5" />
-              </div>
-              <div className="text-[11px] sm:text-xs">
-                {!measureEntityA ? (
-                  <span className="text-amber-200 font-bold">
-                    {lang === "id" ? "Pilih atlet/item pertama untuk mengukur jarak..." : "Click first player/item to measure..."}
-                  </span>
-                ) : !measureEntityB ? (
-                  <span className="text-white font-bold">
-                    {lang === "id" ? `Terpilih: #${measureEntityA.number || ""} ${measureEntityA.name} ➔ Klik atlet kedua` : `Selected: #${measureEntityA.number || ""} ${measureEntityA.name} ➔ Click second player`}
-                  </span>
-                ) : (
-                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                    <span className="font-extrabold text-white">
-                      #{measureEntityA.number || ""} {measureEntityA.name} ➔ #{measureEntityB.number || ""} {measureEntityB.name}
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">
-                      {measureDistMeters}m
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-                      {measureAngleDeg > 0 ? `+${measureAngleDeg}` : measureAngleDeg}°
-                    </span>
-                    <span className={`px-1.5 py-0.5 rounded font-black border ${measureIsObstructed ? "bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse" : "bg-teal-500/20 text-teal-300 border-teal-500/40"}`}>
-                      {measureIsObstructed ? (lang === "id" ? `⚠️ Terhalang (${measureObstructingEnemy})` : `⚠️ Intercepted (${measureObstructingEnemy})`) : (lang === "id" ? "✓ Jalur Bebas" : "✓ Open Lane")}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {measureEntityA && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMeasureSourceId(null);
-                  setMeasureTargetId(null);
-                }}
-                className="px-2 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold transition-all cursor-pointer shrink-0 ml-2"
-              >
-                {lang === "id" ? "Reset" : "Clear"}
-              </button>
-            )}
-          </div>
-        )}
-
         {/* INTERACTIVE PLAYERS AND DRAGGABLE BALLS & CONES */}
-        <div className="absolute inset-0 w-full h-[72%] sm:h-[84%] z-30 pointer-events-none">
-          <AnimatePresence>
-            {starters.map((player) => {
-              const isGK = player.role === "GK";
-              const currentBg = isGK ? gkColor : primaryColor;
-              const isSelected = draggedId === player.id;
-              const isSwapTarget = swapTargetPlayerId === player.id;
+        {(() => {
+          // --- SMART OVERLAP CLUSTER DETECTION (HOME STARTERS + ENEMY PLAYERS) ---
+          interface StackEntity {
+            id: string;
+            kind: "player" | "enemy";
+            x: number;
+            y: number;
+            badgeText: string;
+            name: string;
+            role: string;
+            bgColor: string;
+            textColor: string;
+          }
 
-              return (
-                <motion.div
-                  key={player.id}
-                  layoutId={`player-node-${player.id}`}
-                  animate={{
-                    left: `${player.x}%`,
-                    top: `${player.y}%`
-                  }}
-                  transition={
-                    draggedId === player.id
-                      ? { type: "tween", duration: 0 }
-                      : {
-                          ...dynamicTransition,
-                          layout: { duration: 0.2 }
+          const allPitchEntities: StackEntity[] = [
+            ...starters.map((p) => ({
+              id: p.id,
+              kind: "player" as const,
+              x: p.x,
+              y: p.y,
+              badgeText: String(p.number),
+              name: p.name,
+              role: p.role,
+              bgColor: p.role === "GK" ? gkColor : primaryColor,
+              textColor: numberColor
+            })),
+            ...items
+              .filter((itm) => itm.type === "enemy")
+              .map((itm) => {
+                const isEnemyGK = itm.role === "GK" || itm.number === 1;
+                const enemyGkColor =
+                  enemyColor?.toLowerCase() === "#f97316" || enemyColor?.toLowerCase() === "orange"
+                    ? "#22c55e"
+                    : "#f97316";
+                return {
+                  id: itm.id,
+                  kind: "enemy" as const,
+                  x: itm.x,
+                  y: itm.y,
+                  badgeText: isEnemyGK ? "GK" : String(itm.number ?? "E"),
+                  name: isEnemyGK
+                    ? lang === "id"
+                      ? "GK Lawan"
+                      : "Opp GK"
+                    : lang === "id"
+                    ? `Lawan #${itm.number ?? ""}`
+                    : `Opp #${itm.number ?? ""}`,
+                  role: itm.role || "OPP",
+                  bgColor: isEnemyGK ? enemyGkColor : enemyColor,
+                  textColor: "#ffffff"
+                };
+              })
+          ];
+
+          // Connected components clustering for entities within OVERLAP_DIST_PERCENT
+          const OVERLAP_DIST_PERCENT = 6.2;
+          const visited = new Set<string>();
+          const overlapClusters: {
+            id: string;
+            members: StackEntity[];
+            centerX: number;
+            centerY: number;
+            minY: number;
+            maxY: number;
+          }[] = [];
+
+          const memberStackMap = new Map<
+            string,
+            {
+              clusterId: string;
+              clusterSize: number;
+              stackIndex: number;
+              isTopOfStack: boolean;
+              isExpanded: boolean;
+              offsetX: number;
+              offsetY: number;
+            }
+          >();
+
+          for (let i = 0; i < allPitchEntities.length; i++) {
+            const seed = allPitchEntities[i];
+            if (visited.has(seed.id)) continue;
+
+            const queue: StackEntity[] = [seed];
+            const comp: StackEntity[] = [];
+            visited.add(seed.id);
+
+            while (queue.length > 0) {
+              const curr = queue.shift()!;
+              comp.push(curr);
+              for (let j = 0; j < allPitchEntities.length; j++) {
+                const candidate = allPitchEntities[j];
+                if (visited.has(candidate.id)) continue;
+                const dist = Math.hypot(curr.x - candidate.x, curr.y - candidate.y);
+                if (dist < OVERLAP_DIST_PERCENT) {
+                  visited.add(candidate.id);
+                  queue.push(candidate);
+                }
+              }
+            }
+
+            if (comp.length >= 2) {
+              // Sort deterministically, placing focusedStackEntityId last (on top)
+              comp.sort((a, b) => {
+                if (focusedStackEntityId === a.id) return 1;
+                if (focusedStackEntityId === b.id) return -1;
+                if (a.kind !== b.kind) return a.kind === "player" ? 1 : -1;
+                return a.id.localeCompare(b.id);
+              });
+
+              const clusterId = `cluster-${comp
+                .map((m) => m.id)
+                .sort()
+                .join("-")}`;
+              const centerX = comp.reduce((acc, m) => acc + m.x, 0) / comp.length;
+              const centerY = comp.reduce((acc, m) => acc + m.y, 0) / comp.length;
+              const minY = Math.min(...comp.map((m) => m.y));
+              const maxY = Math.max(...comp.map((m) => m.y));
+
+              const isExpanded = hoveredClusterId === clusterId || pinnedClusterId === clusterId;
+              // Base fan radius in pixels: subtle chip-deck offset normally, wider fan when hovered/pinned
+              const fanRadiusPx = isExpanded
+                ? Math.round(jerseySize * 0.72)
+                : Math.round(jerseySize * 0.32);
+
+              comp.forEach((member, idx) => {
+                // Distribute around a circle so stacked tokens never 100% eclipse each other
+                const angle = (idx / comp.length) * Math.PI * 2 - Math.PI / 3;
+                const offsetX = Math.round(Math.cos(angle) * fanRadiusPx);
+                const offsetY = Math.round(Math.sin(angle) * fanRadiusPx);
+
+                memberStackMap.set(member.id, {
+                  clusterId,
+                  clusterSize: comp.length,
+                  stackIndex: idx,
+                  isTopOfStack: idx === comp.length - 1,
+                  isExpanded,
+                  offsetX,
+                  offsetY
+                });
+              });
+
+              overlapClusters.push({
+                id: clusterId,
+                members: comp,
+                centerX,
+                centerY,
+                minY,
+                maxY
+              });
+            }
+          }
+
+          return (
+            <div className="absolute inset-0 w-full h-full z-30 pointer-events-none">
+              <AnimatePresence>
+                {starters.map((player) => {
+                  const isGK = player.role === "GK";
+                  const currentBg = isGK ? gkColor : primaryColor;
+                  const isSelected = draggedId === player.id;
+                  const isSwapTarget = swapTargetPlayerId === player.id;
+                  const stackInfo = memberStackMap.get(player.id);
+                  const isInStack = !!stackInfo && stackInfo.clusterSize >= 2;
+                  const effectiveOffsetX = !isSelected && stackInfo ? stackInfo.offsetX : 0;
+                  const effectiveOffsetY = !isSelected && stackInfo ? stackInfo.offsetY : 0;
+                  const dynamicZIndex = isSelected
+                    ? 85
+                    : selectedSubPlayerId === player.id || isSwapTarget
+                    ? 80
+                    : stackInfo
+                    ? 32 + stackInfo.stackIndex + (stackInfo.isTopOfStack ? 12 : 0)
+                    : 30;
+
+                  return (
+                    <motion.div
+                      key={player.id}
+                      layoutId={`player-node-${player.id}`}
+                      animate={{
+                        left: `${player.x}%`,
+                        top: `${player.y}%`
+                      }}
+                      transition={
+                        draggedId === player.id
+                          ? { type: "tween", duration: 0 }
+                          : {
+                              ...dynamicTransition,
+                              layout: { duration: 0.2 }
+                            }
+                      }
+                      onMouseEnter={() => {
+                        if (stackInfo) setHoveredClusterId(stackInfo.clusterId);
+                      }}
+                      onMouseLeave={() => {
+                        if (stackInfo && hoveredClusterId === stackInfo.clusterId) {
+                          setHoveredClusterId(null);
                         }
-                  }
-                  onMouseDown={(e) => handleDragStart(e, player.id, "player")}
-                  onTouchStart={(e) => handleDragStart(e, player.id, "player")}
-                  onDoubleClick={() => onDblClickPlayer(player.id)}
-                  className={`absolute flex flex-col items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center group transition-transform ${
-                    (isFullscreen && !isMobileOrTablet) ? "rotate-[-90deg]" : ""
-                  } ${
-                    activeTool === "select" ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none cursor-default"
-                  }`}
-                  style={{
-                    position: "absolute",
-                    touchAction: "none"
-                  }}
-                >
-                  {/* Glowing Selected badge above the player for click substitution */}
-                  {selectedSubPlayerId === player.id && (
-                    <div className="absolute -top-7 px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] font-black rounded-full uppercase flex items-center gap-1 shadow-[0_0_12px_rgba(245,158,11,0.8)] tracking-wider z-50 animate-pulse">
-                      <span>{lang === "id" ? "TERPILIH 🔄" : "SELECTED 🔄"}</span>
-                    </div>
-                  )}
+                      }}
+                      onMouseDown={(e) => {
+                        if (stackInfo) setFocusedStackEntityId(player.id);
+                        handleDragStart(e, player.id, "player");
+                      }}
+                      onTouchStart={(e) => {
+                        if (stackInfo) setFocusedStackEntityId(player.id);
+                        handleDragStart(e, player.id, "player");
+                      }}
+                      onDoubleClick={() => onDblClickPlayer(player.id)}
+                      className={`absolute flex flex-col items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center group transition-transform ${
+                        isFullscreen && !isMobileOrTablet ? "rotate-[-90deg]" : ""
+                      } ${
+                        activeTool === "select"
+                          ? "pointer-events-auto cursor-grab active:cursor-grabbing"
+                          : "pointer-events-none cursor-default"
+                      }`}
+                      style={{
+                        position: "absolute",
+                        touchAction: "none",
+                        zIndex: dynamicZIndex
+                      }}
+                    >
+                      {/* Smooth fan/stack offset wrapper */}
+                      <div
+                        className="relative flex flex-col items-center justify-center transition-transform duration-200 ease-out"
+                        style={{
+                          transform:
+                            effectiveOffsetX !== 0 || effectiveOffsetY !== 0
+                              ? `translate(${effectiveOffsetX}px, ${effectiveOffsetY}px)`
+                              : undefined
+                        }}
+                      >
+                        {/* Glowing Selected badge above the player for click substitution */}
+                        {selectedSubPlayerId === player.id && (
+                          <div className="absolute -top-6 px-2 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[8.5px] font-black rounded-full uppercase flex items-center gap-1 shadow-[0_0_12px_rgba(245,158,11,0.8)] tracking-wider z-50 animate-pulse whitespace-nowrap">
+                            <span>{lang === "id" ? "TERPILIH 🔄" : "SELECTED 🔄"}</span>
+                          </div>
+                        )}
 
-                  {/* Glowing Exchange badge above the player */}
-                  {isSwapTarget && (
-                    <div className="absolute -top-7 px-2.5 py-0.5 bg-gradient-to-r from-emerald-500 to-green-500 text-black text-[9px] font-black rounded-full uppercase flex items-center gap-1 shadow-[0_0_12px_rgba(52,211,153,0.8)] tracking-wider z-50 animate-bounce">
-                      <span>SWAP 🔄</span>
-                    </div>
-                  )}
+                        {/* Glowing Exchange badge above the player */}
+                        {isSwapTarget && (
+                          <div className="absolute -top-6 px-2 py-0.5 bg-gradient-to-r from-emerald-500 to-green-500 text-black text-[8.5px] font-black rounded-full uppercase flex items-center gap-1 shadow-[0_0_12px_rgba(52,211,153,0.8)] tracking-wider z-50 animate-bounce whitespace-nowrap">
+                            <span>SWAP 🔄</span>
+                          </div>
+                        )}
 
-                  {/* Jersey Element or Avatar Picture */}
+                        {/* Jersey Element or Avatar Picture */}
+                        <div
+                          className={`relative rounded-full border-2 shadow-xl flex items-center justify-center transition-all overflow-hidden ${
+                            isSelected ? "scale-115 ring-2 ring-blue-500 border-blue-400" : ""
+                          } ${
+                            isInStack
+                              ? "border-white/85 ring-2 ring-[#041217]/95 shadow-[0_4px_14px_rgba(0,0,0,0.85)]"
+                              : "border-white/25"
+                          } ${
+                            selectedSubPlayerId === player.id
+                              ? "scale-120 border-amber-400 ring-4 ring-amber-400/80 shadow-[0_0_25px_rgba(245,158,11,0.95)]"
+                              : isSwapTarget
+                              ? "scale-120 border-emerald-400 ring-4 ring-emerald-400/80 shadow-[0_0_25px_rgba(52,211,153,0.95)]"
+                              : "group-hover:scale-110"
+                          }`}
+                          style={{
+                            width: `${jerseySize}px`,
+                            height: `${jerseySize}px`,
+                            backgroundColor: player.photo ? "#15151a" : currentBg,
+                            color: player.photo ? "#fff" : numberColor,
+                            boxShadow:
+                              "0 4px 12px rgba(0,0,0,0.55), inset 0 2px 3px rgba(255,255,255,0.25), inset 0 -2px 3px rgba(0,0,0,0.35)"
+                          }}
+                        >
+                          {/* Top-down 3D gloss shine */}
+                          {!player.photo && (
+                            <div className="absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-black/30 pointer-events-none rounded-full" />
+                          )}
+
+                          {selectedSubPlayerId === player.id && (
+                            <div className="absolute inset-0 rounded-full ring-4 ring-amber-400 animate-ping opacity-60 pointer-events-none" />
+                          )}
+
+                          {isSwapTarget && (
+                            <div className="absolute inset-0 rounded-full ring-4 ring-emerald-400 animate-ping opacity-60 pointer-events-none" />
+                          )}
+
+                          {player.photo ? (
+                            <img
+                              src={player.photo}
+                              alt={player.name}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover rounded-full pointer-events-none"
+                            />
+                          ) : (
+                            <span
+                              className="font-extrabold font-mono tabular-nums pointer-events-none select-none relative z-10 drop-shadow-sm leading-none"
+                              style={{ fontSize: `${fontSize}px` }}
+                            >
+                              {player.number}
+                            </span>
+                          )}
+
+                          {/* Small number overlay badge if profile image avatar exists */}
+                          {player.photo && (
+                            <span className="absolute -bottom-0.5 -right-0.5 text-[7.5px] font-black font-mono tabular-nums w-4 h-4 bg-[#0a0a0c] border border-white/15 text-blue-400 rounded-full flex items-center justify-center select-none shadow z-20">
+                              {player.number}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Player Name Tag (when stacked and collapsed, only show for top/hovered token to prevent text collision) */}
+                        {(!isInStack || stackInfo.isTopOfStack || stackInfo.isExpanded) && (
+                          <div
+                            className="mt-0.5 px-1.5 py-0.5 bg-[#0f0f12]/95 backdrop-blur-md rounded border border-white/10 text-white font-bold whitespace-nowrap shadow select-none uppercase tracking-wide leading-tight animate-fade-in"
+                            style={{ fontSize: `${nameFontSize}px` }}
+                          >
+                            {player.name}
+                          </div>
+                        )}
+
+                        {/* Floating Mini Stats HUD on Hover */}
+                        <div className="absolute top-[108%] z-50 bg-[#0f0f12]/95 border border-white/10 p-2 rounded-xl shadow-2xl opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex flex-col gap-1 select-none backdrop-blur-md">
+                          <div className="text-[8px] font-black uppercase text-indigo-400 tracking-wider mb-1 text-center border-b border-white/5 pb-1 flex justify-between items-center px-1">
+                            <span>Kemampuan</span>
+                            <span className="text-emerald-400 font-extrabold font-mono tabular-nums">
+                              OVR{" "}
+                              {Math.round(
+                                ((player.stats?.speed ??
+                                  (player.role === "FWD"
+                                    ? 85
+                                    : player.role === "MID"
+                                    ? 78
+                                    : player.role === "DEF"
+                                    ? 72
+                                    : 65)) +
+                                  (player.stats?.stamina ??
+                                    (player.role === "MID"
+                                      ? 85
+                                      : player.role === "DEF"
+                                      ? 80
+                                      : player.role === "FWD"
+                                      ? 75
+                                      : 70)) +
+                                  (player.stats?.passing ??
+                                    (player.role === "MID"
+                                      ? 84
+                                      : player.role === "FWD"
+                                      ? 72
+                                      : player.role === "DEF"
+                                      ? 68
+                                      : 55)) +
+                                  (player.stats?.dribbling ??
+                                    (player.role === "FWD"
+                                      ? 84
+                                      : player.role === "MID"
+                                      ? 78
+                                      : player.role === "DEF"
+                                      ? 60
+                                      : 30)) +
+                                  (player.stats?.defending ??
+                                    (player.role === "DEF"
+                                      ? 86
+                                      : player.role === "GK"
+                                      ? 80
+                                      : player.role === "MID"
+                                      ? 70
+                                      : 35))) /
+                                  5
+                              )}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-5 gap-0.5 text-[8px] font-sans text-center tabular-nums">
+                            <div className="flex flex-col items-center">
+                              <span className="text-gray-400 font-bold">SPD</span>
+                              <span className="font-extrabold text-blue-400">
+                                {player.stats?.speed ??
+                                  (player.role === "FWD"
+                                    ? 85
+                                    : player.role === "MID"
+                                    ? 78
+                                    : player.role === "DEF"
+                                    ? 72
+                                    : 65)}
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <span className="text-gray-400 font-bold">STM</span>
+                              <span className="font-extrabold text-emerald-400">
+                                {player.stats?.stamina ??
+                                  (player.role === "MID"
+                                    ? 85
+                                    : player.role === "DEF"
+                                    ? 80
+                                    : player.role === "FWD"
+                                    ? 75
+                                    : 70)}
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <span className="text-gray-400 font-bold">PAS</span>
+                              <span className="font-extrabold text-amber-400">
+                                {player.stats?.passing ??
+                                  (player.role === "MID"
+                                    ? 84
+                                    : player.role === "FWD"
+                                    ? 72
+                                    : player.role === "DEF"
+                                    ? 68
+                                    : 55)}
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <span className="text-gray-400 font-bold">DRI</span>
+                              <span className="font-extrabold text-pink-400">
+                                {player.stats?.dribbling ??
+                                  (player.role === "FWD"
+                                    ? 84
+                                    : player.role === "MID"
+                                    ? 78
+                                    : player.role === "DEF"
+                                    ? 60
+                                    : 30)}
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <span className="text-gray-400 font-bold">DEF</span>
+                              <span className="font-extrabold text-purple-400">
+                                {player.stats?.defending ??
+                                  (player.role === "DEF"
+                                    ? 86
+                                    : player.role === "GK"
+                                    ? 80
+                                    : player.role === "MID"
+                                    ? 70
+                                    : 35)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+
+              {/* DRAGGABLE TACTICAL ITEMS */}
+              <AnimatePresence>
+                {items.map((item) => {
+                  const isSelected = draggedId === item.id;
+                  const isOutsideField = item.x < 2 || item.x > 98 || item.y < 2 || item.y > 97;
+                  const showDeleteIndicator = isSelected && isOutsideField;
+                  const stackInfo = item.type === "enemy" ? memberStackMap.get(item.id) : undefined;
+                  const isInStack = !!stackInfo && stackInfo.clusterSize >= 2;
+                  const effectiveOffsetX = !isSelected && stackInfo ? stackInfo.offsetX : 0;
+                  const effectiveOffsetY = !isSelected && stackInfo ? stackInfo.offsetY : 0;
+                  const dynamicZIndex = isSelected
+                    ? 85
+                    : stackInfo
+                    ? 32 + stackInfo.stackIndex + (stackInfo.isTopOfStack ? 12 : 0)
+                    : 30;
+
+                  return (
+                    <motion.div
+                      key={item.id}
+                      animate={{
+                        left: `${item.x}%`,
+                        top: `${item.y}%`
+                      }}
+                      transition={
+                        draggedId === item.id
+                          ? { type: "tween", duration: 0 }
+                          : dynamicTransition
+                      }
+                      onMouseEnter={() => {
+                        if (stackInfo) setHoveredClusterId(stackInfo.clusterId);
+                      }}
+                      onMouseLeave={() => {
+                        if (stackInfo && hoveredClusterId === stackInfo.clusterId) {
+                          setHoveredClusterId(null);
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        if (stackInfo) setFocusedStackEntityId(item.id);
+                        handleDragStart(e, item.id, "item");
+                      }}
+                      onTouchStart={(e) => {
+                        if (stackInfo) setFocusedStackEntityId(item.id);
+                        handleDragStart(e, item.id, "item");
+                      }}
+                      onDoubleClick={() => onRemoveItem(item.id)}
+                      className={`absolute flex items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center transition-transform ${
+                        isFullscreen && !isMobileOrTablet ? "rotate-[-90deg]" : ""
+                      } ${
+                        activeTool === "select"
+                          ? "pointer-events-auto cursor-grab active:cursor-grabbing"
+                          : "pointer-events-none cursor-default"
+                      }`}
+                      style={{
+                        position: "absolute",
+                        touchAction: "none",
+                        zIndex: dynamicZIndex
+                      }}
+                    >
+                      <div
+                        className={`relative flex items-center justify-center transition-all duration-200 ease-out ${
+                          isSelected ? "scale-120" : "hover:scale-110"
+                        }`}
+                        style={{
+                          transform:
+                            effectiveOffsetX !== 0 || effectiveOffsetY !== 0
+                              ? `translate(${effectiveOffsetX}px, ${effectiveOffsetY}px)`
+                              : undefined
+                        }}
+                      >
+                        {item.type === "ball" ? (
+                          <div
+                            className={`bg-white border rounded-full flex items-center justify-center shadow-md text-slate-950 transition-all ${
+                              showDeleteIndicator
+                                ? "border-red-500 bg-red-950/90 text-red-400 ring-2 ring-red-500 scale-90"
+                                : "border-slate-950"
+                            }`}
+                            style={{
+                              width: `${ballSize}px`,
+                              height: `${ballSize}px`
+                            }}
+                          >
+                            {showDeleteIndicator ? (
+                              <span style={{ fontSize: `${ballEmojiSize}px`, lineHeight: 1 }}>🗑️</span>
+                            ) : (
+                              <span style={{ fontSize: `${ballEmojiSize}px`, lineHeight: 1 }}>⚽</span>
+                            )}
+                          </div>
+                        ) : item.type === "enemy" ? (
+                          (() => {
+                            const isEnemyGK = item.role === "GK" || item.number === 1;
+                            const enemyGkColor =
+                              enemyColor?.toLowerCase() === "#f97316" ||
+                              enemyColor?.toLowerCase() === "orange"
+                                ? "#22c55e"
+                                : "#f97316";
+                            const itemBgColor = showDeleteIndicator
+                              ? "rgba(127,29,29,0.9)"
+                              : isEnemyGK
+                              ? enemyGkColor
+                              : enemyColor;
+                            const labelText = isEnemyGK
+                              ? lang === "id"
+                                ? "GK LAWAN"
+                                : "GK OPP"
+                              : lang === "id"
+                              ? `LAWAN ${item.number ?? ""}`
+                              : `OPP ${item.number ?? ""}`;
+
+                            return (
+                              <div
+                                className={`relative rounded-full border-2 shadow-lg flex flex-col items-center justify-center transition-all ${
+                                  showDeleteIndicator
+                                    ? "border-red-500 bg-red-950/90 ring-2 ring-red-500 scale-90 text-red-400"
+                                    : isInStack
+                                    ? "border-white/90 ring-2 ring-[#041217]/95 shadow-[0_4px_14px_rgba(0,0,0,0.85)]"
+                                    : "border-white/50"
+                                }`}
+                                style={{
+                                  width: `${jerseySize}px`,
+                                  height: `${jerseySize}px`,
+                                  backgroundColor: itemBgColor,
+                                  color: "#ffffff"
+                                }}
+                              >
+                                {showDeleteIndicator ? (
+                                  <span style={{ fontSize: `${fontSize}px` }}>🗑️</span>
+                                ) : (
+                                  <span
+                                    className="font-extrabold font-mono tabular-nums select-none text-white leading-none"
+                                    style={{ fontSize: `${fontSize}px` }}
+                                  >
+                                    {isEnemyGK ? "GK" : item.number ?? "E"}
+                                  </span>
+                                )}
+                                {!showDeleteIndicator &&
+                                  (!isInStack || stackInfo.isTopOfStack || stackInfo.isExpanded) && (
+                                    <div
+                                      className="absolute top-[105%] px-1.5 py-0.5 bg-[#0f0f12]/95 backdrop-blur-md rounded border border-white/10 text-white font-bold whitespace-nowrap shadow select-none uppercase tracking-wide leading-tight"
+                                      style={{ fontSize: `${nameFontSize * 0.95}px` }}
+                                    >
+                                      {labelText}
+                                    </div>
+                                  )}
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <div
+                            className={`filter drop-shadow-md leading-none flex items-center justify-center transition-all ${
+                              showDeleteIndicator ? "text-red-500 scale-90" : "text-amber-500"
+                            }`}
+                            style={{
+                              width: `${coneSize}px`,
+                              height: `${coneSize}px`
+                            }}
+                          >
+                            {showDeleteIndicator ? (
+                              <span style={{ fontSize: `${coneSize}px` }}>🗑️</span>
+                            ) : (
+                              <span style={{ fontSize: `${coneSize}px` }}>⚠️</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+
+              {/* OVERLAP CLUSTER OVERLAY BADGES (CLEAR HEADCOUNT & MINI JERSEY ROSTER WHEN STACKED) */}
+              {overlapClusters.map((cluster) => {
+                const isExpanded =
+                  hoveredClusterId === cluster.id || pinnedClusterId === cluster.id;
+                // Position overlay badge cleanly above the cluster (or below if near top goal line)
+                const isNearTopEdge = cluster.minY < 13;
+                const badgeTopPercent = isNearTopEdge
+                  ? Math.min(95, cluster.maxY + 6.2)
+                  : Math.max(3.5, cluster.minY - 5.5);
+
+                return (
                   <div
-                    className={`relative rounded-full border-2 border-white/20 shadow-xl flex items-center justify-center transition-all overflow-hidden ${
-                      isSelected ? "scale-115 ring-2 ring-blue-500 border-blue-400" : ""
-                    } ${
-                      selectedSubPlayerId === player.id
-                        ? "scale-120 border-amber-400 ring-4 ring-amber-400/80 shadow-[0_0_25px_rgba(245,158,11,0.95)]"
-                        : isSwapTarget
-                        ? "scale-120 border-emerald-400 ring-4 ring-emerald-400/80 shadow-[0_0_25px_rgba(52,211,153,0.95)]"
-                        : "group-hover:scale-105"
+                    key={cluster.id}
+                    onMouseEnter={() => setHoveredClusterId(cluster.id)}
+                    onMouseLeave={() => {
+                      if (hoveredClusterId === cluster.id) setHoveredClusterId(null);
+                    }}
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 z-[75] pointer-events-auto select-none transition-all duration-200 ${
+                      isFullscreen && !isMobileOrTablet ? "rotate-[-90deg]" : ""
                     }`}
                     style={{
-                      width: `${jerseySize}px`,
-                      height: `${jerseySize}px`,
-                      backgroundColor: player.photo ? "#15151a" : currentBg,
-                      color: player.photo ? "#fff" : numberColor,
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.5), inset 0 2px 3px rgba(255,255,255,0.25), inset 0 -2px 3px rgba(0,0,0,0.35)"
+                      left: `${cluster.centerX}%`,
+                      top: `${badgeTopPercent}%`
                     }}
                   >
-                    {/* Top-down 3D gloss shine */}
-                    {!player.photo && (
-                      <div className="absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-black/30 pointer-events-none rounded-full" />
-                    )}
-
-                    {selectedSubPlayerId === player.id && (
-                      <div className="absolute inset-0 rounded-full ring-4 ring-amber-400 animate-ping opacity-60 pointer-events-none" />
-                    )}
-
-                    {isSwapTarget && (
-                      <div className="absolute inset-0 rounded-full ring-4 ring-emerald-400 animate-ping opacity-60 pointer-events-none" />
-                    )}
-
-                    {player.photo ? (
-                      <img
-                        src={player.photo}
-                        alt={player.name}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover rounded-full pointer-events-none"
-                      />
-                    ) : (
-                      <span
-                        className="font-extrabold pointer-events-none select-none relative z-10 drop-shadow-sm"
-                        style={{ fontSize: `${fontSize}px` }}
+                    <div className="flex flex-col items-center">
+                      {/* Compact Pill Header: Total People Count + Individual Jersey Number Badges */}
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPinnedClusterId((prev) =>
+                            prev === cluster.id ? null : cluster.id
+                          );
+                          soundManager.playClick();
+                        }}
+                        title={
+                          lang === "id"
+                            ? `${cluster.members.length} pemain bertumpuk di titik ini (Klik untuk melebarkan / pilih pemain)`
+                            : `${cluster.members.length} stacked players here (Click to fan out / select player)`
+                        }
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#041217]/95 backdrop-blur-md border shadow-[0_6px_18px_rgba(0,0,0,0.85)] cursor-pointer transition-all ${
+                          isExpanded
+                            ? "border-amber-400 ring-2 ring-amber-400/35 scale-105"
+                            : "border-teal-400/65 hover:border-amber-300"
+                        }`}
                       >
-                        {player.number}
-                      </span>
-                    )}
+                        {/* Total Headcount Tag */}
+                        <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-mono tabular-nums font-black text-[9px] leading-tight tracking-tight shrink-0 shadow-xs">
+                          {cluster.members.length}{" "}
+                          {lang === "id" ? "ORG" : "PLY"}
+                        </span>
 
-                    {/* Small number overlay badge if profile image avatar exists */}
-                    {player.photo && (
-                      <span className="absolute -bottom-1 -right-1 text-[8px] font-black w-4.5 h-4.5 bg-[#0a0a0c] border border-white/10 text-blue-400 rounded-full flex items-center justify-center select-none shadow z-20">
-                        {player.number}
-                      </span>
-                    )}
-                  </div>
+                        {/* Individual Mini Jersey Dots in the Stack */}
+                        <div className="flex items-center -space-x-1 pr-0.5">
+                          {cluster.members.map((member) => {
+                            const isFocused = focusedStackEntityId === member.id;
+                            return (
+                              <button
+                                key={member.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFocusedStackEntityId(member.id);
+                                  setPinnedClusterId(cluster.id);
+                                  if (member.kind === "player" && selectedSubPlayerId) {
+                                    handlePlayerClick(member.id);
+                                  }
+                                  soundManager.playClick();
+                                }}
+                                title={`${member.name} (#${member.badgeText})`}
+                                style={{
+                                  backgroundColor: member.bgColor,
+                                  color: member.textColor
+                                }}
+                                className={`w-4 h-4 rounded-full font-mono tabular-nums text-[8px] font-extrabold flex items-center justify-center border transition-transform cursor-pointer ${
+                                  isFocused
+                                    ? "border-amber-300 scale-115 z-20 ring-1 ring-amber-300"
+                                    : "border-[#041217] hover:scale-110 z-10"
+                                }`}
+                              >
+                                {member.badgeText}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
 
-                  {/* Player Name Tag */}
-                  <div
-                    className="mt-1 px-1.5 py-0.5 bg-[#0f0f12]/95 backdrop-blur-md rounded border border-white/10 text-white font-bold whitespace-nowrap shadow select-none uppercase tracking-wide leading-tight animate-fade-in"
-                    style={{ fontSize: `${nameFontSize}px` }}
-                  >
-                    {player.name}
-                  </div>
-
-                  {/* Floating Mini Stats HUD on Hover */}
-                  <div className="absolute top-[108%] z-50 bg-[#0f0f12]/95 border border-white/10 p-2 rounded-xl shadow-2xl opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex flex-col gap-1 select-none backdrop-blur-md">
-                    <div className="text-[8px] font-black uppercase text-indigo-400 tracking-wider mb-1 text-center border-b border-white/5 pb-1 flex justify-between items-center px-1">
-                      <span>Kemampuan</span>
-                      <span className="text-emerald-400 font-extrabold font-mono">
-                        OVR {Math.round(((player.stats?.speed ?? (player.role === "FWD" ? 85 : player.role === "MID" ? 78 : player.role === "DEF" ? 72 : 65)) +
-                          (player.stats?.stamina ?? (player.role === "MID" ? 85 : player.role === "DEF" ? 80 : player.role === "FWD" ? 75 : 70)) +
-                          (player.stats?.passing ?? (player.role === "MID" ? 84 : player.role === "FWD" ? 72 : player.role === "DEF" ? 68 : 55)) +
-                          (player.stats?.dribbling ?? (player.role === "FWD" ? 84 : player.role === "MID" ? 78 : player.role === "DEF" ? 60 : 30)) +
-                          (player.stats?.defending ?? (player.role === "DEF" ? 86 : player.role === "GK" ? 80 : player.role === "MID" ? 70 : 35))) / 5)}
-                      </span>
+                      {/* Expanded Stack Detail Overlay List (Shown on Hover or Click) */}
+                      {isExpanded && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1 px-2 py-1.5 rounded-xl bg-[#041217]/95 backdrop-blur-xl border border-teal-400/40 shadow-[0_10px_26px_rgba(0,0,0,0.9)] flex flex-col gap-1 min-w-[128px] z-[80]"
+                        >
+                          <div className="flex items-center justify-between gap-2 border-b border-teal-400/20 pb-0.5 text-[8.5px] font-bold text-teal-300">
+                            <span>
+                              {lang === "id"
+                                ? `Tumpukan (${cluster.members.length} Orang)`
+                                : `Stacked (${cluster.members.length} Players)`}
+                            </span>
+                            <span className="text-[7.5px] text-teal-200/60">
+                              {lang === "id" ? "Klik = Fokus" : "Click = Top"}
+                            </span>
+                          </div>
+                          {cluster.members.map((member) => {
+                            const isTop = focusedStackEntityId === member.id;
+                            return (
+                              <button
+                                key={member.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFocusedStackEntityId(member.id);
+                                  if (member.kind === "player" && selectedSubPlayerId) {
+                                    handlePlayerClick(member.id);
+                                  }
+                                  soundManager.playClick();
+                                }}
+                                className={`flex items-center justify-between gap-2 px-1.5 py-0.5 rounded-lg text-left transition-all cursor-pointer ${
+                                  isTop
+                                    ? "bg-teal-500/25 border border-teal-400/50 text-white"
+                                    : "hover:bg-white/10 text-teal-100/85"
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span
+                                    style={{
+                                      backgroundColor: member.bgColor,
+                                      color: member.textColor
+                                    }}
+                                    className="w-4 h-4 rounded-full font-mono tabular-nums text-[8px] font-black flex items-center justify-center shrink-0 border border-white/30"
+                                  >
+                                    {member.badgeText}
+                                  </span>
+                                  <span className="text-[9px] font-bold truncate max-w-[82px]">
+                                    {member.name}
+                                  </span>
+                                </div>
+                                <span className="text-[8px] font-mono text-teal-300/80 shrink-0">
+                                  {member.kind === "enemy"
+                                    ? lang === "id"
+                                      ? "Lawan"
+                                      : "Opp"
+                                    : member.role}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <div className="grid grid-cols-5 gap-0.5 text-[8px] font-sans text-center">
-                      <div className="flex flex-col items-center">
-                        <span className="text-gray-400 font-bold">SPD</span>
-                        <span className="font-extrabold text-blue-400">{player.stats?.speed ?? (player.role === "FWD" ? 85 : player.role === "MID" ? 78 : player.role === "DEF" ? 72 : 65)}</span>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <span className="text-gray-400 font-bold">STM</span>
-                        <span className="font-extrabold text-emerald-400">{player.stats?.stamina ?? (player.role === "MID" ? 85 : player.role === "DEF" ? 80 : player.role === "FWD" ? 75 : 70)}</span>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <span className="text-gray-400 font-bold">PAS</span>
-                        <span className="font-extrabold text-amber-400">{player.stats?.passing ?? (player.role === "MID" ? 84 : player.role === "FWD" ? 72 : player.role === "DEF" ? 68 : 55)}</span>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <span className="text-gray-400 font-bold">DRI</span>
-                        <span className="font-extrabold text-pink-400">{player.stats?.dribbling ?? (player.role === "FWD" ? 84 : player.role === "MID" ? 78 : player.role === "DEF" ? 60 : 30)}</span>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <span className="text-gray-400 font-bold">DEF</span>
-                        <span className="font-extrabold text-purple-400">{player.stats?.defending ?? (player.role === "DEF" ? 86 : player.role === "GK" ? 80 : player.role === "MID" ? 70 : 35)}</span>
-                      </div>
-                    </div>
                   </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-
-           {/* DRAGGABLE TACTICAL ITEMS */}
-           <AnimatePresence>
-             {items.map((item) => {
-               const isSelected = draggedId === item.id;
-               const isOutsideField = item.x < 3 || item.x > 97 || item.y < 3 || item.y > 84;
-               const showDeleteIndicator = isSelected && isOutsideField;
-               return (
-                 <motion.div
-                   key={item.id}
-                   animate={{
-                     left: `${item.x}%`,
-                     top: `${item.y}%`
-                   }}
-                   transition={
-                     draggedId === item.id
-                       ? { type: "tween", duration: 0 }
-                       : dynamicTransition
-                   }
-                   onMouseDown={(e) => handleDragStart(e, item.id, "item")}
-                   onTouchStart={(e) => handleDragStart(e, item.id, "item")}
-                   onDoubleClick={() => onRemoveItem(item.id)}
-                   className={`absolute flex items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center transition-transform ${(isFullscreen && !isMobileOrTablet) ? "rotate-[-90deg]" : ""} ${
-                     activeTool === "select" ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none cursor-default"
-                   }`}
-                   style={{
-                     position: "absolute",
-                     touchAction: "none"
-                   }}
-                 >
-                   <div
-                     className={`relative flex items-center justify-center transition-all ${
-                       isSelected ? "scale-120" : "hover:scale-110"
-                     }`}
-                   >
-                     {item.type === "ball" ? (
-                       <div
-                         className={`bg-white border rounded-full flex items-center justify-center shadow-md text-slate-950 transition-all ${
-                           showDeleteIndicator ? "border-red-500 bg-red-950/90 text-red-400 ring-2 ring-red-500 scale-90" : "border-slate-950"
-                         }`}
-                         style={{
-                           width: `${ballSize}px`,
-                           height: `${ballSize}px`
-                         }}
-                       >
-                         {showDeleteIndicator ? (
-                           <span style={{ fontSize: `${ballEmojiSize}px`, lineHeight: 1 }}>🗑️</span>
-                         ) : (
-                           <span style={{ fontSize: `${ballEmojiSize}px`, lineHeight: 1 }}>⚽</span>
-                         )}
-                       </div>
-                     ) : item.type === "enemy" ? (
-                       (() => {
-                         const isEnemyGK = item.role === "GK" || item.number === 1;
-                         const enemyGkColor = (enemyColor?.toLowerCase() === "#f97316" || enemyColor?.toLowerCase() === "orange") ? "#22c55e" : "#f97316";
-                         const itemBgColor = showDeleteIndicator
-                           ? "rgba(127,29,29,0.9)"
-                           : isEnemyGK
-                             ? enemyGkColor
-                             : enemyColor;
-                         const labelText = isEnemyGK
-                           ? (lang === "id" ? "GK LAWAN" : "GK OPP")
-                           : (lang === "id" ? `LAWAN ${item.number ?? ""}` : `OPP ${item.number ?? ""}`);
-
-                         return (
-                           <div
-                             className={`relative rounded-full border-2 border-black/40 shadow-lg flex flex-col items-center justify-center transition-all ${
-                               showDeleteIndicator
-                                 ? "border-red-500 bg-red-950/90 ring-2 ring-red-500 scale-90 text-red-400"
-                                 : "border-white/50"
-                             }`}
-                             style={{
-                               width: `${jerseySize}px`,
-                               height: `${jerseySize}px`,
-                               backgroundColor: itemBgColor,
-                               color: "#ffffff"
-                             }}
-                           >
-                             {showDeleteIndicator ? (
-                               <span style={{ fontSize: `${fontSize}px` }}>🗑️</span>
-                             ) : (
-                               <span
-                                 className="font-extrabold select-none text-white leading-none"
-                                 style={{ fontSize: `${fontSize}px` }}
-                               >
-                                 {isEnemyGK ? "GK" : (item.number ?? "E")}
-                               </span>
-                             )}
-                             {!showDeleteIndicator && (
-                               <div
-                                 className="absolute top-[105%] px-1.5 py-0.5 bg-[#0f0f12]/95 backdrop-blur-md rounded border border-white/10 text-white font-bold whitespace-nowrap shadow select-none uppercase tracking-wide leading-tight"
-                                 style={{ fontSize: `${nameFontSize * 0.95}px` }}
-                               >
-                                 {labelText}
-                               </div>
-                             )}
-                           </div>
-                         );
-                       })()
-                     ) : (
-                       <div
-                         className={`filter drop-shadow-md leading-none flex items-center justify-center transition-all ${
-                           showDeleteIndicator ? "text-red-500 scale-90" : "text-amber-500"
-                         }`}
-                         style={{
-                           width: `${coneSize}px`,
-                           height: `${coneSize}px`
-                         }}
-                       >
-                         {showDeleteIndicator ? (
-                           <span style={{ fontSize: `${coneSize}px` }}>🗑️</span>
-                         ) : (
-                           <span style={{ fontSize: `${coneSize}px` }}>⚠️</span>
-                         )}
-                       </div>
-                     )}
-                   </div>
-                 </motion.div>
-               );
-             })}
-           </AnimatePresence>
-        </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* BOTTOM REFERENCE MEASUREMENT RULER (ALIGNED WITH FIELD TOUCHLINES) */}
         <div
           id="pitch-measurement-ruler"
-          className="absolute bottom-[28%] sm:bottom-[16%] left-[3%] right-[3%] h-9 z-[35] pointer-events-none select-none flex flex-col justify-end"
+          className="absolute bottom-0.5 left-[3%] right-[3%] h-7 z-[35] pointer-events-none select-none flex flex-col justify-end"
           style={{
-            background: "linear-gradient(to top, rgba(6, 20, 14, 0.5) 0%, rgba(6, 20, 14, 0) 100%)",
+            background: "linear-gradient(to top, rgba(6, 20, 14, 0.45) 0%, rgba(6, 20, 14, 0) 100%)",
           }}
         >
           <svg
@@ -3300,82 +3799,101 @@ export default function Pitch({
             )}
           </svg>
         </div>
+      </div>
 
-        {/* BOTTOM SECTION: DETACH RECTANGLE ZONE AS THE SQUAD BENCH (28% HEIGHT ON MOBILE, 16% ON LAPTOPS) */}
-        <div className="absolute bottom-0 left-0 right-0 h-[28%] sm:h-[16%] bg-[#06140e]/95 backdrop-blur-xl border-t border-emerald-500/20 flex flex-col justify-start p-1.5 sm:p-2.5 z-40">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-1 sm:gap-2 mb-1.5 select-none shrink-0">
+      {/* EXTERNAL BOTTOM TACTICAL CONTROL BAR SLOT (JUST OUTSIDE THE PITCH) */}
+      {!isMobileDrawActive && bottomControls && (
+        <div className="w-full max-w-[580px] z-45">
+          {bottomControls}
+        </div>
+      )}
+
+      {/* EXTERNAL DETACHED SQUAD BENCH (DUGOUT) PANEL OUTSIDE THE PITCH */}
+      {!isMobileDrawActive && !isFullscreen && (
+        <div className="w-full max-w-[580px] bg-[#06181f]/95 backdrop-blur-xl border border-teal-400/25 rounded-2xl flex flex-col justify-start p-2.5 sm:p-3 shadow-[0_12px_32px_rgba(0,0,0,0.45)] z-40">
+          <div className="flex items-center justify-between gap-2 mb-2 select-none shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[8px] sm:text-[9.5px] font-black text-emerald-400 tracking-wider uppercase flex items-center gap-1.5 select-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                👥 {lang === "id" ? "Bangku Cadangan (Dugout)" : "Squad Bench (Dugout)"}
-                <span className="px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-300 text-[8px] font-mono">
-                  {players.filter((p) => !p.isStarting).length}
-                </span>
-              </span>
+              {/* Compact Bench Emblem + Count Badge (Hover reveals full title above) */}
+              <div className="relative group">
+                <div className="px-2 py-1 rounded-xl bg-[#041217] border border-teal-400/25 flex items-center gap-1.5 cursor-default">
+                  <NanoBananaLogo tool="squad" size="xs" />
+                  <span className="px-1.5 py-0.2 rounded-md bg-teal-500/20 text-teal-200 text-[9px] font-extrabold font-mono">
+                    {players.filter((p) => !p.isStarting).length}
+                  </span>
+                </div>
+                <ToolHoverTooltip
+                  category={lang === "id" ? "DUGOUT TIM" : "TEAM DUGOUT"}
+                  title={lang === "id" ? "Bangku Cadangan (Klik / Seret ke Lapangan)" : "Squad Bench (Click / Drag to Pitch)"}
+                  align="left"
+                />
+              </div>
 
-              {/* Automatic Bench Sorting Controls */}
-              <div className="flex items-center gap-1 bg-black/40 border border-emerald-500/25 rounded-lg p-0.5">
-                <span className="text-[7.5px] font-extrabold text-gray-400 px-1 uppercase tracking-wider flex items-center gap-0.5">
-                  <ArrowUpDown className="w-2.5 h-2.5 text-emerald-400" />
-                  {lang === "id" ? "Urutkan:" : "Sort:"}
-                </span>
-
+              {/* Logo-Only Bench Sorting Controls (Hover reveals text above each tool) */}
+              <div className="flex items-center gap-1 bg-[#041115] border border-teal-400/20 rounded-xl p-0.5">
                 {/* Sort by Role */}
-                <button
-                  type="button"
-                  onClick={() => handleBenchSort("role")}
-                  title={lang === "id" ? "Urutkan cadangan menurut posisi: GK → DEF → MID → FWD" : "Sort bench by role: GK → DEF → MID → FWD"}
-                  className={`px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase transition-all flex items-center gap-0.5 cursor-pointer active:scale-95 ${
-                    benchSortBy === "role"
-                      ? "bg-emerald-500 text-black shadow-sm"
-                      : "text-emerald-400 hover:bg-emerald-500/20"
-                  }`}
-                >
-                  <span>{lang === "id" ? "Posisi" : "Role"}</span>
-                  {benchSortBy === "role" && (
-                    benchSortOrder === "asc" ? <ArrowUp className="w-2 h-2 stroke-[3]" /> : <ArrowDown className="w-2 h-2 stroke-[3]" />
-                  )}
-                </button>
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => handleBenchSort("role")}
+                    aria-label={lang === "id" ? "Urutkan Posisi" : "Sort by Role"}
+                    className={`w-6.5 h-6.5 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+                      benchSortBy === "role"
+                        ? "bg-teal-400 text-slate-950 shadow-sm"
+                        : "text-teal-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <NanoBananaLogo tool="sort_role" size="xs" active={benchSortBy === "role"} />
+                  </button>
+                  <ToolHoverTooltip
+                    category={lang === "id" ? "URUTKAN CADANGAN" : "SORT BENCH"}
+                    title={lang === "id" ? "Urutkan Menurut Posisi (GK-DEF-MID-FWD)" : "Sort by Position Role"}
+                    badge={benchSortBy === "role" ? (benchSortOrder === "asc" ? "↑" : "↓") : undefined}
+                  />
+                </div>
 
                 {/* Sort by Shirt Number */}
-                <button
-                  type="button"
-                  onClick={() => handleBenchSort("number")}
-                  title={lang === "id" ? "Urutkan cadangan menurut nomor punggung: 1 → 99" : "Sort bench by shirt number: 1 → 99"}
-                  className={`px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase transition-all flex items-center gap-0.5 cursor-pointer active:scale-95 ${
-                    benchSortBy === "number"
-                      ? "bg-emerald-500 text-black shadow-sm"
-                      : "text-emerald-400 hover:bg-emerald-500/20"
-                  }`}
-                >
-                  <span># No</span>
-                  {benchSortBy === "number" && (
-                    benchSortOrder === "asc" ? <ArrowUp className="w-2 h-2 stroke-[3]" /> : <ArrowDown className="w-2 h-2 stroke-[3]" />
-                  )}
-                </button>
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => handleBenchSort("number")}
+                    aria-label={lang === "id" ? "Urutkan Nomor Punggung" : "Sort by Shirt Number"}
+                    className={`w-6.5 h-6.5 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+                      benchSortBy === "number"
+                        ? "bg-teal-400 text-slate-950 shadow-sm"
+                        : "text-teal-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <NanoBananaLogo tool="sort_number" size="xs" active={benchSortBy === "number"} />
+                  </button>
+                  <ToolHoverTooltip
+                    category={lang === "id" ? "URUTKAN CADANGAN" : "SORT BENCH"}
+                    title={lang === "id" ? "Urutkan Nomor Punggung (1 → 99)" : "Sort by Shirt Number (1 → 99)"}
+                    badge={benchSortBy === "number" ? (benchSortOrder === "asc" ? "↑" : "↓") : undefined}
+                  />
+                </div>
 
                 {/* Sort by Name */}
-                <button
-                  type="button"
-                  onClick={() => handleBenchSort("name")}
-                  title={lang === "id" ? "Urutkan cadangan menurut alfabetis nama: A → Z" : "Sort bench alphabetically: A → Z"}
-                  className={`px-1.5 py-0.5 rounded text-[7.5px] font-black uppercase transition-all flex items-center gap-0.5 cursor-pointer active:scale-95 ${
-                    benchSortBy === "name"
-                      ? "bg-emerald-500 text-black shadow-sm"
-                      : "text-emerald-400 hover:bg-emerald-500/20"
-                  }`}
-                >
-                  <span>A-Z</span>
-                  {benchSortBy === "name" && (
-                    benchSortOrder === "asc" ? <ArrowUp className="w-2 h-2 stroke-[3]" /> : <ArrowDown className="w-2 h-2 stroke-[3]" />
-                  )}
-                </button>
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => handleBenchSort("name")}
+                    aria-label={lang === "id" ? "Urutkan Nama A-Z" : "Sort Alphabetically A-Z"}
+                    className={`w-6.5 h-6.5 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+                      benchSortBy === "name"
+                        ? "bg-teal-400 text-slate-950 shadow-sm"
+                        : "text-teal-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <NanoBananaLogo tool="sort_name" size="xs" active={benchSortBy === "name"} />
+                  </button>
+                  <ToolHoverTooltip
+                    category={lang === "id" ? "URUTKAN CADANGAN" : "SORT BENCH"}
+                    title={lang === "id" ? "Urutkan Nama Alfabetis (A → Z)" : "Sort Name Alphabetically (A → Z)"}
+                    badge={benchSortBy === "name" ? (benchSortOrder === "asc" ? "↑" : "↓") : undefined}
+                  />
+                </div>
               </div>
             </div>
-
-            <span className="text-gray-400 italic text-[7.2px] sm:text-[8px] leading-none shrink-0 font-medium">
-              {lang === "id" ? "Klik sekali atau seret pemain ke lapangan" : "Click once or drag players onto field"}
-            </span>
           </div>
 
           <div className="flex flex-wrap gap-1.5 overflow-y-auto max-h-[85%] w-full items-center scrollbar-none pb-0.5">
@@ -3606,11 +4124,12 @@ export default function Pitch({
             )}
           </div>
         </div>
+      )}
 
-        {/* Pop-up Modal overlay for adding substitute player */}
-        <AnimatePresence>
-          {isAddSubOpen && (
-            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 select-none">
+      {/* Pop-up Modal overlay for adding substitute player */}
+      <AnimatePresence>
+        {isAddSubOpen && (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[200] flex items-center justify-center p-4 select-none">
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}

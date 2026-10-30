@@ -508,25 +508,32 @@ And generate a master playbook animation sequence (3 keyframes) that represents 
   }
 });
 
-// REST API for Gemini Imagen Formation Generator
+// REST API for Gemini Imagen Formation Generator (Nano Banana gemini-2.5-flash-image)
 app.post("/api/tactics/generate-image", async (req: Request, res: Response): Promise<void> => {
   const { formation, teamName, primaryColor, gkColor, customApiKey, customPrompt } = req.body;
 
-  if (!customApiKey || typeof customApiKey !== "string" || customApiKey.trim() === "") {
-    res.status(400).json({ error: "Sila masukkan Google AI Studio API Key anda di menu Setingan (ikon gear biru) terlebih dahulu untuk menggunakan ciri penjanaan imej kecerdasan buatan dengah model gemini-2.5-flash-image." });
+  let activeAi: GoogleGenAI | null = ai;
+  if (customApiKey && typeof customApiKey === "string" && customApiKey.trim() !== "") {
+    try {
+      activeAi = new GoogleGenAI({
+        apiKey: customApiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          },
+        },
+      });
+    } catch (e) {
+      console.error("Failed to init custom API key for generate-image:", e);
+    }
+  }
+
+  if (!activeAi) {
+    res.status(400).json({ error: "Sila masukkan Google AI Studio API Key anda di menu Pengaturan terlebih dahulu untuk menggunakan fitur Nano Banana (gemini-2.5-flash-image)." });
     return;
   }
 
   try {
-    const activeAi = new GoogleGenAI({
-      apiKey: customApiKey,
-      httpOptions: {
-        headers: {
-          "User-Agent": "aistudio-build",
-        },
-      },
-    });
-
     const activeFormation = formation || "4-3-3";
     const activeTeamName = teamName || "Team A";
     const activePrimaryColor = primaryColor || "red";
@@ -542,8 +549,6 @@ The players are positioned accurately on the field as beautiful 3D jersey shirts
 - Distinct tactical position labels (e.g., ST, LW, RW, CM, CB, LB, RB) written in elegant bold white text directly beneath each shirt.
 The entire visualization has pristine, crisp high-definition, symmetric geometry, stunning color saturation, looking professional, modern, and cinematic.`;
 
-    console.log("Generating image with prompt:", basePrompt);
-
     const response = await activeAi.models.generateContent({
       model: "gemini-2.5-flash-image",
       contents: {
@@ -555,8 +560,7 @@ The entire visualization has pristine, crisp high-definition, symmetric geometry
       },
       config: {
         imageConfig: {
-          aspectRatio: "4:3",
-          imageSize: "1K"
+          aspectRatio: "4:3"
         },
       }
     });
@@ -565,7 +569,7 @@ The entire visualization has pristine, crisp high-definition, symmetric geometry
     if (response && response.candidates && response.candidates[0] && response.candidates[0].content && response.candidates[0].content.parts) {
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {
-          base64Image = part.inlineData.data;
+          base64Image = part.inlineData.data || "";
           break;
         }
       }
@@ -578,7 +582,71 @@ The entire visualization has pristine, crisp high-definition, symmetric geometry
     res.json({ imageUrl: `data:image/png;base64,${base64Image}` });
   } catch (err: any) {
     console.error("Error generating image via Gemini:", err);
-    res.status(500).json({ error: "Gagal menggambar taktik dengan Gemini: " + (err.message || err) });
+    res.status(500).json({ error: "Gagal menggambar taktik dengan Nano Banana: " + (err.message || err) });
+  }
+});
+
+// REST API for Nano Banana UI Tool Icon Generator (gemini-2.5-flash-image)
+app.post("/api/tactics/generate-tool-icon", async (req: Request, res: Response): Promise<void> => {
+  const { toolId, toolLabel, stylePrompt, customApiKey } = req.body;
+
+  let activeAi: GoogleGenAI | null = ai;
+  if (customApiKey && typeof customApiKey === "string" && customApiKey.trim() !== "") {
+    try {
+      activeAi = new GoogleGenAI({
+        apiKey: customApiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          },
+        },
+      });
+    } catch (e) {
+      console.error("Failed to init custom API key for generate-tool-icon:", e);
+    }
+  }
+
+  if (!activeAi) {
+    res.status(400).json({
+      error: "Masukkan Google AI Studio API Key di Pengaturan untuk merender ikon kustom dengan Nano Banana (gemini-2.5-flash-image)."
+    });
+    return;
+  }
+
+  try {
+    const promptText = `Minimalist 3D glassmorphic football tactical UI app icon badge for "${toolLabel || toolId}". ${
+      stylePrompt || "Glowing soft sporty tosca teal (#2dd4bf) and emerald (#10b981) emblem on a deep dark obsidian slate (#061318) background"
+    }. Centered vector symbol, crisp clean edges, high contrast, sleek modern sports broadcast UI icon, strictly NO text, NO letters, NO numbers.`;
+
+    const response = await activeAi.models.generateContent({
+      model: "gemini-2.5-flash-image",
+      contents: {
+        parts: [{ text: promptText }],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "1:1",
+        },
+      },
+    });
+
+    let base64Image = "";
+    const parts = response?.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
+      if (part.inlineData?.data) {
+        base64Image = part.inlineData.data;
+        break;
+      }
+    }
+
+    if (!base64Image) {
+      throw new Error("No icon image returned from gemini-2.5-flash-image.");
+    }
+
+    res.json({ imageUrl: `data:image/png;base64,${base64Image}` });
+  } catch (err: any) {
+    console.error("Error generating Nano Banana tool icon:", err);
+    res.status(500).json({ error: err?.message || "Gagal merender ikon dengan Nano Banana." });
   }
 });
 

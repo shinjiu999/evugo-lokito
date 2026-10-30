@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Player } from "../types";
-import { Import, Clipboard, Sparkles, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Import, Clipboard, Sparkles, Check } from "lucide-react";
+import { NanoBananaLogo, ToolHoverTooltip } from "./NanoBananaToolIcon";
 
 interface SquadImportProps {
   onImport: (newPlayers: Player[]) => void;
@@ -113,20 +114,21 @@ export default function SquadImport({
   };
 
   return (
-    <div className="relative group/importer">
+    <div className="relative group">
       <button
+        type="button"
         onClick={() => setModalOpen(true)}
-        className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#071912]/85 hover:bg-[#071912]/95 border-emerald-500/30 hover:border-emerald-400/50 text-gray-300 hover:text-white shadow-xl ring-1 ring-emerald-400/20 backdrop-blur-2xl active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+        className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/30 hover:border-teal-400/60 text-teal-100 hover:text-white shadow-md active:scale-95 focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none"
         aria-label={lang === "id" ? "Impor Skuad" : "Roster Import"}
       >
-        <Import className="w-4.5 sm:w-5.5 h-4.5 sm:h-5.5 text-emerald-400 transition-transform group-hover/importer:scale-110" />
+        <NanoBananaLogo tool="import" size="md" />
       </button>
-      
-      {/* Tooltip Overlay help */}
-      <div className="absolute right-0 bottom-full mb-2 opacity-0 scale-90 pointer-events-none group-hover/importer:opacity-100 group-hover/importer:scale-100 transition-all duration-150 bg-[#071912]/95 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl shadow-2xl z-50 flex flex-col items-end gap-0.5 ring-1 ring-emerald-400/20 backdrop-blur-2xl whitespace-nowrap">
-        <span className="text-[8px] font-black tracking-widest text-emerald-400 uppercase">ROSTER BULK IMPORT</span>
-        <span className="text-white font-extrabold text-[9px]">{lang === "id" ? "Tempel draf daftar pemain" : "Paste custom roster list"}</span>
-      </div>
+
+      <ToolHoverTooltip
+        category={lang === "id" ? "IMPOR SKUAD" : "BULK IMPORT"}
+        title={lang === "id" ? "Impor Daftar Pemain" : "Import Squad Roster"}
+        align="right"
+      />
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn" onClick={() => setModalOpen(false)}>

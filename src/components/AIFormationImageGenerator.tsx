@@ -69,6 +69,11 @@ interface AIFormationImageGeneratorProps {
   isEnemyModeActive?: boolean;
   externalOpenStudio?: boolean;
   onExternalCloseStudio?: () => void;
+  externalOpenPosterStudio?: boolean;
+  onExternalClosePosterStudio?: () => void;
+  viewMode?: "formation-only" | "poster-stage";
+  onSwitchToPitch?: () => void;
+  isPitchFullscreen?: boolean;
 }
 
 const DEFAULT_SHAPE: FormationShapeConfig = {
@@ -105,11 +110,13 @@ export default function AIFormationImageGenerator({
   managerPhoto = null,
   isEnemyModeActive = false,
   externalOpenStudio = false,
-  onExternalCloseStudio
+  onExternalCloseStudio,
+  externalOpenPosterStudio = false,
+  onExternalClosePosterStudio,
+  viewMode = "formation-only",
+  onSwitchToPitch,
+  isPitchFullscreen = false
 }: AIFormationImageGeneratorProps) {
-  // Widget Card Mode: "adjuster" (Pengatur Formasi & Lini) vs "poster" (Poster & Grafis HD)
-  const [widgetMode, setWidgetMode] = useState<"adjuster" | "poster">("adjuster");
-
   // Theme & Format State (Default to Soft Sporty Tosca)
   const [posterTheme, setPosterTheme] = useState<PosterTheme>("sporty_tosca");
   const [posterFormat, setPosterFormat] = useState<PosterFormat>("landscape");
@@ -129,19 +136,33 @@ export default function AIFormationImageGenerator({
   const [customFormName, setCustomFormName] = useState("");
   const [savedFeedback, setSavedFeedback] = useState(false);
 
-  // Fullscreen Studio Modal State
-  const [isStudioOpen, setIsStudioOpen] = useState(false);
-  const [studioTab, setStudioTab] = useState<"tactics" | "poster" | "ai_imagen">("tactics");
+  // Separate Modal States:
+  // 1) Studio Formasi Modal (Tactical Formation & Line Adjuster)
+  // 2) Studio Poster HD Fullscreen Zoom Modal (optional zoom inside poster stage)
+  const [isFormationModalOpen, setIsFormationModalOpen] = useState(false);
+  const [isPosterModalOpen, setIsPosterModalOpen] = useState(false);
+  const [posterModalTab, setPosterModalTab] = useState<"poster" | "ai_imagen">("poster");
 
   useEffect(() => {
     if (externalOpenStudio) {
-      setIsStudioOpen(true);
+      setIsFormationModalOpen(true);
     }
   }, [externalOpenStudio]);
 
-  const handleCloseStudio = () => {
-    setIsStudioOpen(false);
+  useEffect(() => {
+    if (externalOpenPosterStudio) {
+      setIsPosterModalOpen(true);
+    }
+  }, [externalOpenPosterStudio]);
+
+  const handleCloseFormationModal = () => {
+    setIsFormationModalOpen(false);
     if (onExternalCloseStudio) onExternalCloseStudio();
+  };
+
+  const handleClosePosterModal = () => {
+    setIsPosterModalOpen(false);
+    if (onExternalClosePosterStudio) onExternalClosePosterStudio();
   };
 
   // Clipboard copy state feedback
@@ -179,6 +200,7 @@ export default function AIFormationImageGenerator({
 
   // Preload Images (Player photos, team logo, jersey, manager)
   useEffect(() => {
+    if (viewMode !== "poster-stage" && !isPosterModalOpen) return;
     let active = true;
     const toLoad: { id: string; url: string }[] = [];
 
@@ -219,7 +241,7 @@ export default function AIFormationImageGenerator({
     return () => {
       active = false;
     };
-  }, [players, teamLogo, teamJersey, managerPhoto]);
+  }, [players, teamLogo, teamJersey, managerPhoto, viewMode, isPosterModalOpen]);
 
   const TACTICAL_STYLES: {
     id: TacticalStylePreset;
@@ -287,9 +309,9 @@ export default function AIFormationImageGenerator({
         : "Custom Shape"
       : activeStyleObj?.label;
 
-  // Render poster whenever options or loaded images change
-  // NOTE: Pass `players` directly so `renderFormationPoster` performs single-pass coordinate normalization
+  // Render poster whenever options or loaded images change (only when poster-stage or modal is active)
   useEffect(() => {
+    if (viewMode !== "poster-stage" && !isPosterModalOpen) return;
     try {
       const canvas = canvasRef.current || document.createElement("canvas");
       canvasRef.current = canvas;
@@ -330,6 +352,8 @@ export default function AIFormationImageGenerator({
       console.error("Gagal merender poster formasi: ", e);
     }
   }, [
+    viewMode,
+    isPosterModalOpen,
     posterTheme,
     posterFormat,
     formation,
@@ -396,7 +420,7 @@ export default function AIFormationImageGenerator({
     setTimeout(() => setSavedFeedback(false), 2200);
   };
 
-  // Gemini Imagen Generator
+  // AI Stadium Artwork Generator
   const handleGenerateAiImage = async () => {
     if (!customApiKey.trim()) {
       setAiError(
@@ -492,26 +516,37 @@ export default function AIFormationImageGenerator({
     }
   ];
 
-  const FORMATS: { id: PosterFormat; label: string; ratio: string; desc: string }[] = [
+  const FORMATS: { id: PosterFormat; label: string; shortLabel: string; ratio: string; desc: string }[] = [
     {
       id: "landscape",
       label: lang === "id" ? "Lanskap (4:3)" : "Landscape (4:3)",
+      shortLabel: "4:3",
       ratio: "4/3",
       desc: "PC / Taktik / YouTube"
     },
     {
       id: "square",
       label: lang === "id" ? "Persegi (1:1)" : "Square (1:1)",
+      shortLabel: "1:1",
       ratio: "1/1",
       desc: "Instagram / WhatsApp"
     },
     {
       id: "portrait",
       label: lang === "id" ? "Story (9:16)" : "Story (9:16)",
+      shortLabel: "9:16",
       ratio: "9/16",
       desc: "Reels / Status WA"
     }
   ];
+
+  const startingPlayers = players.filter((p) => p.isStarting);
+  const roleCounts = {
+    GK: startingPlayers.filter((p) => p.role === "GK").length,
+    DEF: startingPlayers.filter((p) => p.role === "DEF").length,
+    MID: startingPlayers.filter((p) => p.role === "MID").length,
+    FWD: startingPlayers.filter((p) => p.role === "FWD").length
+  };
 
   const renderTacticalAdjusterControls = (isModal = false) => (
     <div className="space-y-3.5">
@@ -831,92 +866,78 @@ export default function AIFormationImageGenerator({
     </div>
   );
 
-  return (
-    <Interactive3DCard glowColor="rgba(45, 212, 191, 0.35)">
-      <div className="p-3.5 sm:p-4 space-y-3.5">
-        {/* Compact Widget Header */}
-        <div className="flex items-center justify-between border-b border-teal-400/15 pb-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-xl text-slate-950 flex items-center justify-center shadow-sm">
-              <LayoutGrid className="w-4 h-4 stroke-[2.4]" />
+  // =========================================================================
+  // MODE A: POSTER-STAGE (DITEMPATKAN DI ZONA LAPANGAN DENGAN UKURAN MAKSIMAL)
+  // =========================================================================
+  if (viewMode === "poster-stage") {
+    const activePosterUrl =
+      posterModalTab === "ai_imagen" && generatedAiImageUrl
+        ? generatedAiImageUrl
+        : instantImageUrl;
+
+    return (
+      <div className="w-full flex flex-col items-center gap-2.5 animate-fadeIn">
+        {/* 1. BAR KONTROL RINGKAS ATAS POSTER (TEMA, RASIO KANVAS, & TAB AI STADION) */}
+        <div
+          id="poster-top-control-bar"
+          role="toolbar"
+          aria-label={lang === "id" ? "Bar pengaturan atas poster HD" : "Poster HD top control bar"}
+          className="w-full bg-[#071c22]/95 border border-teal-400/25 rounded-2xl p-2.5 flex flex-col gap-2 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+        >
+          {/* Row 1: Mode Render (Vektor Instan vs AI Stadion) + Rasio Kanvas (4:3, 1:1, 9:16) */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Render Mode Switcher */}
+            <div className="flex items-center gap-1 bg-[#041014] p-1 rounded-xl border border-teal-400/20">
+              <button
+                type="button"
+                onClick={() => setPosterModalTab("poster")}
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                  posterModalTab === "poster"
+                    ? "bg-teal-400 text-slate-950 font-extrabold shadow-sm"
+                    : "text-teal-100/75 hover:text-white"
+                }`}
+              >
+                <Palette className="w-3.5 h-3.5" />
+                <span>{lang === "id" ? "Poster Lineup HD" : "Lineup Poster HD"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPosterModalTab("ai_imagen")}
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                  posterModalTab === "ai_imagen"
+                    ? "bg-teal-400 text-slate-950 font-extrabold shadow-sm"
+                    : "text-teal-100/75 hover:text-white"
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{lang === "id" ? "AI Stadion" : "AI Stadium"}</span>
+              </button>
             </div>
-            <div>
-              <h3 className="text-xs sm:text-sm font-extrabold text-white tracking-tight font-display">
-                {lang === "id" ? "Studio Formasi & Poster HD" : "Formation & Poster Studio"}
-              </h3>
-              <p className="text-[10px] text-teal-200/70">
-                {formation} · {tacticalStyleLabel}
-              </p>
-            </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={() => setIsStudioOpen(true)}
-            className="min-h-[36px] px-2.5 py-1.5 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-400/30 text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-            title={lang === "id" ? "Buka Studio Layar Penuh" : "Open Full Studio"}
-          >
-            <Maximize2 className="w-3.5 h-3.5 text-teal-300" />
-            <span>{lang === "id" ? "Studio Penuh" : "Full Studio"}</span>
-          </button>
-        </div>
-
-        {/* Mode Switcher Tabs inside Widget: Pengatur Formasi vs Poster HD */}
-        <div className="grid grid-cols-2 gap-1 bg-[#051419] p-1 rounded-xl border border-teal-400/20">
-          <button
-            type="button"
-            onClick={() => setWidgetMode("adjuster")}
-            className={`min-h-[38px] py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
-              widgetMode === "adjuster"
-                ? "bg-teal-400 text-slate-950 shadow-sm font-extrabold"
-                : "text-teal-100/75 hover:text-white"
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>{lang === "id" ? "Atur Formasi & Lini" : "Formation & Lines"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setWidgetMode("poster")}
-            className={`min-h-[38px] py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
-              widgetMode === "poster"
-                ? "bg-teal-400 text-slate-950 shadow-sm font-extrabold"
-                : "text-teal-100/75 hover:text-white"
-            }`}
-          >
-            <ImageIcon className="w-3.5 h-3.5" />
-            <span>{lang === "id" ? "Poster & Grafis HD" : "HD Poster"}</span>
-          </button>
-        </div>
-
-        {/* WIDGET TAB 1: TACTICAL FORMATION & LINE ADJUSTER */}
-        {widgetMode === "adjuster" ? (
-          renderTacticalAdjusterControls(false)
-        ) : (
-          /* WIDGET TAB 2: POSTER & GRAPHIC PREVIEW */
-          <div className="space-y-3">
-            {/* Format Selector Buttons (Landscape, Square, Portrait) */}
-            <div className="grid grid-cols-3 gap-1 bg-[#051419] p-1 rounded-xl border border-teal-400/20">
+            {/* Aspect Ratio Selector (4:3 | 1:1 | 9:16) */}
+            <div className="flex items-center gap-1 bg-[#041014] p-1 rounded-xl border border-teal-400/20">
               {FORMATS.map((fmt) => (
                 <button
                   key={fmt.id}
                   type="button"
                   onClick={() => setPosterFormat(fmt.id)}
-                  className={`py-1.5 px-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex flex-col items-center justify-center text-center whitespace-nowrap ${
+                  title={`${fmt.label} — ${fmt.desc}`}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono tabular-nums font-bold transition-all cursor-pointer whitespace-nowrap ${
                     posterFormat === fmt.id
                       ? "bg-teal-500 text-slate-950 font-extrabold shadow-sm"
                       : "text-teal-100/70 hover:text-white hover:bg-white/5"
                   }`}
                 >
-                  <span>{fmt.label}</span>
-                  <span className="text-[8.5px] font-normal opacity-80">{fmt.desc}</span>
+                  {fmt.shortLabel}
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Theme Selector Carousel */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+          {/* Row 2: Theme Carousel (when in Vector Poster mode) or AI Prompt Bar (when in AI Stadium mode) */}
+          {posterModalTab === "poster" ? (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
               {THEMES.map((th) => {
                 const isSelected = posterTheme === th.id;
                 return (
@@ -927,557 +948,404 @@ export default function AIFormationImageGenerator({
                     className={`px-2.5 py-1.5 rounded-xl text-[10.5px] font-bold shrink-0 transition-all cursor-pointer border flex items-center gap-1.5 whitespace-nowrap ${
                       isSelected
                         ? "bg-teal-500/25 text-white border-teal-400 shadow-sm"
-                        : "bg-[#051419]/80 text-teal-100/70 border-teal-400/15 hover:border-teal-400/35 hover:text-white"
+                        : "bg-[#041014]/90 text-teal-100/75 border-teal-400/15 hover:border-teal-400/40 hover:text-white"
                     }`}
                   >
-                    <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${th.color}`} />
+                    <span className={`w-2 h-2 rounded-full bg-gradient-to-r ${th.color}`} />
                     <span>{th.label}</span>
                   </button>
                 );
               })}
             </div>
+          ) : (
+            <div className="flex flex-col gap-2 pt-0.5">
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder={
+                    lang === "id"
+                      ? "Instruksi atmosfer stadion AI (opsional, cth: Stadion malam lampu sorot toska)..."
+                      : "Custom AI stadium prompt (optional, e.g. Night stadium with teal floodlights)..."
+                  }
+                  className="flex-1 min-w-0 px-3 py-1.5 rounded-xl bg-[#041014] border border-teal-400/25 text-white text-xs placeholder:text-teal-200/40 focus:border-teal-400 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={aiLoading}
+                  onClick={handleGenerateAiImage}
+                  className="min-h-[34px] px-3 py-1.5 rounded-xl bg-teal-400 hover:bg-teal-300 disabled:opacity-50 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap shrink-0"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>
+                    {aiLoading
+                      ? lang === "id"
+                        ? "Merender..."
+                        : "Rendering..."
+                      : lang === "id"
+                      ? "Render AI"
+                      : "Generate AI"}
+                  </span>
+                </button>
+              </div>
+              {aiError && (
+                <div className="px-3 py-2 rounded-xl bg-rose-500/15 border border-rose-400/30 text-rose-200 text-[11px] flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span className="truncate">{aiError}</span>
+                  </div>
+                  {onOpenSettings && (
+                    <button
+                      type="button"
+                      onClick={onOpenSettings}
+                      className="px-2 py-0.5 rounded-lg bg-rose-500/30 hover:bg-rose-500/40 text-white font-bold text-[10px] cursor-pointer whitespace-nowrap shrink-0"
+                    >
+                      {lang === "id" ? "Atur API Key" : "API Settings"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
-            {/* Live Poster Image Preview Card */}
-            {instantImageUrl && (
-              <div className="space-y-2.5">
-                <div
-                  onClick={() => setIsStudioOpen(true)}
-                  className={`relative group overflow-hidden rounded-2xl border border-teal-400/25 bg-[#041014] flex items-center justify-center cursor-pointer shadow-xl transition-all hover:border-teal-400/50 ${
-                    posterFormat === "landscape"
-                      ? "aspect-[4/3]"
-                      : posterFormat === "square"
-                      ? "aspect-square max-h-[300px]"
-                      : "aspect-[9/16] max-h-[360px]"
+        {/* 2. PANGGUNG KANVAS POSTER HD (UKURAN MAKSIMAL SETARA LAPANGAN TAKTIS) */}
+        <div
+          id="tacticalPitchWrapper"
+          className={`relative w-full rounded-3xl border-2 border-teal-400/35 bg-[#041014] shadow-[0_22px_60px_rgba(0,0,0,0.75)] overflow-hidden flex items-center justify-center transition-all duration-300 ${
+            isPitchFullscreen
+              ? "max-h-[76vh] min-h-[480px]"
+              : posterFormat === "landscape"
+              ? "aspect-[4/3] min-h-[420px]"
+              : posterFormat === "square"
+              ? "aspect-square min-h-[480px]"
+              : "aspect-[3/4] sm:aspect-[9/14] min-h-[560px]"
+          }`}
+        >
+          {/* Subtle Stadium Grid Backdrop */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.1)_0%,transparent_70%)] pointer-events-none" />
+
+          {activePosterUrl ? (
+            <img
+              src={activePosterUrl}
+              alt={`${teamName} ${formation} Poster HD`}
+              className="w-full h-full object-contain select-none"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="text-teal-200/80 text-xs flex flex-col items-center gap-2 py-16">
+              <div className="w-6 h-6 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+              <span>
+                {lang === "id"
+                  ? "Merender Studio Poster Lineup HD..."
+                  : "Rendering HD Lineup Poster Studio..."}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* 3. BAR KONTROL RINGKAS BAWAH POSTER (TEKS LAGA, TOGGLE ELEMEN, & UNDUH/SALIN) */}
+        <div
+          id="poster-bottom-control-bar"
+          role="toolbar"
+          aria-label={lang === "id" ? "Bar pengaturan bawah poster HD" : "Poster HD bottom control bar"}
+          className="w-full bg-[#071c22]/95 border border-teal-400/25 rounded-2xl p-2.5 sm:p-3 flex flex-col gap-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+        >
+          {/* Compact Match Info Inputs Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+            <input
+              type="text"
+              value={matchTitle}
+              onChange={(e) => setMatchTitle(e.target.value)}
+              placeholder={lang === "id" ? "Judul (cth: STARTING XI)" : "Matchday Title"}
+              aria-label={lang === "id" ? "Judul Pertandingan" : "Matchday Title"}
+              className="w-full px-2.5 py-1.5 rounded-xl bg-[#041014] border border-teal-400/20 text-white text-[11px] font-bold placeholder:text-teal-200/40 focus:border-teal-400 focus:outline-none"
+            />
+            <input
+              type="text"
+              value={opponentName}
+              onChange={(e) => setOpponentName(e.target.value)}
+              placeholder={lang === "id" ? "Lawan (cth: VS RIVAL FC)" : "Opponent (e.g. VS RIVAL FC)"}
+              aria-label={lang === "id" ? "Nama Tim Lawan" : "Opponent Name"}
+              className="w-full px-2.5 py-1.5 rounded-xl bg-[#041014] border border-teal-400/20 text-white text-[11px] font-bold placeholder:text-teal-200/40 focus:border-teal-400 focus:outline-none"
+            />
+            <input
+              type="text"
+              value={venueName}
+              onChange={(e) => setVenueName(e.target.value)}
+              placeholder={lang === "id" ? "Stadion / Venue Laga" : "Stadium / Venue"}
+              aria-label={lang === "id" ? "Nama Stadion" : "Stadium Venue"}
+              className="w-full px-2.5 py-1.5 rounded-xl bg-[#041014] border border-teal-400/20 text-white text-[11px] font-bold placeholder:text-teal-200/40 focus:border-teal-400 focus:outline-none"
+            />
+          </div>
+
+          {/* Visual Layer Toggles + Primary Export Buttons Row */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-teal-400/15">
+            {/* Layer Toggles */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                {
+                  key: "links",
+                  active: showTacticalLinks,
+                  toggle: () => setShowTacticalLinks(!showTacticalLinks),
+                  label: lang === "id" ? "Garis Lini" : "Line Links"
+                },
+                {
+                  key: "zones",
+                  active: showTacticalZones,
+                  toggle: () => setShowTacticalZones(!showTacticalZones),
+                  label: lang === "id" ? "Zona Taktis" : "Zones"
+                },
+                {
+                  key: "subs",
+                  active: showSubstitutes,
+                  toggle: () => setShowSubstitutes(!showSubstitutes),
+                  label: lang === "id" ? "Cadangan" : "Bench"
+                },
+                {
+                  key: "coach",
+                  active: showManager,
+                  toggle: () => setShowManager(!showManager),
+                  label: lang === "id" ? "Pelatih" : "Coach"
+                }
+              ].map((layer) => (
+                <button
+                  key={layer.key}
+                  type="button"
+                  onClick={layer.toggle}
+                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
+                    layer.active
+                      ? "bg-teal-500/25 border-teal-400/60 text-teal-100"
+                      : "bg-[#041014] border-teal-400/15 text-teal-200/50 hover:text-white"
                   }`}
                 >
-                  <img
-                    src={instantImageUrl}
-                    alt="Formation Poster Preview"
-                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.01]"
-                    referrerPolicy="no-referrer"
-                  />
+                  {layer.active ? "✓ " : ""}
+                  {layer.label}
+                </button>
+              ))}
+            </div>
 
-                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-xs">
-                    <span className="px-3.5 py-2 rounded-xl bg-teal-400 text-slate-950 text-xs font-extrabold flex items-center gap-1.5 shadow-xl">
-                      <Maximize2 className="w-3.5 h-3.5" />
-                      {lang === "id" ? "Buka Studio Formasi HD" : "Open HD Formation Studio"}
-                    </span>
+            {/* Action Buttons: Copy & Download HD */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              <button
+                type="button"
+                onClick={() => handleCopyToClipboard(activePosterUrl)}
+                className="min-h-[38px] px-3 py-1.5 bg-[#041014] hover:bg-teal-500/15 text-teal-100 border border-teal-400/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
+              >
+                {copied ? (
+                  <Check className="w-3.5 h-3.5 text-teal-300" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 text-teal-300" />
+                )}
+                <span>
+                  {copied
+                    ? lang === "id"
+                      ? "Tersalin!"
+                      : "Copied!"
+                    : lang === "id"
+                    ? "Salin"
+                    : "Copy"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDownload(activePosterUrl)}
+                className="min-h-[38px] px-3.5 py-1.5 bg-teal-400 hover:bg-teal-300 text-slate-950 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md active:scale-95 whitespace-nowrap"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>{lang === "id" ? "Unduh PNG HD" : "Download HD"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // MODE B: FORMATION-ONLY (PANEL STUDIO FORMASI & LINI DI KOLOM SAMPING)
+  // =========================================================================
+  return (
+    <div className="flex flex-col gap-4">
+      {/* CARD: STUDIO FORMASI & LINI TAKTIS (MURNI FUNGSI TAKTIS LAPANGAN) */}
+      <Interactive3DCard glowColor="rgba(45, 212, 191, 0.35)">
+        <div className="p-3.5 sm:p-4 space-y-3.5">
+          <div className="flex items-center justify-between border-b border-teal-400/15 pb-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-xl text-slate-950 flex items-center justify-center shadow-sm">
+                <Sliders className="w-4 h-4 stroke-[2.4]" />
+              </div>
+              <div>
+                <h3 className="text-xs sm:text-sm font-extrabold text-white tracking-tight font-display">
+                  {lang === "id" ? "Studio Formasi & Lini" : "Formation & Line Studio"}
+                </h3>
+                <p className="text-[10px] text-teal-200/70">
+                  {formation} · {tacticalStyleLabel}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsFormationModalOpen(true)}
+              className="min-h-[34px] px-2.5 py-1.5 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-400/30 text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              title={lang === "id" ? "Buka Studio Formasi Layar Penuh" : "Open Full Formation Studio"}
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-teal-300" />
+              <span>{lang === "id" ? "Buka Studio" : "Open Studio"}</span>
+            </button>
+          </div>
+
+          {renderTacticalAdjusterControls(false)}
+        </div>
+      </Interactive3DCard>
+
+      {/* MODAL: STUDIO FORMASI & LINI TAKTIS (MURNI REKAYASA FORMASI) */}
+      <AnimatePresence>
+        {isFormationModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-slate-950/85 backdrop-blur-md animate-fadeIn"
+            onClick={handleCloseFormationModal}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ duration: 0.18 }}
+              className="w-full max-w-5xl max-h-[92vh] bg-[#06181f] border border-teal-400/30 rounded-3xl p-4 sm:p-6 shadow-[0_28px_70px_rgba(0,0,0,0.85)] flex flex-col relative text-left overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-teal-400/20 mb-4 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-500 text-slate-950 flex items-center justify-center shadow-md">
+                    <Sliders className="w-5 h-5 stroke-[2.4]" />
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-extrabold text-white tracking-tight font-display">
+                      {lang === "id"
+                        ? "Studio Formasi & Lini Taktis"
+                        : "Tactical Formation & Line Studio"}
+                    </h2>
+                    <p className="text-xs text-teal-200/75">
+                      {teamName} · {formation} · {tacticalStyleLabel}
+                    </p>
                   </div>
                 </div>
 
-                {/* Action Bar (Download HD & Copy to Clipboard) */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center gap-2">
+                  {onAutoFitRoles && (
+                    <button
+                      type="button"
+                      onClick={onAutoFitRoles}
+                      className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 whitespace-nowrap"
+                    >
+                      <Wand2 className="w-4 h-4" />
+                      <span>{lang === "id" ? "Rapikan Posisi" : "Auto-Fit Roles"}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => handleDownload(instantImageUrl)}
-                    className="min-h-[42px] w-full py-2 bg-teal-400 hover:bg-teal-300 text-slate-950 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md active:scale-95 whitespace-nowrap"
+                    onClick={handleCloseFormationModal}
+                    className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-teal-100 hover:text-white transition-colors cursor-pointer flex items-center justify-center text-sm font-bold border border-teal-400/20"
+                    aria-label="Close Formation Studio"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>{lang === "id" ? "Unduh PNG HD" : "Save PNG"}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleCopyToClipboard(instantImageUrl)}
-                    className="min-h-[42px] w-full py-2 bg-[#051419] hover:bg-teal-500/15 text-teal-100 border border-teal-400/25 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
-                  >
-                    {copied ? (
-                      <Check className="w-3.5 h-3.5 text-teal-300" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5 text-teal-300" />
-                    )}
-                    <span>
-                      {copied
-                        ? lang === "id"
-                          ? "Disalin!"
-                          : "Copied!"
-                        : lang === "id"
-                        ? "Salin Gambar"
-                        : "Copy Image"}
-                    </span>
+                    ✕
                   </button>
                 </div>
               </div>
-            )}
+
+              {/* Modal Body: Left Live Formation Diagram & Telemetry, Right Adjuster Controls */}
+              <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto pr-1 items-start">
+                {/* Left Column: Live Tactical Pitch Shape Diagram & Role Distribution */}
+                <div className="lg:col-span-5 flex flex-col gap-3.5 bg-[#041014] border border-teal-400/20 rounded-2xl p-4">
+                  <div className="flex items-center justify-between border-b border-teal-400/15 pb-2">
+                    <span className="text-xs font-extrabold text-teal-200 uppercase tracking-wider">
+                      {lang === "id" ? "Peta Struktur Lini" : "Live Line Structure"}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-lg bg-teal-400/20 border border-teal-400/40 text-teal-200 font-mono text-xs font-extrabold">
+                      {formation}
+                    </span>
+                  </div>
+
+                  {/* Mini Interactive Tactical Pitch Visualizer */}
+                  <div className="relative w-full aspect-[3/4] max-h-[340px] mx-auto rounded-2xl bg-gradient-to-b from-[#07262e] via-[#09303a] to-[#07262e] border border-teal-400/30 overflow-hidden shadow-inner">
+                    {/* Pitch markings */}
+                    <div className="absolute inset-2.5 border border-teal-300/25 rounded-lg pointer-events-none" />
+                    <div className="absolute left-2.5 right-2.5 top-1/2 h-px bg-teal-300/25 pointer-events-none" />
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full border border-teal-300/25 pointer-events-none" />
+                    {/* Defensive Line Indicator */}
+                    <div
+                      className="absolute left-2.5 right-2.5 border-t-2 border-dashed border-teal-400/60 transition-all duration-200 pointer-events-none flex items-center justify-end pr-2"
+                      style={{ top: `${Math.max(15, Math.min(85, 88 - formationShape.lineHeight * 0.55))}%` }}
+                    >
+                      <span className="text-[8.5px] font-mono font-bold text-teal-200 bg-[#041014]/90 px-1.5 py-0.5 rounded -mt-4 border border-teal-400/30">
+                        LINE {formationShape.lineHeight}%
+                      </span>
+                    </div>
+
+                    {/* Starting Players Nodes */}
+                    {startingPlayers.map((p) => {
+                      const normX = p.x <= 1.2 ? p.x * 100 : p.x;
+                      const normY = p.y <= 1.2 ? p.y * 100 : p.y;
+                      return (
+                        <div
+                          key={p.id}
+                          className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-all duration-200"
+                          style={{
+                            left: `${Math.max(8, Math.min(92, normX))}%`,
+                            top: `${Math.max(8, Math.min(92, normY))}%`
+                          }}
+                        >
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black shadow-md border border-white/80"
+                            style={{
+                              backgroundColor: p.role === "GK" ? gkColor : primaryColor,
+                              color: numberColor
+                            }}
+                          >
+                            {p.number}
+                          </div>
+                          <span className="mt-0.5 px-1 rounded bg-black/75 text-[8px] font-bold text-white truncate max-w-[54px]">
+                            {p.name}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Role Distribution Summary */}
+                  <div className="grid grid-cols-4 gap-1.5 pt-1">
+                    {[
+                      { role: "GK", count: roleCounts.GK, color: "text-amber-300 border-amber-400/30 bg-amber-500/10" },
+                      { role: "DEF", count: roleCounts.DEF, color: "text-teal-300 border-teal-400/30 bg-teal-500/10" },
+                      { role: "MID", count: roleCounts.MID, color: "text-emerald-300 border-emerald-400/30 bg-emerald-500/10" },
+                      { role: "FWD", count: roleCounts.FWD, color: "text-cyan-300 border-cyan-400/30 bg-cyan-500/10" }
+                    ].map((r) => (
+                      <div
+                        key={r.role}
+                        className={`rounded-xl border p-2 flex flex-col items-center justify-center ${r.color}`}
+                      >
+                        <span className="text-[9px] font-black uppercase">{r.role}</span>
+                        <span className="text-sm font-extrabold font-mono">{r.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right Column: Full Formation & Line Adjuster Controls */}
+                <div className="lg:col-span-7">
+                  {renderTacticalAdjusterControls(true)}
+                </div>
+              </div>
+            </motion.div>
           </div>
         )}
-
-        {/* FULLSCREEN FORMATION & POSTER STUDIO MODAL */}
-        <AnimatePresence>
-          {isStudioOpen && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-slate-950/85 backdrop-blur-md animate-fadeIn"
-              onClick={handleCloseStudio}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.96, y: 12 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.96, y: 12 }}
-                transition={{ duration: 0.18 }}
-                className="w-full max-w-6xl max-h-[94vh] bg-[#06181f] border border-teal-400/30 rounded-3xl p-4 sm:p-6 shadow-[0_28px_70px_rgba(0,0,0,0.85)] flex flex-col relative text-left overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Modal Header */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-teal-400/20 mb-4 shrink-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-500 text-slate-950 flex items-center justify-center shadow-md">
-                      <LayoutGrid className="w-5 h-5 stroke-[2.4]" />
-                    </div>
-                    <div>
-                      <h2 className="text-base sm:text-lg font-extrabold text-white tracking-tight font-display">
-                        {lang === "id"
-                          ? "Studio Formasi Taktis & Poster Digital HD"
-                          : "Tactical Formation & HD Poster Studio"}
-                      </h2>
-                      <p className="text-xs text-teal-200/75">
-                        {teamName} · {formation} · {tacticalStyleLabel}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDownload(
-                          studioTab === "ai_imagen" && generatedAiImageUrl
-                            ? generatedAiImageUrl
-                            : instantImageUrl
-                        )
-                      }
-                      className="min-h-[40px] px-3.5 py-2 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95 whitespace-nowrap"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>{lang === "id" ? "Unduh PNG HD" : "Download HD"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCloseStudio}
-                      className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-teal-100 hover:text-white transition-colors cursor-pointer flex items-center justify-center text-sm font-bold border border-teal-400/20"
-                      aria-label="Close modal"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-
-                {/* Modal Body: Left Live Preview, Right Tabbed Controls */}
-                <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto pr-1 items-stretch">
-                  {/* Left Column: Big Interactive Preview */}
-                  <div className="lg:col-span-7 flex flex-col justify-between bg-[#041014] border border-teal-400/20 rounded-2xl p-3.5 relative overflow-hidden min-h-[380px]">
-                    <div className="flex items-center justify-between gap-2 mb-2 z-10">
-                      <span className="text-xs font-mono tabular-nums text-teal-300">
-                        {posterFormat.toUpperCase()} ·{" "}
-                        {posterFormat === "landscape"
-                          ? "1200×900"
-                          : posterFormat === "square"
-                          ? "1080×1080"
-                          : "1080×1920"}{" "}
-                        · {formation}
-                      </span>
-
-                      <div className="flex items-center gap-1.5">
-                        {onAutoFitRoles && (
-                          <button
-                            type="button"
-                            onClick={onAutoFitRoles}
-                            className="px-2.5 py-1 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/30 text-teal-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                          >
-                            <Wand2 className="w-3 h-3" />
-                            <span>{lang === "id" ? "Rapikan Role" : "Auto-Fit Roles"}</span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCopyToClipboard(
-                              studioTab === "ai_imagen" && generatedAiImageUrl
-                                ? generatedAiImageUrl
-                                : instantImageUrl
-                            )
-                          }
-                          className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                        >
-                          {copied ? (
-                            <Check className="w-3 h-3 text-teal-300" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                          <span>
-                            {copied
-                              ? lang === "id"
-                                ? "Tersalin"
-                                : "Copied"
-                              : lang === "id"
-                              ? "Salin"
-                              : "Copy"}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 flex items-center justify-center py-1">
-                      {studioTab === "ai_imagen" && generatedAiImageUrl ? (
-                        <img
-                          src={generatedAiImageUrl}
-                          alt="AI Generated Formation Artwork"
-                          className="max-h-[62vh] w-auto object-contain rounded-xl shadow-2xl"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : instantImageUrl ? (
-                        <img
-                          src={instantImageUrl}
-                          alt="Poster Big Preview"
-                          className="max-h-[62vh] w-auto object-contain rounded-xl shadow-2xl transition-all"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div className="text-teal-200/70 text-xs flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-                          {lang === "id" ? "Merender poster formasi..." : "Rendering formation poster..."}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Bottom status bar inside preview */}
-                    <div className="mt-2 pt-2 border-t border-teal-400/15 flex flex-wrap items-center justify-between gap-2 text-[11px] text-teal-200/75 font-mono tabular-nums">
-                      <span>
-                        {lang === "id" ? "Garis:" : "Line:"} {formationShape.lineHeight}% ·{" "}
-                        {lang === "id" ? "Lebar:" : "Width:"} {formationShape.teamWidth}% ·{" "}
-                        {lang === "id" ? "Rapat:" : "Compact:"} {formationShape.compactness}%
-                      </span>
-                      <span>
-                        {players.filter((p) => p.isStarting).length} Starter ·{" "}
-                        {players.filter((p) => !p.isStarting).length}{" "}
-                        {lang === "id" ? "Cadangan" : "Bench"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Studio Controls with 3 Tabs */}
-                  <div className="lg:col-span-5 flex flex-col gap-4 text-left">
-                    {/* Studio Navigation Tabs */}
-                    <div className="grid grid-cols-3 gap-1 bg-[#041014] p-1 rounded-2xl border border-teal-400/20 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setStudioTab("tactics")}
-                        className={`min-h-[40px] py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                          studioTab === "tactics"
-                            ? "bg-teal-400 text-slate-950 font-extrabold shadow-sm"
-                            : "text-teal-100/75 hover:text-white"
-                        }`}
-                      >
-                        <Sliders className="w-3.5 h-3.5" />
-                        <span>{lang === "id" ? "Taktik & Lini" : "Tactics"}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setStudioTab("poster")}
-                        className={`min-h-[40px] py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                          studioTab === "poster"
-                            ? "bg-teal-400 text-slate-950 font-extrabold shadow-sm"
-                            : "text-teal-100/75 hover:text-white"
-                        }`}
-                      >
-                        <Palette className="w-3.5 h-3.5" />
-                        <span>{lang === "id" ? "Desain Poster" : "Poster Style"}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setStudioTab("ai_imagen")}
-                        className={`min-h-[40px] py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                          studioTab === "ai_imagen"
-                            ? "bg-teal-400 text-slate-950 font-extrabold shadow-sm"
-                            : "text-teal-100/75 hover:text-white"
-                        }`}
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>AI Art</span>
-                      </button>
-                    </div>
-
-                    {/* TAB 1: TACTICS & FORMATION ADJUSTER */}
-                    {studioTab === "tactics" && renderTacticalAdjusterControls(true)}
-
-                    {/* TAB 2: POSTER DESIGN & DETAILS */}
-                    {studioTab === "poster" && (
-                      <div className="space-y-4">
-                        {/* 1. Format Switcher */}
-                        <div>
-                          <label className="text-[11px] font-bold text-teal-200 uppercase tracking-wider block mb-1.5">
-                            {lang === "id" ? "Format & Rasio Kanvas" : "Canvas Format & Aspect Ratio"}
-                          </label>
-                          <div className="grid grid-cols-3 gap-1.5 bg-[#041014] p-1.5 rounded-2xl border border-teal-400/20">
-                            {FORMATS.map((fmt) => (
-                              <button
-                                key={fmt.id}
-                                type="button"
-                                onClick={() => setPosterFormat(fmt.id)}
-                                className={`py-2 px-2 rounded-xl text-[10.5px] font-bold transition-all cursor-pointer flex flex-col items-center justify-center text-center whitespace-nowrap ${
-                                  posterFormat === fmt.id
-                                    ? "bg-teal-400 text-slate-950 font-extrabold shadow-sm"
-                                    : "text-teal-100/70 hover:text-white hover:bg-white/5"
-                                }`}
-                              >
-                                <span>{fmt.label}</span>
-                                <span className="text-[8.5px] font-normal opacity-80">{fmt.desc}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* 2. Theme Selection Grid */}
-                        <div>
-                          <label className="text-[11px] font-bold text-teal-200 uppercase tracking-wider block mb-1.5">
-                            {lang === "id" ? "Tema & Gaya Visual Poster" : "Poster Visual Theme"}
-                          </label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {THEMES.map((th) => {
-                              const isSelected = posterTheme === th.id;
-                              return (
-                                <button
-                                  key={th.id}
-                                  type="button"
-                                  onClick={() => setPosterTheme(th.id)}
-                                  className={`p-2.5 rounded-2xl text-left transition-all cursor-pointer border flex items-start gap-2.5 ${
-                                    isSelected
-                                      ? "bg-teal-500/25 text-white border-teal-400 shadow-sm"
-                                      : "bg-[#041014]/90 text-teal-100/75 border-teal-400/15 hover:border-teal-400/35 hover:text-white"
-                                  }`}
-                                >
-                                  <div
-                                    className={`w-3 h-3 mt-0.5 rounded-full bg-gradient-to-r ${th.color} shrink-0`}
-                                  />
-                                  <div className="min-w-0">
-                                    <div className="text-xs font-bold text-white truncate">
-                                      {th.label}
-                                    </div>
-                                    <div className="text-[9.5px] text-teal-200/65 truncate">
-                                      {th.tag}
-                                    </div>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* 3. Matchday & Typography Customizer */}
-                        <div className="bg-[#041014]/90 border border-teal-400/20 rounded-2xl p-3 space-y-2.5">
-                          <div className="text-[11px] font-bold text-teal-300 uppercase tracking-wider flex items-center gap-1.5">
-                            <Sliders className="w-3.5 h-3.5" />
-                            {lang === "id" ? "Detail Pertandingan & Teks" : "Match Details & Labels"}
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-[10px] font-semibold text-teal-200/80 block mb-1">
-                                {lang === "id" ? "Judul Laga / Header" : "Matchday Title"}
-                              </label>
-                              <input
-                                type="text"
-                                value={matchTitle}
-                                onChange={(e) => setMatchTitle(e.target.value)}
-                                placeholder="MATCHDAY SQUAD"
-                                className="w-full px-2.5 py-1.5 rounded-xl bg-[#06181f] border border-teal-400/20 text-white text-xs font-bold focus:border-teal-400 focus:outline-none"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="text-[10px] font-semibold text-teal-200/80 block mb-1">
-                                {lang === "id" ? "Lawan (Opsional)" : "Opponent (Optional)"}
-                              </label>
-                              <input
-                                type="text"
-                                value={opponentName}
-                                onChange={(e) => setOpponentName(e.target.value)}
-                                placeholder="VS RIVAL FC"
-                                className="w-full px-2.5 py-1.5 rounded-xl bg-[#06181f] border border-teal-400/20 text-white text-xs font-bold focus:border-teal-400 focus:outline-none"
-                              />
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] font-semibold text-teal-200/80 block mb-1">
-                              {lang === "id" ? "Stadion / Venue (Opsional)" : "Stadium / Venue (Optional)"}
-                            </label>
-                            <input
-                              type="text"
-                              value={venueName}
-                              onChange={(e) => setVenueName(e.target.value)}
-                              placeholder="GELORA BUNG KARNO"
-                              className="w-full px-2.5 py-1.5 rounded-xl bg-[#06181f] border border-teal-400/20 text-white text-xs font-bold focus:border-teal-400 focus:outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        {/* 4. Tactical Layer Toggles */}
-                        <div className="bg-[#041014]/90 border border-teal-400/20 rounded-2xl p-3 space-y-2">
-                          <div className="text-[11px] font-bold text-teal-300 uppercase tracking-wider flex items-center gap-1.5">
-                            <Layers className="w-3.5 h-3.5" />
-                            {lang === "id" ? "Elemen Taktis & Visual" : "Tactical & Visual Layers"}
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <label className="flex items-center gap-2 text-teal-100 cursor-pointer bg-[#06181f] p-2 rounded-xl border border-teal-400/15 hover:border-teal-400/35">
-                              <input
-                                type="checkbox"
-                                checked={showTacticalLinks}
-                                onChange={(e) => setShowTacticalLinks(e.target.checked)}
-                                className="rounded accent-teal-400"
-                              />
-                              <span className="text-[10.5px] font-semibold">
-                                {lang === "id" ? "Garis Antar Lini" : "Tactical Links"}
-                              </span>
-                            </label>
-
-                            <label className="flex items-center gap-2 text-teal-100 cursor-pointer bg-[#06181f] p-2 rounded-xl border border-teal-400/15 hover:border-teal-400/35">
-                              <input
-                                type="checkbox"
-                                checked={showTacticalZones}
-                                onChange={(e) => setShowTacticalZones(e.target.checked)}
-                                className="rounded accent-teal-400"
-                              />
-                              <span className="text-[10.5px] font-semibold">
-                                {lang === "id" ? "Koridor Half-Space" : "Half-Space Zones"}
-                              </span>
-                            </label>
-
-                            <label className="flex items-center gap-2 text-teal-100 cursor-pointer bg-[#06181f] p-2 rounded-xl border border-teal-400/15 hover:border-teal-400/35">
-                              <input
-                                type="checkbox"
-                                checked={showSubstitutes}
-                                onChange={(e) => setShowSubstitutes(e.target.checked)}
-                                className="rounded accent-teal-400"
-                              />
-                              <span className="text-[10.5px] font-semibold">
-                                {lang === "id" ? "Pemain Cadangan" : "Substitutes"}
-                              </span>
-                            </label>
-
-                            <label className="flex items-center gap-2 text-teal-100 cursor-pointer bg-[#06181f] p-2 rounded-xl border border-teal-400/15 hover:border-teal-400/35">
-                              <input
-                                type="checkbox"
-                                checked={showManager}
-                                onChange={(e) => setShowManager(e.target.checked)}
-                                className="rounded accent-teal-400"
-                              />
-                              <span className="text-[10.5px] font-semibold">
-                                {lang === "id" ? "Badge Pelatih" : "Manager Badge"}
-                              </span>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* TAB 3: AI STADIUM ARTWORK GENERATOR */}
-                    {studioTab === "ai_imagen" && (
-                      <div className="bg-[#041014]/90 border border-teal-400/20 rounded-2xl p-4 space-y-3.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-teal-300 flex items-center gap-1.5">
-                            <Sparkles className="w-4 h-4 text-teal-400" />
-                            {lang === "id"
-                              ? "Generator Ilustrasi Stadion AI"
-                              : "AI Stadium Artwork Generator"}
-                          </span>
-                          <span className="text-[10px] font-mono text-teal-200/70">
-                            {customApiKey.trim()
-                              ? lang === "id"
-                                ? "API Key Siap"
-                                : "API Key Ready"
-                              : lang === "id"
-                              ? "Butuh API Key"
-                              : "API Key Needed"}
-                          </span>
-                        </div>
-
-                        <p className="text-xs text-teal-100/75 leading-relaxed">
-                          {lang === "id"
-                            ? "Buat visualisasi atmosfer stadion sinematik sesuai formasi dan warna kebanggaan klub Anda menggunakan Gemini Imagen."
-                            : "Generate cinematic stadium atmosphere artwork tailored to your club's formation and kit colors."}
-                        </p>
-
-                        <div>
-                          <label className="text-[10.5px] font-semibold text-teal-200 block mb-1">
-                            {lang === "id"
-                              ? "Instruksi Gaya Visual Tambahan (Opsional)"
-                              : "Custom Visual Prompt (Optional)"}
-                          </label>
-                          <textarea
-                            rows={3}
-                            value={customPrompt}
-                            onChange={(e) => setCustomPrompt(e.target.value)}
-                            placeholder={
-                              lang === "id"
-                                ? "Contoh: Stadion malam hari dengan lampu sorot toska, koreografi suporter..."
-                                : "Example: Night stadium with teal floodlights, dramatic rain..."
-                            }
-                            className="w-full px-3 py-2 rounded-xl bg-[#06181f] border border-teal-400/20 text-white text-xs focus:border-teal-400 focus:outline-none"
-                          />
-                        </div>
-
-                        {aiError && (
-                          <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-400/30 text-rose-200 text-xs flex items-start gap-2">
-                            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                            <div className="flex-1 space-y-1.5">
-                              <p>{aiError}</p>
-                              {onOpenSettings && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleCloseStudio();
-                                    onOpenSettings();
-                                  }}
-                                  className="px-2.5 py-1 rounded-lg bg-rose-500/25 hover:bg-rose-500/35 text-white font-bold text-[11px] cursor-pointer"
-                                >
-                                  {lang === "id" ? "Buka Pengaturan API Key" : "Open API Key Settings"}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={aiLoading}
-                            onClick={handleGenerateAiImage}
-                            className="flex-1 min-h-[42px] py-2.5 px-4 rounded-xl bg-teal-400 hover:bg-teal-300 disabled:opacity-50 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
-                          >
-                            <Sparkles className="w-4 h-4" />
-                            <span>
-                              {aiLoading
-                                ? lang === "id"
-                                  ? "Merender Gambar AI..."
-                                  : "Generating AI Image..."
-                                : lang === "id"
-                                ? "Buat Ilustrasi AI"
-                                : "Generate AI Artwork"}
-                            </span>
-                          </button>
-
-                          {generatedAiImageUrl && (
-                            <button
-                              type="button"
-                              onClick={() => setGeneratedAiImageUrl(null)}
-                              className="min-h-[42px] px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-teal-400/20 text-teal-200 text-xs font-bold cursor-pointer whitespace-nowrap"
-                            >
-                              {lang === "id" ? "Lihat Poster Vektor" : "Show Vector Poster"}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-      </div>
-    </Interactive3DCard>
+      </AnimatePresence>
+    </div>
   );
 }
+
+

@@ -1,7 +1,7 @@
 import React from "react";
-import { LayoutGrid, Flag, Users, Film, Sparkles, Settings } from "lucide-react";
 import { AndroidActiveTab } from "../types";
 import { soundManager } from "../utils/sound";
+import { NanoBananaLogo, NanoToolId, ToolHoverTooltip } from "./NanoBananaToolIcon";
 
 interface AndroidBottomNavProps {
   activeTab: AndroidActiveTab;
@@ -19,83 +19,99 @@ export default function AndroidBottomNav({
   const navItems: {
     key: AndroidActiveTab;
     label: string;
-    icon: React.ReactNode;
+    category: string;
+    tool: NanoToolId;
   }[] = [
     {
       key: "pitch",
-      label: lang === "id" ? "Lapangan" : "Pitch",
-      icon: <LayoutGrid className="w-5 h-5" />,
+      category: lang === "id" ? "ARENA UTAMA" : "MAIN ARENA",
+      label: lang === "id" ? "Papan Taktik Lapangan" : "Tactical Pitch Board",
+      tool: "formation",
     },
     {
       key: "corner",
-      label: lang === "id" ? "Corner Kick" : "Corner",
-      icon: <Flag className="w-5 h-5" />,
+      category: "SET-PIECE",
+      label: lang === "id" ? "Simulasi Situasi Corner Kick" : "Corner Kick Simulator",
+      tool: "corner_sim",
     },
     {
       key: "squad",
-      label: lang === "id" ? "Skuad" : "Squad",
-      icon: <Users className="w-5 h-5" />,
+      category: lang === "id" ? "TIM & PEMAIN" : "TEAM & SQUAD",
+      label: lang === "id" ? "Manajemen Skuad & Nomor" : "Squad & Roster Manager",
+      tool: "squad",
     },
     {
       key: "animation",
-      label: lang === "id" ? "Animasi" : "Timeline",
-      icon: <Film className="w-5 h-5" />,
+      category: "TIMELINE",
+      label: lang === "id" ? "Animasi & Latihan Taktis" : "Animation & Tactical Drills",
+      tool: "animation",
     },
     {
       key: "ai",
-      label: "AI Coach",
-      icon: <Sparkles className="w-5 h-5" />,
+      category: "GEMINI AI",
+      label: lang === "id" ? "Pelatih Taktik AI & Studio" : "AI Tactical Coach & Studio",
+      tool: "ai_coach",
     },
   ];
 
   return (
     <nav
       aria-label={lang === "id" ? "Navigasi Bawah Android" : "Android Bottom Navigation"}
-      className="sticky bottom-0 left-0 right-0 z-50 bg-[#051419]/95 backdrop-blur-xl border-t border-teal-400/20 px-2 py-1.5 shadow-[0_-8px_30px_rgba(2,10,14,0.75)] select-none"
+      className="sticky bottom-0 left-0 right-0 z-50 bg-[#051419]/95 backdrop-blur-xl border-t border-teal-400/20 px-2 py-2 shadow-[0_-8px_30px_rgba(2,10,14,0.75)] select-none"
     >
-      <div className="grid grid-cols-6 items-center max-w-xl mx-auto gap-1">
-        {navItems.map((item) => {
+      <div className="grid grid-cols-6 items-center max-w-xl mx-auto gap-1.5">
+        {navItems.map((item, idx) => {
           const isActive = activeTab === item.key;
           return (
-            <button
-              key={item.key}
-              onClick={() => {
-                onChangeTab(item.key);
-                soundManager.playClick();
-              }}
-              className={`min-h-[44px] flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all duration-150 cursor-pointer relative whitespace-nowrap ${
-                isActive
-                  ? "text-teal-300 bg-teal-500/15 font-bold"
-                  : "text-teal-100/60 hover:text-white hover:bg-white/5 font-medium"
-              }`}
-              aria-label={item.label}
-              aria-current={isActive ? "page" : undefined}
-            >
-              {isActive && (
-                <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-teal-400" />
-              )}
-              {item.icon}
-              <span className="text-[10px] mt-0.5 tracking-tight">
-                {item.label}
-              </span>
-            </button>
+            <div key={item.key} className="relative group flex justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  onChangeTab(item.key);
+                  soundManager.playClick();
+                }}
+                className={`w-full h-11 flex items-center justify-center rounded-xl transition-all duration-150 cursor-pointer relative ${
+                  isActive
+                    ? "bg-teal-400 text-slate-950 shadow-[0_0_12px_rgba(45,212,191,0.35)]"
+                    : "bg-[#071c22]/80 hover:bg-white/10 border border-teal-400/15"
+                }`}
+                aria-label={item.label}
+                aria-current={isActive ? "page" : undefined}
+              >
+                {isActive && (
+                  <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-teal-300" />
+                )}
+                <NanoBananaLogo tool={item.tool} size="md" active={isActive} />
+              </button>
+              <ToolHoverTooltip
+                category={item.category}
+                title={item.label}
+                badge={isActive ? (lang === "id" ? "AKTIF" : "ACTIVE") : undefined}
+                align={idx === 0 ? "left" : "center"}
+              />
+            </div>
           );
         })}
 
-        {/* Settings button */}
-        <button
-          onClick={() => {
-            onOpenSettings();
-            soundManager.playClick();
-          }}
-          className="min-h-[44px] flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all duration-150 cursor-pointer text-teal-100/60 hover:text-white hover:bg-white/5 font-medium whitespace-nowrap"
-          aria-label={lang === "id" ? "Pengaturan" : "Settings"}
-        >
-          <Settings className="w-5 h-5 text-teal-400" />
-          <span className="text-[10px] mt-0.5 tracking-tight">
-            {lang === "id" ? "Setelan" : "Settings"}
-          </span>
-        </button>
+        {/* Settings Logo-Only Button */}
+        <div className="relative group flex justify-center">
+          <button
+            type="button"
+            onClick={() => {
+              onOpenSettings();
+              soundManager.playClick();
+            }}
+            className="w-full h-11 flex items-center justify-center rounded-xl transition-all duration-150 cursor-pointer bg-[#071c22]/80 hover:bg-white/10 border border-teal-400/15"
+            aria-label={lang === "id" ? "Pengaturan" : "Settings"}
+          >
+            <NanoBananaLogo tool="settings" size="md" />
+          </button>
+          <ToolHoverTooltip
+            category={lang === "id" ? "SISTEM" : "SYSTEM"}
+            title={lang === "id" ? "Pengaturan Tampilan & AI" : "Display & AI Settings"}
+            align="right"
+          />
+        </div>
       </div>
     </nav>
   );
