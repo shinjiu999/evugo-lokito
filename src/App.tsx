@@ -615,7 +615,9 @@ export default function App() {
   const [mobileAnimSubTab, setMobileAnimSubTab] = useState<"timeline" | "drills">("timeline");
   const [mobileAiSubTab, setMobileAiSubTab] = useState<"coach" | "studio">("coach");
   const [tabletSplitMode, setTabletSplitMode] = useState<boolean>(() =>
-    typeof window !== "undefined" ? window.innerWidth >= 740 && window.innerWidth < 1024 && window.innerHeight >= 520 : false
+    typeof window !== "undefined"
+      ? window.innerWidth >= 840 && window.innerWidth <= 1180 && window.innerWidth > window.innerHeight && window.innerHeight >= 500
+      : false
   );
   const [pcViewport, setPcViewport] = useState<{ width: number; height: number }>(() => ({
     width: typeof window !== "undefined" ? window.innerWidth : 1440,
@@ -654,7 +656,12 @@ export default function App() {
   // Auto-detect Device & Display Mode (PC vs HP/Android/Tablet layout adaptation without manual switch)
   const detectAutoDeviceMode = (): DeviceViewMode => {
     if (typeof window === "undefined") return "pc";
-    return window.innerWidth < 1024 ? "android" : "pc";
+    const w = window.innerWidth;
+    const isCoarseTablet =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches &&
+      w <= 1180;
+    return w <= 1024 || isCoarseTablet ? "android" : "pc";
   };
 
   const [deviceMode, setDeviceMode] = useState<DeviceViewMode>(detectAutoDeviceMode);
@@ -665,18 +672,21 @@ export default function App() {
     const handleResize = () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
+      const nextDeviceMode = detectAutoDeviceMode();
       setPcViewport({ width: w, height: h });
-      setDeviceMode(detectAutoDeviceMode());
+      setDeviceMode(nextDeviceMode);
       // Auto-switch PC workspace into full-screen tabs if window height or width is compact
-      if (w >= 1024 && (w < 1220 || h < 650)) {
+      if (nextDeviceMode === "pc" && (w < 1220 || h < 650)) {
         setPcScreenTab((prev) => (prev === "split" ? "pitch" : prev));
-      } else if (w >= 1280 && h >= 680) {
+      } else if (nextDeviceMode === "pc" && w >= 1280 && h >= 680) {
         setPcScreenTab((prev) => (prev === "pitch" ? "split" : prev));
       }
-      // Auto-adapt Tablet between 2-panel split mode (landscape/wide) and 1-panel full-screen tabs (portrait/compact)
-      if (w >= 640 && w < 1024) {
-        if (w < 740 || h < 500) {
+      // Auto-adapt Tablet between 2-panel split mode (landscape wide) and 1-panel full-screen tabs (portrait or compact)
+      if (nextDeviceMode === "android" && w >= 600) {
+        if (w < 780 || h < 500 || h >= w) {
           setTabletSplitMode(false);
+        } else if (w >= 900 && w > h && h >= 540) {
+          setTabletSplitMode(true);
         }
       } else {
         setTabletSplitMode(false);
@@ -2198,31 +2208,47 @@ export default function App() {
 
   // Compute dynamic pitch max-width on PC, Tablet, and HP so that Header + Top Bar + Telemetry + Pitch + Bottom Bar + Bench + Nav fit 100% inside 100dvh without vertical scrolling
   const isCompactPcScreen = pcViewport.width < 1220 || pcViewport.height < 650;
-  const isTabletViewport = pcViewport.width >= 640 && pcViewport.width < 1024;
+  const isTabletViewport = pcViewport.width >= 600 && (pcViewport.width <= 1024 || deviceMode === "android");
+  const isPortraitTablet = isTabletViewport && pcViewport.height >= pcViewport.width;
   const isTabletDualPanel = deviceMode === "android" && isTabletViewport && tabletSplitMode;
+  const isNarrowMobile = pcViewport.width < 600;
 
   const reservedVerticalPx =
     deviceMode === "pc"
-      ? (showClubIdentityBar ? 58 : 0) + (pitchZoneMode === "pitch" ? 265 : 185) + (frames.length > 1 ? 56 : 0)
-      : (showClubIdentityBar ? 54 : 0) + (pitchZoneMode === "pitch" ? 290 : 210) + (frames.length > 1 ? 58 : 0);
+      ? (showClubIdentityBar ? 54 : 0) + (pitchZoneMode === "pitch" ? 206 : 172) + (frames.length > 1 ? 46 : 0)
+      : isTabletViewport
+      ? (showClubIdentityBar ? 52 : 0) + (pitchZoneMode === "pitch" ? 264 : 206) + (frames.length > 1 ? 46 : 0)
+      : (showClubIdentityBar ? 50 : 0) + (pitchZoneMode === "pitch" ? 256 : 196) + (frames.length > 1 ? 44 : 0);
 
-  const availablePitchHeightPx = Math.max(195, pcViewport.height - reservedVerticalPx);
-  const heightBasedPitchMaxW = Math.floor(availablePitchHeightPx * (4 / 4.3));
+  const availablePitchHeightPx = Math.max(185, pcViewport.height - reservedVerticalPx);
+  const pitchAspectRatio = isNarrowMobile ? 4 / 5.2 : isPortraitTablet && !isTabletDualPanel ? 4 / 4.75 : 4 / 4.3;
+  const pitchAspectCss = isNarrowMobile ? "4 / 5.2" : isPortraitTablet && !isTabletDualPanel ? "4 / 4.75" : "4 / 4.3";
+  const heightBasedPitchMaxW = Math.floor(availablePitchHeightPx * pitchAspectRatio);
+
+  // Reserve horizontal space for the right-side Tactical Tools Sidebar when pitch mode is active
+  const sidebarWidthAllowance = pitchZoneMode === "pitch" ? (isToolbarExpanded ? 82 : 48) : 0;
 
   const widthBasedPitchMaxW =
     deviceMode === "pc"
       ? pcScreenTab === "split"
-        ? Math.floor(Math.min(pcViewport.width * 0.44, 550))
-        : Math.floor(Math.min(pcViewport.width * 0.72, 640))
+        ? Math.floor(Math.min(pcViewport.width * 0.48 - sidebarWidthAllowance, 560))
+        : Math.floor(Math.min(pcViewport.width * 0.74 - sidebarWidthAllowance, 660))
       : isTabletDualPanel
-      ? Math.floor(Math.min(pcViewport.width * 0.5 - 48, 460))
-      : Math.floor(Math.min(pcViewport.width - 52, 540));
+      ? Math.floor(Math.min(pcViewport.width * 0.5 - sidebarWidthAllowance - 24, 480))
+      : isTabletViewport
+      ? Math.floor(Math.min(pcViewport.width - sidebarWidthAllowance - 28, 680))
+      : Math.floor(Math.min(pcViewport.width - sidebarWidthAllowance - 18, 540));
 
-  const maxPitchWidthPx = Math.max(185, Math.min(heightBasedPitchMaxW, widthBasedPitchMaxW));
+  const maxPitchWidthPx = Math.max(175, Math.min(heightBasedPitchMaxW, widthBasedPitchMaxW));
 
   return (
     <div
-      style={{ "--pitch-max-w": `${maxPitchWidthPx}px` } as React.CSSProperties}
+      style={
+        {
+          "--pitch-max-w": `${maxPitchWidthPx}px`,
+          "--pitch-aspect": pitchAspectCss
+        } as React.CSSProperties
+      }
       className="relative h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#061318] bg-[linear-gradient(to_right,#2dd4bf08_1px,transparent_1px),linear-gradient(to_bottom,#2dd4bf08_1px,transparent_1px)] bg-[size:28px_28px] text-white flex flex-col font-sans antialiased overflow-x-hidden"
     >
       
@@ -2242,36 +2268,37 @@ export default function App() {
       <div className="absolute top-0 left-1/4 w-[520px] h-[520px] bg-teal-500/10 rounded-full blur-[140px] pointer-events-none z-0" />
       <div className="absolute bottom-20 right-1/4 w-[480px] h-[480px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none z-0" />
       
-      {/* Header bar Navigation - Soft Sporty Tosca Frosted Glass */}
+      {/* Header bar Navigation - Symmetrical Soft Sporty Tosca Command Header */}
       <header className="h-12 shrink-0 flex items-center justify-between px-2.5 sm:px-4 md:px-5 border-b border-teal-400/15 bg-[#051419]/90 backdrop-blur-md z-40 shadow-[0_4px_30px_rgba(2,10,14,0.55)] select-none gap-2">
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-teal-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-md shadow-teal-500/25">
+        <div className="flex items-center gap-2 shrink-0 min-w-0">
+          <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-teal-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-md shadow-teal-500/25 shrink-0">
             <svg className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <div>
-            <h1 className="text-xs md:text-sm font-extrabold tracking-tight text-white font-display leading-tight">{t.appTitle}</h1>
-            <p className="text-[9px] text-teal-200/70 font-medium tracking-wide hidden xl:block leading-none">{t.appSubtitle}</p>
+          <div className="min-w-0">
+            <h1 className="text-xs md:text-sm font-extrabold tracking-tight text-white font-display leading-tight truncate">{t.appTitle}</h1>
+            <p className="text-[9px] text-teal-200/70 font-medium tracking-wide hidden xl:block leading-none truncate">{t.appSubtitle}</p>
           </div>
         </div>
 
-        {/* Tablet Layout Mode Switcher (1 Layar Tab vs 2 Panel Split) */}
+        {/* Tablet Layout Mode Switcher (1 Layar Penuh vs 2 Panel Split) */}
         {deviceMode === "android" && isTabletViewport && (
-          <div className="hidden sm:flex lg:hidden items-center gap-1 bg-[#041115]/95 border border-teal-400/25 rounded-xl p-1 shadow-inner">
+          <div className="hidden sm:flex items-center gap-1 bg-[#041115]/95 border border-teal-400/25 rounded-xl p-1 shadow-inner shrink-0">
             <button
               type="button"
               onClick={() => {
                 setTabletSplitMode(false);
                 soundManager.playClick();
               }}
-              className={`h-7 px-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all ${
+              className={`h-7 px-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap ${
                 !tabletSplitMode
                   ? "bg-teal-400 text-slate-950 font-black shadow-sm"
-                  : "text-teal-100/70 hover:text-white"
+                  : "text-teal-100/70 hover:text-white hover:bg-white/5"
               }`}
             >
-              <span>📱 {lang === "id" ? "Mode Tab" : "Tab Mode"}</span>
+              <span>📱</span>
+              <span>{lang === "id" ? "1 Layar" : "1 Screen"}</span>
             </button>
             <button
               type="button"
@@ -2282,13 +2309,14 @@ export default function App() {
                 }
                 soundManager.playClick();
               }}
-              className={`h-7 px-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all ${
+              className={`h-7 px-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap ${
                 tabletSplitMode
                   ? "bg-teal-400 text-slate-950 font-black shadow-sm"
-                  : "text-teal-100/70 hover:text-white"
+                  : "text-teal-100/70 hover:text-white hover:bg-white/5"
               }`}
             >
-              <span>📟 {lang === "id" ? "2 Panel Tablet" : "2-Panel Split"}</span>
+              <span>📟</span>
+              <span>{lang === "id" ? "2 Panel" : "2 Panels"}</span>
             </button>
           </div>
         )}
@@ -2298,7 +2326,7 @@ export default function App() {
           <div
             role="tablist"
             aria-label={lang === "id" ? "Tab Layar Kerja PC" : "PC Workspace Screen Tabs"}
-            className="hidden lg:flex items-center gap-1 bg-[#041115]/95 border border-teal-400/25 rounded-xl p-1 shadow-inner"
+            className="hidden lg:flex items-center gap-1 bg-[#041115]/95 border border-teal-400/25 rounded-xl p-1 shadow-inner shrink-0"
           >
             {([
               {
@@ -2358,15 +2386,15 @@ export default function App() {
           </div>
         )}
 
-        {/* Global Toolbar controls - Logo-only with Hover Tooltips */}
-        <div className="hidden md:flex items-center gap-1.5 bg-[#071c22]/90 border border-teal-400/20 rounded-2xl p-1 shadow-inner shrink-0">
+        {/* Symmetrical Global Utility Controls (Tablet & PC) */}
+        <div className="hidden sm:flex items-center gap-1 bg-[#071c22]/95 border border-teal-400/20 rounded-xl p-1 shadow-inner shrink-0">
           {/* Language Selector */}
-          <div className="flex bg-[#041115] border border-teal-400/20 rounded-xl p-0.5 shrink-0" role="group" aria-label={lang === "id" ? "Pilih Bahasa" : "Choose Language"}>
+          <div className="flex bg-[#041115] border border-teal-400/20 rounded-lg p-0.5 shrink-0" role="group" aria-label={lang === "id" ? "Pilih Bahasa" : "Choose Language"}>
             <div className="relative group">
               <button
                 type="button"
                 onClick={() => handleSetLang("id")}
-                className={`w-7 h-7 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer flex items-center justify-center ${
+                className={`w-6.5 h-6.5 rounded-md text-[9.5px] font-extrabold transition-all cursor-pointer flex items-center justify-center ${
                   lang === "id"
                     ? "bg-teal-400 text-slate-950 font-black shadow-sm"
                     : "text-teal-100/70 hover:text-white hover:bg-white/5"
@@ -2385,7 +2413,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => handleSetLang("en")}
-                className={`w-7 h-7 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer flex items-center justify-center ${
+                className={`w-6.5 h-6.5 rounded-md text-[9.5px] font-extrabold transition-all cursor-pointer flex items-center justify-center ${
                   lang === "en"
                     ? "bg-teal-400 text-slate-950 font-black shadow-sm"
                     : "text-teal-100/70 hover:text-white hover:bg-white/5"
@@ -2402,7 +2430,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="w-px h-4 bg-teal-400/15" />
+          <div className="w-px h-4 bg-teal-400/15 mx-0.5" />
 
           {/* UI Icon Studio Button */}
           <div className="relative group">
@@ -2412,7 +2440,7 @@ export default function App() {
                 setIsNanoIconStudioOpen(true);
                 soundManager.playClick();
               }}
-              className="w-8 h-8 rounded-xl bg-teal-400/15 hover:bg-teal-400/25 border border-teal-400/40 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+              className="w-7.5 h-7.5 rounded-lg bg-teal-400/15 hover:bg-teal-400/25 border border-teal-400/40 flex items-center justify-center cursor-pointer transition-all active:scale-95"
               aria-label="Icon Studio"
             >
               <NanoBananaLogo tool="nano_studio" size="sm" />
@@ -2432,7 +2460,7 @@ export default function App() {
                 setTvModeOpen(true);
                 soundManager.playClick();
               }}
-              className="w-8 h-8 rounded-xl bg-[#041115] hover:bg-teal-500/15 border border-teal-400/20 hover:border-teal-400/45 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+              className="w-7.5 h-7.5 rounded-lg bg-[#041115] hover:bg-teal-500/15 border border-teal-400/20 hover:border-teal-400/45 flex items-center justify-center cursor-pointer transition-all active:scale-95"
               aria-label={lang === "id" ? "Mode Siaran TV Lineup" : "Broadcast TV Lineup Mode"}
             >
               <NanoBananaLogo tool="tv" size="sm" />
@@ -2452,7 +2480,7 @@ export default function App() {
                 handleDownloadImage();
                 soundManager.playClick();
               }}
-              className="w-8 h-8 rounded-xl bg-[#041115] hover:bg-teal-500/15 border border-teal-400/20 hover:border-teal-400/45 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+              className="w-7.5 h-7.5 rounded-lg bg-[#041115] hover:bg-teal-500/15 border border-teal-400/20 hover:border-teal-400/45 flex items-center justify-center cursor-pointer transition-all active:scale-95"
               aria-label={lang === "id" ? "Unduh Gambar Lapangan (PNG)" : "Download Pitch Image (PNG)"}
             >
               <NanoBananaLogo tool="download" size="sm" />
@@ -2472,7 +2500,7 @@ export default function App() {
                 setShowGuide(!showGuide);
                 soundManager.playClick();
               }}
-              className={`w-8 h-8 rounded-xl border transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+              className={`w-7.5 h-7.5 rounded-lg border transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
                 showGuide
                   ? "bg-teal-400 text-slate-950 border-teal-300"
                   : "bg-[#041115] border-teal-400/20 hover:bg-teal-500/15"
@@ -2499,7 +2527,7 @@ export default function App() {
                 setIsSettingsModalOpen(true);
                 soundManager.playClick();
               }}
-              className={`relative w-8 h-8 rounded-xl border transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+              className={`relative w-7.5 h-7.5 rounded-lg border transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
                 hasConnectedAI
                   ? "bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-400/40"
                   : "bg-[#041115] hover:bg-teal-500/15 border-teal-400/25"
@@ -2519,8 +2547,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Mobile-only compact interactive toolbar (Logo-Only + Hover Tooltip) */}
-        <div className="flex md:hidden items-center gap-1.5 bg-[#071c22]/90 border border-teal-400/20 rounded-2xl p-1 shadow-inner">
+        {/* Phone-only compact interactive toolbar (< 640px) */}
+        <div className="flex sm:hidden items-center gap-1 bg-[#071c22]/90 border border-teal-400/20 rounded-xl p-1 shadow-inner">
           {/* UI Icon Studio (mobile) */}
           <div className="relative group">
             <button
@@ -2529,7 +2557,7 @@ export default function App() {
                 setIsNanoIconStudioOpen(true);
                 soundManager.playClick();
               }}
-              className="w-8 h-8 rounded-xl bg-teal-400/15 border border-teal-400/40 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+              className="w-7.5 h-7.5 rounded-lg bg-teal-400/15 border border-teal-400/40 flex items-center justify-center cursor-pointer transition-all active:scale-95"
               aria-label="Icon Studio"
             >
               <NanoBananaLogo tool="nano_studio" size="sm" />
@@ -2537,26 +2565,6 @@ export default function App() {
             <ToolHoverTooltip
               category="UI"
               title="Icon Studio"
-              placement="bottom"
-            />
-          </div>
-
-          {/* Squad Management (mobile) */}
-          <div className="relative group">
-            <button
-              type="button"
-              onClick={() => {
-                setIsSquadManagementOpen(true);
-                soundManager.playClick();
-              }}
-              className="w-8 h-8 rounded-xl bg-[#041115] border border-teal-400/25 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-              aria-label={lang === "id" ? "Manajemen Skuad & Urutan" : "Squad Management & Sorting"}
-            >
-              <NanoBananaLogo tool="squad" size="sm" />
-            </button>
-            <ToolHoverTooltip
-              category="SKUAD"
-              title={lang === "id" ? "Manajemen Skuad" : "Squad Manager"}
               placement="bottom"
             />
           </div>
@@ -2570,7 +2578,7 @@ export default function App() {
                 setIsSettingsModalOpen(true);
                 soundManager.playClick();
               }}
-              className="relative w-8 h-8 rounded-xl bg-[#041115] border border-teal-400/25 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+              className="relative w-7.5 h-7.5 rounded-lg bg-[#041115] border border-teal-400/25 flex items-center justify-center cursor-pointer transition-all active:scale-95"
               aria-label={lang === "id" ? "Pengaturan Kredensial AI" : "AI Credentials Settings"}
             >
               <NanoBananaLogo tool="settings" size="sm" />
@@ -2592,7 +2600,7 @@ export default function App() {
                 setShowMobileUtils(!showMobileUtils);
                 soundManager.playClick();
               }}
-              className={`w-8 h-8 rounded-xl border transition-all cursor-pointer flex items-center justify-center relative ${
+              className={`w-7.5 h-7.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center relative ${
                 showMobileUtils
                   ? "bg-teal-400 text-slate-950 border-teal-300"
                   : "bg-[#041115] border-teal-400/25"
@@ -2932,127 +2940,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Quick Club Actions Row (Logo-Only with Hover Tooltips Above) */}
-                    <div className="grid grid-cols-4 gap-2 pt-1">
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsSquadManagementOpen(true);
-                            soundManager.playClick();
-                          }}
-                          aria-label={lang === "id" ? "Kelola Skuad" : "Manage Squad"}
-                          className="w-full h-9 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/30 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                        >
-                          <NanoBananaLogo tool="squad" size="md" />
-                        </button>
-                        <ToolHoverTooltip
-                          category={lang === "id" ? "MANAJEMEN TIM" : "TEAM ROSTER"}
-                          title={lang === "id" ? "Kelola Skuad & Urutkan" : "Manage & Sort Squad"}
-                          align="left"
-                        />
-                      </div>
-
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsFormationStudioModalOpen(true);
-                            soundManager.playClick();
-                          }}
-                          aria-label={lang === "id" ? "Studio Formasi" : "Formation Studio"}
-                          className="w-full h-9 rounded-xl bg-[#041217] hover:bg-teal-500/15 border border-teal-400/25 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                        >
-                          <NanoBananaLogo tool="studio" size="md" />
-                        </button>
-                        <ToolHoverTooltip
-                          category={lang === "id" ? "STUDIO TAKTIS" : "TACTICAL STUDIO"}
-                          title={lang === "id" ? "Studio Formasi & Lini" : "Formation & Line Studio"}
-                        />
-                      </div>
-
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPitchZoneMode((prev) => (prev === "poster" ? "pitch" : "poster"));
-                            if (deviceMode === "android") {
-                              setAndroidActiveTab("pitch");
-                            }
-                            soundManager.playClick();
-                          }}
-                          aria-label={lang === "id" ? "Switch ke Studio Poster HD di Zona Lapangan" : "Switch to HD Poster Studio in Pitch Zone"}
-                          className={`w-full h-9 rounded-xl border flex items-center justify-center cursor-pointer transition-all active:scale-95 ${
-                            pitchZoneMode === "poster"
-                              ? "bg-teal-400 text-slate-950 border-teal-300 shadow-sm"
-                              : "bg-[#041217] hover:bg-teal-500/15 border-teal-400/25"
-                          }`}
-                        >
-                          <NanoBananaLogo tool="poster" size="md" active={pitchZoneMode === "poster"} />
-                        </button>
-                        <ToolHoverTooltip
-                          category="ZONA LAPANGAN"
-                          title={
-                            pitchZoneMode === "poster"
-                              ? lang === "id"
-                                ? "Kembali ke Lapangan Taktis"
-                                : "Switch to Tactical Pitch"
-                              : lang === "id"
-                              ? "Switch ke Studio Poster HD"
-                              : "Switch to HD Poster Studio"
-                          }
-                        />
-                      </div>
-
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTvModeOpen(true);
-                            soundManager.playClick();
-                          }}
-                          aria-label={lang === "id" ? "Layar Siaran TV" : "TV Broadcast"}
-                          className="w-full h-9 rounded-xl bg-[#041217] hover:bg-teal-500/15 border border-teal-400/25 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                        >
-                          <NanoBananaLogo tool="tv" size="md" />
-                        </button>
-                        <ToolHoverTooltip
-                          category={lang === "id" ? "SIARAN LANGSUNG" : "TV BROADCAST"}
-                          title={lang === "id" ? "Presentasi Layar Siaran TV" : "TV Broadcast Lineup Screen"}
-                          align="right"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Quick Formation Switcher Strip inside Club Tab */}
-                    {(deviceMode === "android" || (deviceMode === "pc" && pcScreenTab === "split")) && (
-                      <div className="pt-2 border-t border-teal-400/15 flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9.5px] font-bold text-teal-200/80 uppercase tracking-wider">
-                            {lang === "id" ? "Formasi Aktif" : "Active Formation"}
-                          </span>
-                          <span className="text-[10px] font-mono font-black text-teal-300 bg-teal-500/15 px-2 py-0.5 rounded-lg border border-teal-400/30">
-                            {formation}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setPcLeftTab("formation")}
-                            className="py-1.5 px-2.5 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/30 text-[10px] font-extrabold text-teal-200 hover:text-white uppercase tracking-wider transition-all cursor-pointer"
-                          >
-                            {lang === "id" ? "⚡ Pilih Formasi" : "⚡ Formations"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPcLeftTab("lines")}
-                            className="py-1.5 px-2.5 rounded-xl bg-[#041217] hover:bg-teal-500/15 border border-teal-400/25 text-[10px] font-extrabold text-teal-200/80 hover:text-white uppercase tracking-wider transition-all cursor-pointer"
-                          >
-                            {lang === "id" ? "📐 Lini & Gaya" : "📐 Tactical Lines"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -3106,41 +2993,158 @@ export default function App() {
                 ? "h-full max-h-[96vh] max-w-none justify-center gap-2 overflow-y-auto" 
                 : "max-w-[var(--pitch-max-w,580px)]"
             }`}>
-              {/* BAR KONTROL ATAS LUAR LAPANGAN (EXTERNAL TOP PITCH CONTROL BAR & TELEMETRY HUD) */}
+              {/* BAR KONTROL ATAS LUAR LAPANGAN (EXTERNAL TOP PITCH CONTROL BAR) */}
               <div className="w-full flex flex-col items-center gap-1.5 mb-1.5">
-                {/* Top Bar: Theme Selector (Left) | Club Identity & Live Status (Center) | Fullscreen & Reset (Right) */}
+                {/* Symmetrical Top Pitch Control Bar: Capsule 1 (Arena & Club Identity) • Capsule 2 (Theme, Formation, Studio, Rules, Opponent) • Capsule 3 (Fullscreen & Reset) */}
                 <div
                   id="pitch-top-control-bar"
                   role="toolbar"
                   aria-label={lang === "id" ? "Bar kontrol atas luar lapangan" : "Top pitch control bar"}
-                  className={`relative w-full max-w-[var(--pitch-max-w,580px)] bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-2.5 sm:px-3 py-1.5 flex items-center justify-between gap-2 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl ${
-                    showThemeDropdown ? "z-[110]" : "z-45"
+                  className={`relative w-full max-w-[var(--pitch-max-w,580px)] bg-[#071c22]/95 border border-teal-400/25 rounded-2xl p-1 flex items-center justify-between gap-1 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl ${
+                    showThemeDropdown || showFormationMenu || showSportOverlay || showEnemyDropdown ? "z-[120]" : "z-45"
                   }`}
                 >
-                  {/* Left: Pitch Board Theme Selector + Nano Banana Icon Studio (Logo-Only + Hover Tooltip Above) */}
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Group 1 (Left Capsule): Pitch Zone Switch (Lapangan <-> Poster) & Club Identity Trigger */}
+                  <div
+                    role="group"
+                    aria-label={lang === "id" ? "Zona Lapangan & Identitas Klub" : "Pitch Stage & Club Identity"}
+                    className="flex items-center gap-0.5 bg-[#041115]/95 p-0.5 rounded-xl border border-teal-400/20 shrink-0 min-w-0"
+                  >
+                    <div className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPitchZoneMode("pitch");
+                          soundManager.playClick();
+                        }}
+                        aria-pressed={pitchZoneMode === "pitch"}
+                        className={`h-7 px-1.5 sm:px-2 rounded-lg text-[9px] sm:text-[9.5px] font-extrabold transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95 ${
+                          pitchZoneMode === "pitch"
+                            ? "bg-teal-400 text-slate-950 shadow-sm"
+                            : "text-teal-100/75 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        <NanoBananaLogo tool="formation" size="xs" active={pitchZoneMode === "pitch"} />
+                        <span className="hidden xs:inline">{lang === "id" ? "Lapangan" : "Pitch"}</span>
+                      </button>
+                      <ToolHoverTooltip
+                        category={lang === "id" ? "ZONA UTAMA" : "MAIN STAGE"}
+                        title={lang === "id" ? "Mode Papan Lapangan Taktis" : "Interactive Tactical Pitch"}
+                        badge={pitchZoneMode === "pitch" ? "AKTIF" : undefined}
+                        align="left"
+                      />
+                    </div>
+
+                    <div className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPitchZoneMode("poster");
+                          soundManager.playClick();
+                        }}
+                        aria-pressed={pitchZoneMode === "poster"}
+                        className={`h-7 px-1.5 sm:px-2 rounded-lg text-[9px] sm:text-[9.5px] font-extrabold transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95 ${
+                          pitchZoneMode === "poster"
+                            ? "bg-teal-400 text-slate-950 shadow-sm"
+                            : "text-teal-100/75 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        <NanoBananaLogo tool="poster" size="xs" active={pitchZoneMode === "poster"} />
+                        <span className="hidden xs:inline">Poster</span>
+                      </button>
+                      <ToolHoverTooltip
+                        category={lang === "id" ? "ZONA UTAMA" : "MAIN STAGE"}
+                        title={lang === "id" ? "Mode Studio Poster Lineup HD" : "Full-Size HD Lineup Poster Studio"}
+                        badge={pitchZoneMode === "poster" ? "AKTIF" : undefined}
+                        align="left"
+                      />
+                    </div>
+
+                    <div className="w-px h-4 bg-teal-400/20 mx-0.5 shrink-0" />
+
+                    {/* Interactive Club Identity & Manager Trigger inside the same unified capsule */}
+                    <div className="relative group flex items-center min-w-0 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowClubIdentityBar(!showClubIdentityBar);
+                          soundManager.playClick();
+                        }}
+                        className={`h-7 flex items-center gap-1.5 min-w-0 overflow-hidden px-2 rounded-lg border transition-all cursor-pointer active:scale-95 ${
+                          showClubIdentityBar
+                            ? "bg-teal-500/25 border-teal-400/60 text-white shadow-sm"
+                            : "bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/20 text-white"
+                        }`}
+                        aria-expanded={showClubIdentityBar}
+                        aria-label={lang === "id" ? "Edit Nama Tim, Logo & Manajer" : "Edit Team Name, Logo & Manager"}
+                      >
+                        {teamLogo ? (
+                          <img
+                            src={teamLogo}
+                            className="w-4 h-4 object-contain bg-black/40 p-0.5 rounded border border-white/10 shrink-0"
+                            alt={lang === "id" ? "Logo Tim" : "Team Logo"}
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div
+                            className="w-2.5 h-2.5 rounded-full border border-black/45 shadow-inner shrink-0"
+                            style={{ backgroundColor: primaryColor }}
+                          />
+                        )}
+                        <span className="font-extrabold tracking-wide text-white text-[9px] sm:text-[9.5px] uppercase truncate max-w-[52px] sm:max-w-[76px]">
+                          {teamName || "Team A"}
+                        </span>
+                        <ChevronDown className={`w-2.5 h-2.5 text-teal-300/80 transition-transform duration-200 shrink-0 ${showClubIdentityBar ? "rotate-180 text-teal-300" : ""}`} />
+                      </button>
+                      <ToolHoverTooltip
+                        category={lang === "id" ? "IDENTITAS TIM & MANAJER" : "CLUB & MANAGER"}
+                        title={
+                          showClubIdentityBar
+                            ? lang === "id"
+                              ? "Sembunyikan Bar Nama Tim, Logo & Manajer"
+                              : "Hide Team Name, Logo & Manager Bar"
+                            : lang === "id"
+                            ? `Edit Tim (${teamName || "Team A"}) & Manajer (${managerName || "Coach"})`
+                            : `Edit Team (${teamName || "Team A"}) & Manager (${managerName || "Coach"})`
+                        }
+                        align="left"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Group 2 (Center Capsule): Consolidated Tactical Setup Pill (Theme, Formation, Studio, Match Rules, Opponent Mode) */}
+                  <div className="flex items-center gap-0.5 bg-[#041115]/95 p-0.5 rounded-xl border border-teal-400/20 shrink-0">
+                    {/* 1. Pitch Board Theme Selector */}
                     <div className="relative flex items-center group shrink-0">
                       <button
                         type="button"
-                        onClick={() => setShowThemeDropdown(!showThemeDropdown)}
-                        className="w-9 h-9 bg-[#06151a]/90 hover:bg-[#09222a] text-teal-100 hover:text-white rounded-xl transition-all flex items-center justify-center shadow-md border border-teal-400/30 hover:border-teal-400/60 cursor-pointer select-none active:scale-95 focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none"
+                        onClick={() => {
+                          setShowThemeDropdown(!showThemeDropdown);
+                          setShowFormationMenu(false);
+                          setShowSportOverlay(false);
+                          setShowEnemyDropdown(false);
+                        }}
+                        className={`w-7 h-7 rounded-lg transition-all flex items-center justify-center shadow-sm border cursor-pointer select-none active:scale-95 focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none ${
+                          showThemeDropdown
+                            ? "bg-teal-400 text-slate-950 border-teal-300"
+                            : "bg-[#06151a]/90 hover:bg-[#09222a] text-teal-100 hover:text-white border-teal-400/25 hover:border-teal-400/55"
+                        }`}
                         aria-label={lang === "id" ? "Pilih Tema Lapangan" : "Choose Pitch Theme"}
                         aria-haspopup="true"
                         aria-expanded={showThemeDropdown}
                       >
-                        <NanoBananaLogo tool="theme" size="md" active={showThemeDropdown} />
+                        <NanoBananaLogo tool="theme" size="xs" active={showThemeDropdown} />
                       </button>
 
                       {!showThemeDropdown && (
                         <ToolHoverTooltip
                           category={lang === "id" ? "TEMA RUMPUT" : "PITCH THEME"}
                           title={lang === "id" ? "Ubah Tema Visual Lapangan" : "Change Pitch Visual Theme"}
-                          align="left"
                         />
                       )}
 
                       {showThemeDropdown && (
-                        <div className="absolute left-0 top-full mt-1.5 w-52 sm:w-56 bg-[#06181e]/98 border border-teal-400/35 rounded-2xl shadow-2xl z-[120] overflow-hidden flex flex-col gap-0.5 p-1.5 animate-fadeIn backdrop-blur-2xl max-h-64 overflow-y-auto" role="menu">
+                        <div className="absolute left-0 top-full mt-1.5 w-52 sm:w-56 bg-[#06181e]/98 border border-teal-400/35 rounded-2xl shadow-2xl z-[130] overflow-hidden flex flex-col gap-0.5 p-1.5 animate-fadeIn backdrop-blur-2xl max-h-64 overflow-y-auto" role="menu">
                           {[
                             { key: "sporty-tosca", label: lang === "id" ? "Toska Lembut Sporty" : "Soft Sporty Tosca", icon: "🌊" },
                             { key: "emerald-grass", label: lang === "id" ? "Padang Hijau" : "Classic Grass", icon: "🌿" },
@@ -3179,157 +3183,483 @@ export default function App() {
                       )}
                     </div>
 
-                    {/* UI Icon Studio Trigger */}
-                    <div className="relative group">
+                    {/* 2. Team Formation Selector ("Formasi Tim") */}
+                    <div className="relative group shrink-0">
                       <button
                         type="button"
                         onClick={() => {
-                          setIsNanoIconStudioOpen(true);
+                          setShowFormationMenu(!showFormationMenu);
+                          setShowThemeDropdown(false);
+                          setShowSportOverlay(false);
+                          setShowEnemyDropdown(false);
+                        }}
+                        className={`h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 transition-all cursor-pointer border shadow-sm active:scale-95 focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none ${
+                          showFormationMenu
+                            ? "bg-teal-400 text-slate-950 border-teal-300"
+                            : "bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/35 hover:border-teal-400/65 text-teal-100"
+                        }`}
+                        aria-label={t.defaultFormation}
+                        aria-haspopup="true"
+                        aria-expanded={showFormationMenu}
+                      >
+                        <NanoBananaLogo tool="formation" size="xs" active={showFormationMenu} />
+                        <span className={`text-[9px] font-mono font-extrabold tabular-nums ${showFormationMenu ? "text-slate-950" : "text-teal-200"}`}>
+                          {formation}
+                        </span>
+                      </button>
+
+                      {!showFormationMenu && (
+                        <ToolHoverTooltip
+                          category={lang === "id" ? "FORMASI TIM" : "TEAM FORMATION"}
+                          title={lang === "id" ? "Pilih Template Formasi" : "Select Formation Template"}
+                          badge={formation}
+                        />
+                      )}
+
+                      {showFormationMenu && (
+                        <div
+                          className="absolute top-full mt-1.5 left-0 w-60 bg-[#06181f]/98 backdrop-blur-2xl border border-teal-400/35 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[130] overflow-hidden flex flex-col divide-y divide-teal-400/15 animate-fadeIn"
+                          role="menu"
+                        >
+                          <div className="px-3.5 py-2 bg-teal-500/15 flex justify-between items-center select-none">
+                            <span className="text-[10px] font-extrabold tracking-wider text-teal-200 uppercase">
+                              {lang === "id" ? "Pilih Formasi" : "Select Formation"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowFormationMenu(false);
+                                setIsFormationStudioModalOpen(true);
+                              }}
+                              className="text-[10px] text-teal-300 hover:text-white font-bold underline cursor-pointer"
+                            >
+                              {lang === "id" ? "Buka Studio" : "Open Studio"}
+                            </button>
+                          </div>
+
+                          <div className="max-h-60 overflow-y-auto scrollbar-thin">
+                            {customFormations.length > 0 && (
+                              <div className="p-1.5 border-b border-teal-400/15 bg-[#041014]/60">
+                                <span className="px-2 py-0.5 text-[9px] font-bold text-teal-300 uppercase block">
+                                  {lang === "id" ? "Formasi Kustom Anda" : "Your Custom Formations"}
+                                </span>
+                                {customFormations.map((cf) => (
+                                  <button
+                                    key={cf.id}
+                                    type="button"
+                                    onClick={() => {
+                                      handleApplyCustomFormation(cf);
+                                      setShowFormationMenu(false);
+                                    }}
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-xl flex items-center justify-between hover:bg-teal-500/15 transition-colors cursor-pointer text-xs ${
+                                      formation === cf.name ? "bg-teal-500/25 text-teal-200 font-bold" : "text-teal-100/80"
+                                    }`}
+                                  >
+                                    <span className="truncate font-bold">★ {cf.name}</span>
+                                    <span className="text-[9px] font-mono text-teal-300/80 uppercase">{cf.sportMode}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {getAvailableFormationsForSport(sportMode).map((item) => {
+                              const isSel = formation === item.key;
+                              return (
+                                <button
+                                  key={item.key}
+                                  type="button"
+                                  onClick={() => {
+                                    applyPresetFormation(item.key);
+                                    setShowFormationMenu(false);
+                                  }}
+                                  className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-teal-500/15 active:bg-teal-500/25 transition-colors cursor-pointer text-xs focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none ${
+                                    isSel ? "bg-teal-500/25 text-teal-200 font-extrabold" : "text-gray-200"
+                                  }`}
+                                  role="menuitem"
+                                  aria-label={item.key}
+                                  aria-current={isSel ? "true" : "false"}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <span className="text-xs">{item.icon}</span>
+                                    <div className="flex flex-col">
+                                      <span className="font-extrabold tracking-wide font-mono tabular-nums text-xs">
+                                        {item.key}
+                                      </span>
+                                      <span className="text-[9.5px] text-teal-200/65 font-medium leading-tight">
+                                        {item.desc}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {isSel && (
+                                    <span className="text-[9px] text-teal-300 font-bold">
+                                      {lang === "id" ? "Aktif" : "Active"}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3. Studio Formasi Trigger */}
+                    <div className="relative group shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsFormationStudioModalOpen(true);
+                          setShowFormationMenu(false);
                           soundManager.playClick();
                         }}
-                        className="w-9 h-9 bg-[#06151a]/90 hover:bg-teal-500/20 rounded-xl transition-all flex items-center justify-center shadow-md border border-teal-400/35 hover:border-teal-400/70 cursor-pointer active:scale-95"
-                        aria-label="Icon Studio"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer border bg-teal-500/20 hover:bg-teal-500/35 border-teal-400/45 shadow-sm active:scale-95"
+                        aria-label={lang === "id" ? "Buka Studio Formasi & Lini" : "Open Formation Studio"}
                       >
-                        <NanoBananaLogo tool="nano_studio" size="md" />
+                        <NanoBananaLogo tool="studio" size="xs" />
                       </button>
                       <ToolHoverTooltip
-                        category="UI"
-                        title="Icon Studio"
-                        align="left"
+                        category={lang === "id" ? "STUDIO TAKTIS" : "FORMATION STUDIO"}
+                        title={lang === "id" ? "Studio Formasi & Lini" : "Formation & Line Studio"}
                       />
                     </div>
 
-                    {/* SWITCH TOGGLE ZONA LAPANGAN: LAPANGAN TAKTIS <-> STUDIO POSTER HD */}
-                    <div
-                      role="group"
-                      aria-label={lang === "id" ? "Switch Mode Zona Lapangan" : "Pitch Zone Mode Switch"}
-                      className="flex items-center bg-[#041014] p-0.5 rounded-xl border border-teal-400/30 shadow-inner"
-                    >
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPitchZoneMode("pitch");
-                            soundManager.playClick();
-                          }}
-                          aria-pressed={pitchZoneMode === "pitch"}
-                          className={`h-8 px-2.5 rounded-lg text-[10.5px] font-extrabold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                            pitchZoneMode === "pitch"
-                              ? "bg-teal-400 text-slate-950 shadow-sm"
-                              : "text-teal-100/70 hover:text-white"
-                          }`}
-                        >
-                          <NanoBananaLogo tool="formation" size="sm" active={pitchZoneMode === "pitch"} />
-                          <span>{lang === "id" ? "Lapangan" : "Pitch"}</span>
-                        </button>
-                        <ToolHoverTooltip
-                          category={lang === "id" ? "ZONA UTAMA" : "MAIN STAGE"}
-                          title={lang === "id" ? "Mode Papan Lapangan Taktis" : "Interactive Tactical Pitch"}
-                          badge={pitchZoneMode === "pitch" ? "AKTIF" : undefined}
-                          align="left"
-                        />
-                      </div>
+                    {/* 4. Match Sport Mode ("Aturan Tanding") Selector */}
+                    <div className="relative group shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSportOverlay(!showSportOverlay);
+                          setShowThemeDropdown(false);
+                          setShowFormationMenu(false);
+                          setShowEnemyDropdown(false);
+                        }}
+                        className={`h-7 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 shadow-sm border cursor-pointer select-none active:scale-95 focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none ${
+                          showSportOverlay
+                            ? "bg-teal-400 text-slate-950 border-teal-300"
+                            : "bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/30 hover:border-teal-400/60"
+                        }`}
+                        aria-label={lang === "id" ? "Ubah Aturan Tanding" : "Change Match Sport Mode"}
+                        aria-haspopup="true"
+                        aria-expanded={showSportOverlay}
+                      >
+                        <NanoBananaLogo tool="rules" size="xs" active={showSportOverlay} />
+                        <span className={`text-[8.5px] font-mono font-extrabold tabular-nums hidden sm:inline ${showSportOverlay ? "text-slate-950" : "text-teal-200/90"}`}>
+                          {sportMode === "soccer"
+                            ? "11v11"
+                            : sportMode === "minisoccer"
+                            ? "7v7"
+                            : sportMode === "futsal"
+                            ? "5v5"
+                            : `${getSportModeLimit()}P`}
+                        </span>
+                      </button>
 
-                      <div className="relative group">
+                      {!showSportOverlay && (
+                        <ToolHoverTooltip
+                          category={lang === "id" ? "ATURAN TANDING" : "MATCH RULES"}
+                          title={lang === "id" ? "Pilih Format Jumlah Pemain" : "Select Match Player Format"}
+                          badge={
+                            sportMode === "soccer"
+                              ? "11v11"
+                              : sportMode === "minisoccer"
+                              ? "7v7"
+                              : sportMode === "futsal"
+                              ? "5v5"
+                              : `${getSportModeLimit()}P`
+                          }
+                        />
+                      )}
+
+                      {showSportOverlay && (
+                        <div className="absolute top-full mt-1.5 right-0 sm:left-0 sm:right-auto w-64 bg-[#06181f]/98 border border-teal-400/35 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[130] p-3 flex flex-col gap-2 animate-fadeIn backdrop-blur-2xl">
+                          <div className="flex items-center justify-between border-b border-teal-400/20 pb-1.5">
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-black tracking-wider text-teal-300 uppercase select-none">
+                                {lang === "id" ? "Aturan Tanding" : "Sport Arena Rules"}
+                              </span>
+                              <span className="text-[10.5px] font-extrabold text-white">
+                                {lang === "id" ? "Pilih Arena/Mode Baru" : "Choose Pitch Arena"}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setShowSportOverlay(false)}
+                              className="w-5 h-5 rounded-lg flex items-center justify-center hover:bg-white/10 cursor-pointer text-gray-400 hover:text-white transition-colors"
+                              aria-label={lang === "id" ? "Tutup Aturan Tanding" : "Close Sport Arena Rules"}
+                            >
+                              ✕
+                            </button>
+                          </div>
+
+                          <div className="flex flex-col gap-1.5">
+                            {[
+                              {
+                                key: "soccer",
+                                label: lang === "id" ? "Sepakbola (11 vs 11)" : "Football (11 vs 11)",
+                                desc: lang === "id" ? "Aturan lapangan penuh standar FIFA" : "Standard full-pitch game rules",
+                                icon: "⚽",
+                                activeColor: "bg-teal-500/20 text-teal-200 border-teal-400/50"
+                              },
+                              {
+                                key: "minisoccer",
+                                label: lang === "id" ? "Mini Soccer (7 vs 7)" : "Mini Soccer (7 vs 7)",
+                                desc: lang === "id" ? "Taktik lapangan sedang & lincah" : "Medium turf and dynamic tactics",
+                                icon: "👟",
+                                activeColor: "bg-cyan-500/20 text-cyan-200 border-cyan-400/50"
+                              },
+                              {
+                                key: "futsal",
+                                label: lang === "id" ? "Futsal (5 vs 5)" : "Futsal (5 vs 5)",
+                                desc: lang === "id" ? "Sirkuit dalam ruangan cepat & presisi" : "High precision fast indoor game",
+                                icon: "💨",
+                                activeColor: "bg-amber-500/20 text-amber-200 border-amber-400/50"
+                              },
+                              {
+                                key: "custom",
+                                label: lang === "id" ? "Kustom Manual (1 - 11)" : "Custom Count (1 - 11)",
+                                desc: lang === "id" ? "Atur jumlah pemain secara bebas" : "Freely set any player capacity",
+                                icon: "🛠️",
+                                activeColor: "bg-indigo-500/20 text-indigo-200 border-indigo-400/50"
+                              }
+                            ].map((modeItem) => {
+                              const isActive = sportMode === modeItem.key;
+                              return (
+                                <div key={modeItem.key} className="flex flex-col gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleSetSportMode(modeItem.key as any);
+                                      if (modeItem.key !== "custom") {
+                                        setShowSportOverlay(false);
+                                      }
+                                    }}
+                                    className={`w-full text-left p-2 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-all duration-200 ${
+                                      isActive ? modeItem.activeColor : "bg-black/35 border-white/5 hover:border-white/15 text-gray-300"
+                                    }`}
+                                  >
+                                    <span className="text-sm bg-white/5 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-white/5">
+                                      {modeItem.icon}
+                                    </span>
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="font-extrabold tracking-wide uppercase text-[9.5px] leading-tight">
+                                        {modeItem.label}
+                                      </span>
+                                      <span className="text-[8px] text-teal-100/60 font-medium leading-tight mt-0.5 truncate select-none">
+                                        {modeItem.desc}
+                                      </span>
+                                    </div>
+                                  </button>
+
+                                  {modeItem.key === "custom" && isActive && (
+                                    <div className="px-2 py-1.5 bg-black/45 rounded-xl border border-white/[0.06] mt-0.5 flex flex-col gap-1.5">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[8px] uppercase tracking-wider font-extrabold text-gray-400">
+                                          {lang === "id" ? "JUMLAH PEMAIN" : "PLAYER COUNT"}
+                                        </span>
+                                        <span className="text-[10px] font-black text-teal-300 bg-teal-500/15 border border-teal-400/30 px-1.5 py-0.5 rounded">
+                                          {customCount} {lang === "id" ? "Pemain" : "Players"}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          disabled={customCount <= 1}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (customCount > 1) {
+                                              handleSetSportMode("custom", customCount - 1);
+                                            }
+                                          }}
+                                          className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 cursor-pointer"
+                                        >
+                                          -
+                                        </button>
+
+                                        <input
+                                          type="range"
+                                          min="1"
+                                          max="11"
+                                          value={customCount}
+                                          onChange={(e) => {
+                                            const newVal = parseInt(e.target.value);
+                                            handleSetSportMode("custom", newVal);
+                                          }}
+                                          className="flex-1 accent-teal-400 h-1 rounded bg-white/10"
+                                        />
+
+                                        <button
+                                          type="button"
+                                          disabled={customCount >= 11}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (customCount < 11) {
+                                              handleSetSportMode("custom", customCount + 1);
+                                            }
+                                          }}
+                                          className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 cursor-pointer"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 5. Opponent Team Mode ("Mode Lawan") Toggle & Dropdown */}
+                    <div className="relative flex items-center gap-0.5 group shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isEnemyModeActive) {
+                            handleToggleEnemyMode(false);
+                            setShowEnemyDropdown(false);
+                          } else {
+                            handleToggleEnemyMode(true);
+                            setShowEnemyDropdown(true);
+                            setShowThemeDropdown(false);
+                            setShowFormationMenu(false);
+                            setShowSportOverlay(false);
+                          }
+                        }}
+                        className={`relative h-7 px-1.5 rounded-lg flex items-center justify-center gap-1 transition-all cursor-pointer border shadow-sm active:scale-95 ${
+                          isEnemyModeActive
+                            ? "bg-gradient-to-r from-red-600 to-rose-600 border-red-400/70 text-white shadow-[0_0_12px_rgba(239,68,68,0.35)]"
+                            : "bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/30 hover:border-teal-400/60"
+                        }`}
+                        aria-label={lang === "id" ? "Mode Tim Lawan" : "Opponent Team Mode"}
+                        aria-pressed={isEnemyModeActive}
+                      >
+                        <NanoBananaLogo tool="enemy" size="xs" active={isEnemyModeActive} danger={isEnemyModeActive} />
+                        <span className={`text-[8.5px] font-extrabold uppercase hidden md:inline ${isEnemyModeActive ? "text-white" : "text-teal-200/85"}`}>
+                          VS
+                        </span>
+                      </button>
+
+                      {!showEnemyDropdown && (
+                        <ToolHoverTooltip
+                          category={lang === "id" ? "MODE LAWAN" : "OPPONENT MODE"}
+                          title={lang === "id" ? "Simulasi Taktik Tim Lawan" : "Opponent Team Tactical Sim"}
+                          badge={isEnemyModeActive ? "ON" : "OFF"}
+                        />
+                      )}
+
+                      {isEnemyModeActive && (
                         <button
                           type="button"
                           onClick={() => {
-                            setPitchZoneMode("poster");
-                            soundManager.playClick();
+                            setShowEnemyDropdown(!showEnemyDropdown);
+                            setShowThemeDropdown(false);
+                            setShowFormationMenu(false);
+                            setShowSportOverlay(false);
                           }}
-                          aria-pressed={pitchZoneMode === "poster"}
-                          className={`h-8 px-2.5 rounded-lg text-[10.5px] font-extrabold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                            pitchZoneMode === "poster"
-                              ? "bg-teal-400 text-slate-950 shadow-sm"
-                              : "text-teal-100/70 hover:text-white"
-                          }`}
+                          className="w-5 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-[#09222a] border-rose-400/40 text-rose-200 hover:text-white shadow-sm active:scale-95"
+                          aria-label={lang === "id" ? "Pilih Formasi Lawan" : "Choose Opponent Formation"}
                         >
-                          <NanoBananaLogo tool="poster" size="sm" active={pitchZoneMode === "poster"} />
-                          <span>{lang === "id" ? "Poster HD" : "Poster HD"}</span>
+                          <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showEnemyDropdown ? "rotate-180 text-rose-400" : ""}`} />
                         </button>
-                        <ToolHoverTooltip
-                          category={lang === "id" ? "ZONA UTAMA" : "MAIN STAGE"}
-                          title={lang === "id" ? "Mode Studio Poster Lineup HD" : "Full-Size HD Lineup Poster Studio"}
-                          badge={pitchZoneMode === "poster" ? "AKTIF" : undefined}
-                        />
-                      </div>
+                      )}
+
+                      <AnimatePresence>
+                        {isEnemyModeActive && showEnemyDropdown && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -6, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -6, scale: 0.95 }}
+                            transition={{ duration: 0.18, ease: "easeOut" }}
+                            className="absolute top-full mt-1.5 right-0 bg-[#06181f]/98 border border-teal-400/35 rounded-2xl p-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl flex flex-col gap-1.5 min-w-[150px] z-[130]"
+                          >
+                            <span className="text-[8px] font-black text-teal-300 tracking-widest text-center uppercase border-b border-teal-400/20 pb-1 block">
+                              {lang === "id" ? "FORMASI LAWAN" : "OPP FORMATION"}
+                            </span>
+
+                            <div className="flex flex-col gap-1 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
+                              {(() => {
+                                const availableFormations = SPORT_FORMATIONS[sportMode] ? Object.keys(SPORT_FORMATIONS[sportMode]) : [];
+                                if (availableFormations.length > 0) {
+                                  return availableFormations.map((formKey) => (
+                                    <button
+                                      key={formKey}
+                                      type="button"
+                                      onClick={() => {
+                                        handleSpawnEnemyTeam(formKey);
+                                        setShowEnemyDropdown(false);
+                                      }}
+                                      className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/20 hover:text-red-300 text-white rounded-lg border border-white/5 hover:border-red-500/30 text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                                    >
+                                      {formKey === "1-2-1" && sportMode === "futsal" ? "DIAMOND" :
+                                       formKey === "2-2" && sportMode === "futsal" ? "2-2 BOX" :
+                                       formKey}
+                                    </button>
+                                  ));
+                                } else {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleSpawnEnemyTeam("custom");
+                                        setShowEnemyDropdown(false);
+                                      }}
+                                      className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/20 hover:text-red-300 text-white rounded-lg border border-white/5 hover:border-red-500/30 text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
+                                    >
+                                      {lang === "id" ? "SEIMBANG" : "BALANCED"}
+                                    </button>
+                                  );
+                                }
+                              })()}
+                            </div>
+
+                            <div className="border-t border-teal-400/20 my-0.5" />
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleRebalanceEnemies();
+                                setShowEnemyDropdown(false);
+                              }}
+                              className="w-full px-2 py-1.5 bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 rounded-lg border border-teal-400/30 text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                            >
+                              🔄 {lang === "id" ? "SEIMBANGKAN" : "RE-BALANCE"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleClearAllEnemies();
+                                setShowEnemyDropdown(false);
+                              }}
+                              className="w-full px-2 py-1 bg-red-950/45 hover:bg-red-900/60 text-red-400 hover:text-red-300 rounded-lg border border-red-500/20 text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                            >
+                              🗑️ {lang === "id" ? "BERSIHKAN" : "CLEAR"}
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
 
-                  {/* Center: Interactive Club Identity & Manager Trigger */}
-                  <div className="relative group flex items-center min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowClubIdentityBar(!showClubIdentityBar);
-                        soundManager.playClick();
-                      }}
-                      className={`flex items-center gap-2 min-w-0 overflow-hidden px-2.5 py-1 rounded-xl border transition-all cursor-pointer active:scale-95 ${
-                        showClubIdentityBar
-                          ? "bg-teal-500/20 border-teal-400/50 text-white"
-                          : "bg-[#041217]/80 hover:bg-[#08222b] border-teal-400/25 text-white"
-                      }`}
-                      aria-expanded={showClubIdentityBar}
-                      aria-label={lang === "id" ? "Edit Nama Tim, Logo & Manajer" : "Edit Team Name, Logo & Manager"}
-                    >
-                      <div className="flex items-center gap-1.5 border-r border-teal-400/20 pr-2 min-w-0">
-                        {teamLogo ? (
-                          <img
-                            src={teamLogo}
-                            className="w-4.5 h-4.5 object-contain bg-black/40 p-0.5 rounded-md border border-white/10 shrink-0"
-                            alt={lang === "id" ? "Logo Tim" : "Team Logo"}
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div
-                            className="w-2.5 h-2.5 rounded-full border border-black/45 shadow-inner shrink-0"
-                            style={{ backgroundColor: primaryColor }}
-                          />
-                        )}
-                        <span className="font-extrabold tracking-wider text-white text-[10.5px] sm:text-[11px] uppercase truncate max-w-[90px] sm:max-w-[115px]">
-                          {teamName || "Team A"}
-                        </span>
-                      </div>
-
-                      <div className="hidden xs:flex items-center gap-1.5 shrink-0">
-                        <span className="text-[9.5px] text-teal-200 font-bold truncate max-w-[75px]">
-                          👔 {managerName || "COACH"}
-                        </span>
-                        <span className="text-[9.5px] text-teal-200 font-extrabold tracking-wider bg-teal-500/15 px-1.5 py-0.5 rounded-md border border-teal-400/25 font-mono tabular-nums uppercase">
-                          {formation}
-                        </span>
-                      </div>
-                    </button>
-                    <ToolHoverTooltip
-                      category={lang === "id" ? "IDENTITAS TIM & MANAJER" : "CLUB & MANAGER"}
-                      title={
-                        showClubIdentityBar
-                          ? lang === "id"
-                            ? "Sembunyikan Bar Nama Tim, Logo & Manajer"
-                            : "Hide Team Name, Logo & Manager Bar"
-                          : lang === "id"
-                          ? "Tampilkan Input Nama Tim, Logo & Manajer"
-                          : "Show Team Name, Logo & Manager Inputs"
-                      }
-                    />
-                  </div>
-
-                  {/* Right: Fullscreen & Reset Board Logo-Only Buttons (Hover reveals text above) */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <div className="relative group">
+                  {/* Group 3 (Right Capsule): Fullscreen & Reset Board */}
+                  <div className="flex items-center gap-0.5 bg-[#041115]/95 p-0.5 rounded-xl border border-teal-400/20 shrink-0">
+                    <div className="relative group shrink-0">
                       <button
                         type="button"
                         onClick={() => setIsPitchFullscreen(!isPitchFullscreen)}
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-[#09222a] active:scale-95 ${
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-[#09222a] active:scale-95 ${
                           isPitchFullscreen
                             ? "border-teal-400/60 bg-teal-400 text-slate-950"
-                            : "border-teal-400/30 hover:border-teal-400/60"
+                            : "border-teal-400/25 hover:border-teal-400/55"
                         }`}
                         aria-label={lang === "id" ? "Mode Layar Penuh" : "Fullscreen Presentation Mode"}
                       >
                         <NanoBananaLogo
                           tool={isPitchFullscreen ? "exit_fullscreen" : "fullscreen"}
-                          size="md"
+                          size="xs"
                           active={isPitchFullscreen}
                         />
                       </button>
@@ -3349,7 +3679,7 @@ export default function App() {
                     </div>
 
                     {showResetConfirm ? (
-                      <div className="flex items-center gap-1 bg-[#06151a] px-2 py-1 rounded-xl border border-rose-500/45 shadow-xl text-[9px] whitespace-nowrap">
+                      <div className="flex items-center gap-1 bg-[#06151a] px-1.5 py-0.5 rounded-lg border border-rose-500/45 shadow-xl text-[8.5px] whitespace-nowrap h-7">
                         <span className="text-rose-300 font-extrabold uppercase">{lang === "id" ? "Reset?" : "Reset?"}</span>
                         <button
                           type="button"
@@ -3381,27 +3711,27 @@ export default function App() {
                             setActiveFrameIndex(0);
                             setShowResetConfirm(false);
                           }}
-                          className="px-1.5 py-0.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black uppercase cursor-pointer"
+                          className="px-1.5 py-0.5 rounded bg-rose-600 hover:bg-rose-500 text-white font-black uppercase cursor-pointer"
                         >
                           {t.yes}
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowResetConfirm(false)}
-                          className="px-1.5 py-0.5 rounded-lg bg-white/10 hover:bg-white/15 text-gray-200 font-bold uppercase cursor-pointer"
+                          className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/15 text-gray-200 font-bold uppercase cursor-pointer"
                         >
                           {t.cancel}
                         </button>
                       </div>
                     ) : (
-                      <div className="relative group">
+                      <div className="relative group shrink-0">
                         <button
                           type="button"
                           onClick={() => setShowResetConfirm(true)}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-rose-950/50 border-teal-400/30 hover:border-rose-500/50 active:scale-95"
+                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-rose-950/50 border-teal-400/25 hover:border-rose-500/50 active:scale-95"
                           aria-label={lang === "id" ? "Atur Ulang Papan" : "Reset Board"}
                         >
-                          <NanoBananaLogo tool="reset" size="md" danger={true} />
+                          <NanoBananaLogo tool="reset" size="xs" danger={true} />
                         </button>
                         <ToolHoverTooltip
                           category={lang === "id" ? "ATUR ULANG" : "RESET BOARD"}
@@ -3580,7 +3910,7 @@ export default function App() {
                 </div>
 
               {pitchZoneMode === "poster" ? (
-                <div className="w-full max-w-[580px]">
+                <div className="w-full max-w-[var(--pitch-max-w,580px)]">
                   {renderAIImageGen("poster-stage")}
                 </div>
               ) : (
@@ -3637,543 +3967,41 @@ export default function App() {
                 isFullscreen={isPitchFullscreen}
                 onToggleFullscreen={() => setIsPitchFullscreen(!isPitchFullscreen)}
                 onSortPlayers={handleSortPlayers}
-                bottomControls={
-                  <div
-                    id="pitch-bottom-control-bar"
-                    role="toolbar"
-                    aria-label={lang === "id" ? "Bar kontrol bawah luar lapangan" : "Bottom pitch control bar"}
-                    className={`relative w-full bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-2.5 sm:px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl ${
-                      showFormationMenu || showSportOverlay || showEnemyDropdown ? "z-[110]" : "z-45"
-                    }`}
-                  >
-                    {/* Left Group: Formation Selector, Studio Formasi Trigger, & Match Sport Mode Rules (Logo-Only + Hover Tooltip Above) */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Formation Selector Logo Button */}
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowFormationMenu(!showFormationMenu);
-                            setShowSportOverlay(false);
-                            setShowEnemyDropdown(false);
-                          }}
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border shadow-md active:scale-95 focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none ${
-                            showFormationMenu
-                              ? "bg-teal-400 text-slate-950 border-teal-300"
-                              : "bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/35 hover:border-teal-400/65"
-                          }`}
-                          aria-label={t.defaultFormation}
-                          aria-haspopup="true"
-                          aria-expanded={showFormationMenu}
-                        >
-                          <NanoBananaLogo tool="formation" size="md" active={showFormationMenu} />
-                        </button>
-
-                        {!showFormationMenu && (
-                          <ToolHoverTooltip
-                            category={lang === "id" ? "FORMASI TIM" : "TEAM FORMATION"}
-                            title={lang === "id" ? "Pilih Template Formasi" : "Select Formation Template"}
-                            badge={formation}
-                            align="left"
-                          />
-                        )}
-
-                        {showFormationMenu && (
-                          <div
-                            className="absolute bottom-full mb-2 left-0 w-60 bg-[#06181f]/98 backdrop-blur-2xl border border-teal-400/35 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[120] overflow-hidden flex flex-col divide-y divide-teal-400/15 animate-fadeIn"
-                            role="menu"
-                          >
-                            <div className="px-3.5 py-2.5 bg-teal-500/15 flex justify-between items-center select-none">
-                              <span className="text-[10px] font-extrabold tracking-wider text-teal-200 uppercase">
-                                {lang === "id" ? "Pilih Formasi" : "Select Formation"}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowFormationMenu(false);
-                                  setIsFormationStudioModalOpen(true);
-                                }}
-                                className="text-[10px] text-teal-300 hover:text-white font-bold underline cursor-pointer"
-                              >
-                                {lang === "id" ? "Buka Studio" : "Open Studio"}
-                              </button>
-                            </div>
-
-                            <div className="max-h-60 overflow-y-auto scrollbar-thin">
-                              {customFormations.length > 0 && (
-                                <div className="p-1.5 border-b border-teal-400/15 bg-[#041014]/60">
-                                  <span className="px-2 py-0.5 text-[9px] font-bold text-teal-300 uppercase block">
-                                    {lang === "id" ? "Formasi Kustom Anda" : "Your Custom Formations"}
-                                  </span>
-                                  {customFormations.map((cf) => (
-                                    <button
-                                      key={cf.id}
-                                      type="button"
-                                      onClick={() => {
-                                        handleApplyCustomFormation(cf);
-                                        setShowFormationMenu(false);
-                                      }}
-                                      className={`w-full text-left px-2.5 py-1.5 rounded-xl flex items-center justify-between hover:bg-teal-500/15 transition-colors cursor-pointer text-xs ${
-                                        formation === cf.name ? "bg-teal-500/25 text-teal-200 font-bold" : "text-teal-100/80"
-                                      }`}
-                                    >
-                                      <span className="truncate font-bold">★ {cf.name}</span>
-                                      <span className="text-[9px] font-mono text-teal-300/80 uppercase">{cf.sportMode}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-
-                              {getAvailableFormationsForSport(sportMode).map((item) => {
-                                const isSel = formation === item.key;
-                                return (
-                                  <button
-                                    key={item.key}
-                                    type="button"
-                                    onClick={() => {
-                                      applyPresetFormation(item.key);
-                                      setShowFormationMenu(false);
-                                    }}
-                                    className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-teal-500/15 active:bg-teal-500/25 transition-colors cursor-pointer text-xs focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none ${
-                                      isSel ? "bg-teal-500/25 text-teal-200 font-extrabold" : "text-gray-200"
-                                    }`}
-                                    role="menuitem"
-                                    aria-label={item.key}
-                                    aria-current={isSel ? "true" : "false"}
-                                  >
-                                    <div className="flex items-center gap-2.5">
-                                      <span className="text-xs">{item.icon}</span>
-                                      <div className="flex flex-col">
-                                        <span className="font-extrabold tracking-wide font-mono tabular-nums text-xs">
-                                          {item.key}
-                                        </span>
-                                        <span className="text-[9.5px] text-teal-200/65 font-medium leading-tight">
-                                          {item.desc}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    {isSel && (
-                                      <span className="text-[9px] text-teal-300 font-bold">
-                                        {lang === "id" ? "Aktif" : "Active"}
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Studio Formasi Trigger (Pure Logo-Only + Hover Tooltip Above) */}
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsFormationStudioModalOpen(true);
-                            setShowFormationMenu(false);
-                            soundManager.playClick();
-                          }}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-teal-500/20 hover:bg-teal-500/35 border-teal-400/45 shadow-md active:scale-95"
-                          aria-label={lang === "id" ? "Buka Studio Formasi & Lini" : "Open Formation Studio"}
-                        >
-                          <NanoBananaLogo tool="studio" size="md" />
-                        </button>
-                        <ToolHoverTooltip
-                          category={lang === "id" ? "STUDIO TAKTIS" : "FORMATION STUDIO"}
-                          title={lang === "id" ? "Studio Formasi & Lini" : "Formation & Line Studio"}
-                        />
-                      </div>
-
-                      {/* Switch to Poster HD Studio in Pitch Zone (Pure Logo-Only + Hover Tooltip Above) */}
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPitchZoneMode("poster");
-                            setShowFormationMenu(false);
-                            soundManager.playClick();
-                          }}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/35 hover:border-teal-400/65 shadow-md active:scale-95"
-                          aria-label={lang === "id" ? "Switch ke Studio Poster HD" : "Switch to HD Poster Studio"}
-                        >
-                          <NanoBananaLogo tool="poster" size="md" />
-                        </button>
-                        <ToolHoverTooltip
-                          category="POSTER HD"
-                          title={lang === "id" ? "Switch ke Studio Poster HD" : "Switch to HD Poster Studio"}
-                        />
-                      </div>
-
-                      {/* Match Sport Mode ("Aturan Tanding") Selector (Pure Logo-Only + Hover Tooltip Above) */}
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowSportOverlay(!showSportOverlay);
-                            setShowFormationMenu(false);
-                            setShowEnemyDropdown(false);
-                          }}
-                          className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center shadow-md border cursor-pointer select-none active:scale-95 focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none ${
-                            showSportOverlay
-                              ? "bg-teal-400 text-slate-950 border-teal-300"
-                              : "bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/30 hover:border-teal-400/60"
-                          }`}
-                          aria-label={lang === "id" ? "Ubah Aturan Tanding" : "Change Match Sport Mode"}
-                          aria-haspopup="true"
-                          aria-expanded={showSportOverlay}
-                        >
-                          <NanoBananaLogo tool="rules" size="md" active={showSportOverlay} />
-                        </button>
-
-                        {!showSportOverlay && (
-                          <ToolHoverTooltip
-                            category={lang === "id" ? "ATURAN TANDING" : "MATCH RULES"}
-                            title={lang === "id" ? "Pilih Format Jumlah Pemain" : "Select Match Player Format"}
-                            badge={
-                              sportMode === "soccer"
-                                ? "11v11"
-                                : sportMode === "minisoccer"
-                                ? "7v7"
-                                : sportMode === "futsal"
-                                ? "5v5"
-                                : `${getSportModeLimit()}P`
-                            }
-                          />
-                        )}
-
-                        {showSportOverlay && (
-                          <div className="absolute bottom-full mb-2 left-0 w-64 bg-[#06181f]/98 border border-teal-400/35 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[120] p-3 flex flex-col gap-2.5 animate-fadeIn backdrop-blur-2xl">
-                            <div className="flex items-center justify-between border-b border-teal-400/20 pb-2">
-                              <div className="flex flex-col">
-                                <span className="text-[9.5px] font-black tracking-wider text-teal-300 uppercase select-none">
-                                  {lang === "id" ? "Aturan Tanding" : "Sport Arena Rules"}
-                                </span>
-                                <span className="text-[11px] font-extrabold text-white">
-                                  {lang === "id" ? "Pilih Arena/Mode Baru" : "Choose Pitch Arena"}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setShowSportOverlay(false)}
-                                className="w-5 h-5 rounded-lg flex items-center justify-center hover:bg-white/10 cursor-pointer text-gray-400 hover:text-white transition-colors"
-                                aria-label={lang === "id" ? "Tutup Aturan Tanding" : "Close Sport Arena Rules"}
-                              >
-                                ✕
-                              </button>
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                              {[
-                                {
-                                  key: "soccer",
-                                  label: lang === "id" ? "Sepakbola (11 vs 11)" : "Football (11 vs 11)",
-                                  desc: lang === "id" ? "Aturan lapangan penuh standar FIFA" : "Standard full-pitch game rules",
-                                  icon: "⚽",
-                                  activeColor: "bg-teal-500/20 text-teal-200 border-teal-400/50"
-                                },
-                                {
-                                  key: "minisoccer",
-                                  label: lang === "id" ? "Mini Soccer (7 vs 7)" : "Mini Soccer (7 vs 7)",
-                                  desc: lang === "id" ? "Taktik lapangan sedang & lincah" : "Medium turf and dynamic tactics",
-                                  icon: "👟",
-                                  activeColor: "bg-cyan-500/20 text-cyan-200 border-cyan-400/50"
-                                },
-                                {
-                                  key: "futsal",
-                                  label: lang === "id" ? "Futsal (5 vs 5)" : "Futsal (5 vs 5)",
-                                  desc: lang === "id" ? "Sirkuit dalam ruangan cepat & presisi" : "High precision fast indoor game",
-                                  icon: "💨",
-                                  activeColor: "bg-amber-500/20 text-amber-200 border-amber-400/50"
-                                },
-                                {
-                                  key: "custom",
-                                  label: lang === "id" ? "Kustom Manual (1 - 11)" : "Custom Count (1 - 11)",
-                                  desc: lang === "id" ? "Atur jumlah pemain secara bebas" : "Freely set any player capacity",
-                                  icon: "🛠️",
-                                  activeColor: "bg-indigo-500/20 text-indigo-200 border-indigo-400/50"
-                                }
-                              ].map((modeItem) => {
-                                const isActive = sportMode === modeItem.key;
-                                return (
-                                  <div key={modeItem.key} className="flex flex-col gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        handleSetSportMode(modeItem.key as any);
-                                        if (modeItem.key !== "custom") {
-                                          setShowSportOverlay(false);
-                                        }
-                                      }}
-                                      className={`w-full text-left p-2 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2.5 transition-all duration-200 ${
-                                        isActive ? modeItem.activeColor : "bg-black/35 border-white/5 hover:border-white/15 text-gray-300"
-                                      }`}
-                                    >
-                                      <span className="text-base bg-white/5 w-6.5 h-6.5 rounded-lg flex items-center justify-center shrink-0 border border-white/5">
-                                        {modeItem.icon}
-                                      </span>
-                                      <div className="flex flex-col min-w-0">
-                                        <span className="font-extrabold tracking-wide uppercase text-[9.5px] leading-tight">
-                                          {modeItem.label}
-                                        </span>
-                                        <span className="text-[8px] text-teal-100/60 font-medium leading-tight mt-0.5 truncate select-none">
-                                          {modeItem.desc}
-                                        </span>
-                                      </div>
-                                    </button>
-
-                                    {modeItem.key === "custom" && isActive && (
-                                      <div className="px-2 py-1.5 bg-black/45 rounded-xl border border-white/[0.06] mt-0.5 flex flex-col gap-2">
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-[8px] uppercase tracking-wider font-extrabold text-gray-400">
-                                            {lang === "id" ? "JUMLAH PEMAIN" : "PLAYER COUNT"}
-                                          </span>
-                                          <span className="text-[10px] font-black text-teal-300 bg-teal-500/15 border border-teal-400/30 px-1.5 py-0.5 rounded">
-                                            {customCount} {lang === "id" ? "Pemain" : "Players"}
-                                          </span>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                          <button
-                                            type="button"
-                                            disabled={customCount <= 1}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              if (customCount > 1) {
-                                                handleSetSportMode("custom", customCount - 1);
-                                              }
-                                            }}
-                                            className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 cursor-pointer"
-                                          >
-                                            -
-                                          </button>
-
-                                          <input
-                                            type="range"
-                                            min="1"
-                                            max="11"
-                                            value={customCount}
-                                            onChange={(e) => {
-                                              const newVal = parseInt(e.target.value);
-                                              handleSetSportMode("custom", newVal);
-                                            }}
-                                            className="flex-1 accent-teal-400 h-1 rounded bg-white/10"
-                                          />
-
-                                          <button
-                                            type="button"
-                                            disabled={customCount >= 11}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              if (customCount < 11) {
-                                                handleSetSportMode("custom", customCount + 1);
-                                              }
-                                            }}
-                                            className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 font-bold text-center border border-white/10 active:scale-95 transition-all text-xs text-white disabled:opacity-25 cursor-pointer"
-                                          >
-                                            +
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right Group: Opponent Team Mode ("Mode Lawan") & Squad Management / Importer (Logo-Only + Hover Tooltip Above) */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Mode Tim Lawan Toggle & Opponent Formation Dropdown */}
-                      <div className="relative flex items-center gap-1 group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (isEnemyModeActive) {
-                              handleToggleEnemyMode(false);
-                              setShowEnemyDropdown(false);
-                            } else {
-                              handleToggleEnemyMode(true);
-                              setShowEnemyDropdown(true);
-                            }
-                          }}
-                          className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border shadow-md active:scale-95 ${
-                            isEnemyModeActive
-                              ? "bg-gradient-to-r from-red-600 to-rose-600 border-red-400/70 text-white shadow-[0_0_15px_rgba(239,68,68,0.35)]"
-                              : "bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/30 hover:border-teal-400/60"
-                          }`}
-                          aria-label={lang === "id" ? "Mode Tim Lawan" : "Opponent Team Mode"}
-                          aria-pressed={isEnemyModeActive}
-                        >
-                          <NanoBananaLogo tool="enemy" size="md" active={isEnemyModeActive} danger={isEnemyModeActive} />
-                          {isEnemyModeActive && (
-                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-400 ring-2 ring-[#071c22]" />
-                          )}
-                        </button>
-
-                        {!showEnemyDropdown && (
-                          <ToolHoverTooltip
-                            category={lang === "id" ? "MODE LAWAN" : "OPPONENT MODE"}
-                            title={lang === "id" ? "Simulasi Taktik Tim Lawan" : "Opponent Team Tactical Sim"}
-                            badge={isEnemyModeActive ? "ON" : "OFF"}
-                          />
-                        )}
-
-                        {isEnemyModeActive && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowEnemyDropdown(!showEnemyDropdown);
-                              setShowFormationMenu(false);
-                              setShowSportOverlay(false);
-                            }}
-                            className="w-7 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-[#09222a] border-rose-400/40 text-rose-200 hover:text-white shadow-md active:scale-95"
-                            aria-label={lang === "id" ? "Pilih Formasi Lawan" : "Choose Opponent Formation"}
-                          >
-                            <ChevronUp className={`w-3.5 h-3.5 transition-transform duration-200 ${showEnemyDropdown ? "rotate-180 text-rose-400" : ""}`} />
-                          </button>
-                        )}
-
-                        <AnimatePresence>
-                          {isEnemyModeActive && showEnemyDropdown && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                              transition={{ duration: 0.18, ease: "easeOut" }}
-                              className="absolute bottom-full mb-2 right-0 bg-[#06181f]/98 border border-teal-400/35 rounded-2xl p-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl flex flex-col gap-1.5 min-w-[150px] z-[120]"
-                            >
-                              <span className="text-[8px] font-black text-teal-300 tracking-widest text-center uppercase border-b border-teal-400/20 pb-1 block">
-                                {lang === "id" ? "FORMASI LAWAN" : "OPP FORMATION"}
-                              </span>
-
-                              <div className="flex flex-col gap-1 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
-                                {(() => {
-                                  const availableFormations = SPORT_FORMATIONS[sportMode] ? Object.keys(SPORT_FORMATIONS[sportMode]) : [];
-                                  if (availableFormations.length > 0) {
-                                    return availableFormations.map((formKey) => (
-                                      <button
-                                        key={formKey}
-                                        type="button"
-                                        onClick={() => {
-                                          handleSpawnEnemyTeam(formKey);
-                                          setShowEnemyDropdown(false);
-                                        }}
-                                        className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/20 hover:text-red-300 text-white rounded-lg border border-white/5 hover:border-red-500/30 text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
-                                      >
-                                        {formKey === "1-2-1" && sportMode === "futsal" ? "DIAMOND" :
-                                         formKey === "2-2" && sportMode === "futsal" ? "2-2 BOX" :
-                                         formKey}
-                                      </button>
-                                    ));
-                                  } else {
-                                    return (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          handleSpawnEnemyTeam("custom");
-                                          setShowEnemyDropdown(false);
-                                        }}
-                                        className="w-full px-2 py-1.5 bg-white/5 hover:bg-red-500/20 hover:text-red-300 text-white rounded-lg border border-white/5 hover:border-red-500/30 text-[9.5px] font-extrabold uppercase transition-all text-center cursor-pointer active:scale-95"
-                                      >
-                                        {lang === "id" ? "SEIMBANG" : "BALANCED"}
-                                      </button>
-                                    );
-                                  }
-                                })()}
-                              </div>
-
-                              <div className="border-t border-teal-400/20 my-0.5" />
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleRebalanceEnemies();
-                                  setShowEnemyDropdown(false);
-                                }}
-                                className="w-full px-2 py-1.5 bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 rounded-lg border border-teal-400/30 text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
-                              >
-                                🔄 {lang === "id" ? "SEIMBANGKAN" : "RE-BALANCE"}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleClearAllEnemies();
-                                  setShowEnemyDropdown(false);
-                                }}
-                                className="w-full px-2 py-1 bg-red-950/45 hover:bg-red-900/60 text-red-400 hover:text-red-300 rounded-lg border border-red-500/20 text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
-                              >
-                                🗑️ {lang === "id" ? "BERSIHKAN" : "CLEAR"}
-                              </button>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      {/* Squad Management Logo-Only Button */}
-                      <div className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsSquadManagementOpen(true);
-                            soundManager.playClick();
-                          }}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/30 hover:border-teal-400/60 shadow-md active:scale-95"
-                          aria-label={lang === "id" ? "Manajemen Skuad & Urutkan" : "Squad Management & Sorting"}
-                        >
-                          <NanoBananaLogo tool="squad" size="md" />
-                        </button>
-                        <ToolHoverTooltip
-                          category={lang === "id" ? "MANAJEMEN SKUAD" : "SQUAD MANAGER"}
-                          title={lang === "id" ? "Kelola Pemain & Nomor Punggung" : "Manage Players & Jersey Numbers"}
-                        />
-                      </div>
-
-                      <SquadImport
-                        onImport={handleImportSquad}
-                        lang={lang}
-                        isOpen={isSquadImportModalOpen}
-                        onOpenChange={setIsSquadImportModalOpen}
-                      />
-                    </div>
-                    </div>
-                  }
-                />
+                onOpenSquadImport={() => setIsSquadImportModalOpen(true)}
+                onOpenSquadManager={() => setIsSquadManagementOpen(true)}
+              />
               )}
               </div>
 
-            {/* Tactical Tools Sidebar (Shown when Pitch mode is active) */}
+            {/* Symmetrical 2-Column Tactical Tools Sidebar (Shown when Pitch mode is active; zero vertical overflow on Mobile, Tablet & PC) */}
             {pitchZoneMode === "pitch" && (
-            <div className="flex flex-col gap-1.5 sm:gap-2 p-1.5 bg-[#071c22]/90 hover:bg-[#071c22] backdrop-blur-xl rounded-2xl border border-teal-400/25 shadow-[0_12px_36px_rgba(3,12,16,0.55)] select-none items-center justify-center shrink-0 transition-all duration-300 z-45 hover:z-[110]">
+            <div className="flex flex-col gap-1 p-1 bg-[#071c22]/95 hover:bg-[#071c22] backdrop-blur-xl rounded-2xl border border-teal-400/25 shadow-[0_12px_36px_rgba(3,12,16,0.55)] select-none items-center justify-start shrink-0 self-start transition-all duration-300 z-45 hover:z-[110]">
               
-              {/* Active Tool select (Mode Geser/Drag) */}
-              <div className="relative group shrink-0">
-                <button
-                  onClick={() => setActiveTool("select")}
-                  className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
-                    activeTool === "select"
-                      ? "bg-teal-400 text-slate-950 border-teal-300 shadow-[0_0_12px_rgba(45,212,191,0.35)]"
-                      : "bg-[#041217] text-teal-100/75 border-teal-400/20 hover:bg-teal-500/15 hover:text-white"
-                  }`}
-                  aria-label={lang === "id" ? "Mode Geser & Susun" : "Drag & Drop Mode"}
-                  aria-pressed={activeTool === "select"}
-                >
-                  <Move className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                </button>
-                <ToolHoverTooltip
-                  category={t.control}
-                  title={lang === "id" ? "Mode Geser & Susun (Drag)" : "Drag & Drop Mode"}
-                  placement="left"
-                />
-              </div>
+              {/* Top Mode Buttons: Swap/Drag (select), Canvas/Draw (draw), and Toolkit Toggle */}
+              <div className={`grid ${isToolbarExpanded ? "grid-cols-2" : "grid-cols-1"} gap-1 items-center justify-items-center w-full`}>
+                {/* Active Tool select (Mode Geser / Swap) */}
+                <div className="relative group shrink-0">
+                  <button
+                    onClick={() => setActiveTool("select")}
+                    className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm border shrink-0 ${
+                      activeTool === "select"
+                        ? "bg-teal-400 text-slate-950 border-teal-300 shadow-[0_0_10px_rgba(45,212,191,0.35)]"
+                        : "bg-[#041217] text-teal-100/75 border-teal-400/20 hover:bg-teal-500/15 hover:text-white"
+                    }`}
+                    aria-label={lang === "id" ? "Mode Geser & Swap" : "Drag & Swap Mode"}
+                    aria-pressed={activeTool === "select"}
+                  >
+                    <Move className="w-3.5 h-3.5" />
+                  </button>
+                  <ToolHoverTooltip
+                    category={t.control}
+                    title={lang === "id" ? "Mode Geser & Swap (Drag)" : "Drag & Swap Mode"}
+                    placement="left"
+                  />
+                </div>
 
-              {/* Active Tool draw (Mode Coret/Draw) */}
-              <div className="relative group shrink-0">
-                <div className="flex items-center shrink-0">
+                {/* Active Tool draw (Mode Coret / Canvas) */}
+                <div className="relative group shrink-0">
                   <button
                     onClick={() => {
                       if (activeTool !== "draw") {
@@ -4182,74 +4010,72 @@ export default function App() {
                         setActiveTool("select");
                       }
                     }}
-                    className={`relative w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                    className={`relative w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm border shrink-0 ${
                       activeTool === "draw"
-                        ? "bg-teal-400 text-slate-950 border-teal-300 shadow-[0_0_12px_rgba(45,212,191,0.35)]"
+                        ? "bg-teal-400 text-slate-950 border-teal-300 shadow-[0_0_10px_rgba(45,212,191,0.35)]"
                         : "bg-[#041217] text-teal-100/75 border-teal-400/20 hover:bg-teal-500/15 hover:text-white"
                     }`}
-                    aria-label={lang === "id" ? "Mode Coret Taktikal" : "Tactical Sketch Mode"}
+                    aria-label={lang === "id" ? "Mode Kanvas Coret Taktikal" : "Tactical Sketch Canvas"}
                     aria-pressed={activeTool === "draw"}
                   >
-                    <PenTool className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                    <PenTool className="w-3.5 h-3.5" />
                     <span 
                       className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full border border-black/45 shadow-sm"
                       style={{ backgroundColor: brushColor }}
                     />
                   </button>
+                  <ToolHoverTooltip
+                    category={t.control}
+                    title={lang === "id" ? "Mode Kanvas Coret (Draw)" : "Tactical Sketch Canvas"}
+                    placement="left"
+                  />
                 </div>
 
-                <ToolHoverTooltip
-                  category={t.control}
-                  title={lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}
-                  placement="left"
-                />
+                {/* COLLAPSIBLE TOOLKIT TOGGLE BUTTON */}
+                <div className={`relative group shrink-0 ${isToolbarExpanded ? "col-span-2 w-full" : ""}`}>
+                  <button
+                    onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
+                    className={`${isToolbarExpanded ? "w-full h-6" : "w-7 h-7 sm:w-7.5 sm:h-7.5"} rounded-lg transition-all flex items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-sm border shrink-0 ${
+                      isToolbarExpanded
+                        ? "bg-teal-500/20 border-teal-400/40 text-teal-200 hover:bg-teal-500/30"
+                        : "bg-[#041217] text-teal-100/75 border-teal-400/20 hover:bg-teal-500/15 hover:text-white"
+                    }`}
+                    aria-label={
+                      isToolbarExpanded
+                        ? lang === "id" ? "Sembunyikan Toolkit" : "Collapse Toolkit"
+                        : lang === "id" ? "Buka Toolkit" : "Expand Toolkit"
+                    }
+                  >
+                    <Sliders className={`w-3 h-3 transition-transform duration-300 ${isToolbarExpanded ? "rotate-90" : ""}`} />
+                    {isToolbarExpanded && (
+                      <span className="text-[8px] font-black uppercase tracking-wider">
+                        {lang === "id" ? "Alat" : "Tools"}
+                      </span>
+                    )}
+                  </button>
+                  <ToolHoverTooltip
+                    category="TOOLKIT"
+                    title={
+                      isToolbarExpanded
+                        ? lang === "id" ? "Sembunyikan Toolkit" : "Collapse Toolkit"
+                        : lang === "id" ? "Buka Toolkit" : "Expand Toolkit"
+                    }
+                    placement="left"
+                  />
+                </div>
               </div>
 
-              {/* Responsive separation line (divider) */}
-              <div className="w-5 sm:w-8 h-[1px] bg-teal-400/20 my-0.5 shrink-0" />
-
-              {/* COLLAPSIBLE TOOLBAR TOGGLE BUTTON */}
-              <div className="relative group shrink-0">
-                <button
-                  onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
-                  className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
-                    isToolbarExpanded
-                      ? "bg-teal-500/25 border-teal-400/45 text-teal-200"
-                      : "bg-[#041217] text-teal-100/75 border-teal-400/20 hover:bg-teal-500/15 hover:text-white"
-                  }`}
-                  aria-label={
-                    isToolbarExpanded
-                      ? lang === "id" ? "Sembunyikan Toolkit" : "Collapse Toolkit"
-                      : lang === "id" ? "Buka Toolkit (Rollout)" : "Expand Toolkit (Rollout)"
-                  }
-                >
-                  <Sliders className={`w-3.5 h-3.5 md:w-4 md:h-4 transition-transform duration-300 ${isToolbarExpanded ? 'rotate-90' : ''}`} />
-                </button>
-                <ToolHoverTooltip
-                  category="TOOLBAR"
-                  title={
-                    isToolbarExpanded
-                      ? lang === "id" ? "Sembunyikan Toolkit" : "Collapse Toolkit"
-                      : lang === "id" ? "Buka Toolkit (Rollout)" : "Expand Toolkit (Rollout)"
-                  }
-                  placement="left"
-                />
-              </div>
-
-              {/* ROLL OUT ZONE */}
+              {/* SYMMETRICAL 2-COLUMN ROLL OUT ZONE (7 Exact Rows of 2 Buttons = 14 Symmetrical Tools) */}
               <AnimatePresence>
                 {isToolbarExpanded && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.25, ease: "easeInOut" }}
-                    className="flex flex-col items-center gap-1.5 sm:gap-2 w-full overflow-visible"
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="grid grid-cols-2 gap-1 items-center justify-items-center w-full pt-1 border-t border-teal-400/20 overflow-visible"
                   >
-                    {/* Responsive separation line (divider) */}
-                    <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
-
-                    {/* Add Ball Button */}
+                    {/* Row 1, Col 1: Add Ball Button */}
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => handleAddTacticalItem("ball")}
@@ -4258,10 +4084,10 @@ export default function App() {
                           e.dataTransfer.setData("text/plain", "ball");
                           e.dataTransfer.effectAllowed = "copy";
                         }}
-                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-emerald-600/20 text-white hover:text-emerald-400 border border-white/10 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-md shrink-0"
+                        className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-[#041217] hover:bg-emerald-600/20 text-white hover:text-emerald-400 border border-teal-400/20 hover:border-emerald-500/40 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-sm shrink-0"
                         aria-label={lang === "id" ? "Tambah Bola Baru" : "Spawn New Ball"}
                       >
-                        <span className="text-[12px] sm:text-[14px] md:text-[19px] hover:scale-110 transition-transform">⚽</span>
+                        <span className="text-[12px] sm:text-[13px] hover:scale-110 transition-transform">⚽</span>
                       </button>
                       <ToolHoverTooltip
                         category={t.elements}
@@ -4270,7 +4096,7 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Add Cone Button */}
+                    {/* Row 1, Col 2: Add Cone Button */}
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => handleAddTacticalItem("cone")}
@@ -4279,14 +4105,14 @@ export default function App() {
                           e.dataTransfer.setData("text/plain", "cone");
                           e.dataTransfer.effectAllowed = "copy";
                         }}
-                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-orange-650/20 text-white hover:text-orange-400 border border-white/10 hover:border-orange-500/20 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-md shrink-0"
+                        className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-[#041217] hover:bg-orange-650/20 text-white hover:text-orange-400 border border-teal-400/20 hover:border-orange-500/40 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-sm shrink-0"
                         aria-label={lang === "id" ? "Tambah Cone Latihan" : "Spawn Practice Cone"}
                       >
                         <div className="relative flex flex-col items-center">
-                          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 bg-gradient-to-t from-orange-600 via-orange-500 to-amber-300 rounded-t-full border-t border-amber-200 flex items-center justify-center shadow-lg">
-                            <div className="w-1 h-0.5 md:w-2 md:h-0.5 bg-white/50 rounded-full mb-0.5"></div>
+                          <div className="w-2.5 h-2.5 bg-gradient-to-t from-orange-600 via-orange-500 to-amber-300 rounded-t-full border-t border-amber-200 flex items-center justify-center shadow-sm">
+                            <div className="w-1 h-0.5 bg-white/50 rounded-full mb-0.5"></div>
                           </div>
-                          <div className="w-3.5 h-0.5 sm:w-4 sm:h-0.5 md:w-5.5 md:h-1 bg-orange-700 rounded-full -mt-0.5 shadow-md"></div>
+                          <div className="w-3.5 h-0.5 bg-orange-700 rounded-full -mt-0.5 shadow-sm"></div>
                         </div>
                       </button>
                       <ToolHoverTooltip
@@ -4296,7 +4122,7 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Add Enemy Player Button */}
+                    {/* Row 2, Col 1: Add Enemy Player Button */}
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => handleAddTacticalItem("enemy")}
@@ -4305,11 +4131,11 @@ export default function App() {
                           e.dataTransfer.setData("text/plain", "enemy");
                           e.dataTransfer.effectAllowed = "copy";
                         }}
-                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-blue-600/20 text-white hover:text-blue-400 border border-white/10 hover:border-blue-500/20 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-md shrink-0"
+                        className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-[#041217] hover:bg-rose-600/20 text-white hover:text-rose-300 border border-teal-400/20 hover:border-rose-500/40 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-sm shrink-0"
                         aria-label={lang === "id" ? "Tambah Pemain Lawan" : "Spawn Opponent Player"}
                       >
                         <div
-                          className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-white/40 flex items-center justify-center shadow-md font-black text-[9px] sm:text-[10px]"
+                          className="w-4 h-4 rounded-full border border-white/40 flex items-center justify-center shadow-sm font-black text-[8.5px]"
                           style={{ backgroundColor: enemyColor, color: "#ffffff" }}
                         >
                           E
@@ -4322,14 +4148,72 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Responsive separation line (divider) */}
-                    <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
+                    {/* Row 2, Col 2: Team Kit Presets Quick Palette Selector */}
+                    <div className="relative group/kitpresets shrink-0 hover:z-[999]">
+                      <button
+                        type="button"
+                        className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-[#041217] hover:bg-teal-500/15 border border-teal-400/20 text-teal-200 hover:text-white transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm overflow-hidden shrink-0"
+                        aria-label={lang === "id" ? "Preset Warna Kostum Tim" : "Team Kit Color Presets"}
+                      >
+                        <Palette className="w-3.5 h-3.5 text-teal-300 group-hover/kitpresets:rotate-45 transition-transform duration-300" />
+                      </button>
 
-                    {/* Jersey Utama */}
+                      {/* Floating Team Kit Presets Panel */}
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover/kitpresets:opacity-100 group-hover/kitpresets:pointer-events-auto transition-all duration-200 bg-[#06181f]/98 border border-teal-400/35 p-2.5 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-md z-[999] flex flex-col gap-1.5 min-w-[205px]">
+                        <div className="flex flex-col gap-0.5 border-b border-teal-400/15 pb-1 text-right">
+                          <span className="text-[7.5px] font-black tracking-widest text-teal-300 uppercase">
+                            {lang === "id" ? "PRESET KOSTUM TIM" : "TEAM KIT PRESETS"}
+                          </span>
+                          <span className="text-white font-extrabold text-[9.5px]">
+                            {lang === "id" ? "Palet Warna Pro Klub" : "Pro Club Color Schemes"}
+                          </span>
+                        </div>
+
+                        {/* Presets List */}
+                        <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-0.5">
+                          {[
+                            { name: "Classic Red & White", primary: "#dc2626", gk: "#eab308", num: "#ffffff", flag: "🔴" },
+                            { name: "Royal Madrid", primary: "#f8fafc", gk: "#eab308", num: "#0f172a", flag: "⚪" },
+                            { name: "FC Blaugrana", primary: "#1d4ed8", gk: "#10b981", num: "#facc15", flag: "🔵" },
+                            { name: "Sky Citizens", primary: "#38bdf8", gk: "#f97316", num: "#ffffff", flag: "🩵" },
+                            { name: "Selecao Samba", primary: "#eab308", gk: "#18181b", num: "#15803d", flag: "🟡" },
+                            { name: "Bianconeri Noir", primary: "#18181b", gk: "#eab308", num: "#ffffff", flag: "⚫" },
+                            { name: "Cyberpunk Neon", primary: "#9333ea", gk: "#06b6d4", num: "#ffffff", flag: "⚡" },
+                            { name: "Verde Celtic", primary: "#059669", gk: "#d97706", num: "#ffffff", flag: "🟢" }
+                          ].map((kit) => (
+                            <button
+                              key={kit.name}
+                              type="button"
+                              onClick={() => {
+                                setPrimaryColor(kit.primary);
+                                setGkColor(kit.gk);
+                                setNumberColor(kit.num);
+                                soundManager.playClick();
+                              }}
+                              className="w-full flex items-center justify-between p-1.5 rounded-lg bg-white/5 hover:bg-teal-500/15 border border-white/5 hover:border-teal-400/35 transition-all text-left group/kitbtn cursor-pointer"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs">{kit.flag}</span>
+                                <span className="text-[9.5px] font-bold text-gray-200 group-hover/kitbtn:text-white truncate">
+                                  {kit.name}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: kit.primary }} title="Primary" />
+                                <div className="w-2.5 h-2.5 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: kit.gk }} title="GK" />
+                                <div className="w-2.5 h-2.5 rounded-full border border-white/20 shadow-sm flex items-center justify-center text-[6.5px] font-black" style={{ backgroundColor: "#1e293b", color: kit.num }} title="Number">#</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 3, Col 1: Jersey Utama */}
                     <div className="relative group shrink-0">
-                      <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
+                      <div className="relative w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-[#041217] hover:bg-teal-500/15 border border-teal-400/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm overflow-hidden shrink-0">
                         <div className="relative flex items-center justify-center">
-                          <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: primaryColor, color: primaryColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
+                          <Shirt className="w-3.5 h-3.5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: primaryColor, color: primaryColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
                           <input
                             type="color"
                             value={primaryColor}
@@ -4346,11 +4230,11 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Jersey Keeper */}
+                    {/* Row 3, Col 2: Jersey Keeper */}
                     <div className="relative group shrink-0">
-                      <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
+                      <div className="relative w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-[#041217] hover:bg-teal-500/15 border border-teal-400/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm overflow-hidden shrink-0">
                         <div className="relative flex items-center justify-center">
-                          <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: gkColor, color: gkColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
+                          <Shirt className="w-3.5 h-3.5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: gkColor, color: gkColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
                           <input
                             type="color"
                             value={gkColor}
@@ -4367,11 +4251,11 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Warna Nomor Punggung */}
+                    {/* Row 4, Col 1: Warna Nomor Punggung */}
                     <div className="relative group shrink-0">
-                      <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
-                        <div className="relative flex items-center justify-center w-5 h-5">
-                          <span className="text-[9px] md:text-[12px] font-black tracking-tighter transition-transform group-hover:scale-115 duration-205" style={{ color: numberColor }}>10</span>
+                      <div className="relative w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-[#041217] hover:bg-teal-500/15 border border-teal-400/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm overflow-hidden shrink-0">
+                        <div className="relative flex items-center justify-center w-4 h-4">
+                          <span className="text-[9.5px] font-black tracking-tighter transition-transform group-hover:scale-115 duration-205" style={{ color: numberColor }}>10</span>
                           <input
                             type="color"
                             value={numberColor}
@@ -4388,11 +4272,11 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Jersey Lawan */}
+                    {/* Row 4, Col 2: Jersey Lawan */}
                     <div className="relative group/opponentcolor shrink-0 hover:z-[999]">
-                      <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
+                      <div className="relative w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-[#041217] hover:bg-teal-500/15 border border-teal-400/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm overflow-hidden shrink-0">
                         <div className="relative flex items-center justify-center">
-                          <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover/opponentcolor:scale-115 duration-205" style={{ fill: enemyColor, color: enemyColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
+                          <Shirt className="w-3.5 h-3.5 text-gray-300 transition-transform group-hover/opponentcolor:scale-115 duration-205" style={{ fill: enemyColor, color: enemyColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
                           <input
                             type="color"
                             value={enemyColor}
@@ -4404,12 +4288,12 @@ export default function App() {
                       </div>
                       
                       {/* Floating Opponent Color Picker Panel */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 opacity-0 pointer-events-none group-hover/opponentcolor:opacity-100 group-hover/opponentcolor:pointer-events-auto transition-all duration-200 bg-[#0e0f13]/98 border border-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-md z-[999] flex flex-col gap-2 min-w-[160px] sm:min-w-[190px]">
-                        <div className="flex flex-col gap-0.5 border-b border-white/5 pb-1.5 mb-1 text-right">
-                          <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover/opponentcolor:opacity-100 group-hover/opponentcolor:pointer-events-auto transition-all duration-200 bg-[#06181f]/98 border border-teal-400/35 p-2.5 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-md z-[999] flex flex-col gap-1.5 min-w-[160px]">
+                        <div className="flex flex-col gap-0.5 border-b border-teal-400/15 pb-1 text-right">
+                          <span className="text-[7.5px] font-black tracking-widest text-teal-300 uppercase">
                             {lang === "id" ? "WARNA TIM LAWAN" : "OPPONENT CLUB COLOR"}
                           </span>
-                          <span className="text-white font-extrabold text-[9px] sm:text-[10px]">
+                          <span className="text-white font-extrabold text-[9.5px]">
                             {lang === "id" ? "Preset Klub / Custom" : "Club Presets / Custom"}
                           </span>
                         </div>
@@ -4430,7 +4314,7 @@ export default function App() {
                               key={preset.hex}
                               onClick={() => setEnemyColor(preset.hex)}
                               title={preset.name}
-                              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer active:scale-90 relative ${
+                              className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all cursor-pointer active:scale-90 relative ${
                                 enemyColor.toLowerCase() === preset.hex.toLowerCase()
                                   ? "border-red-500 scale-105 shadow-[0_0_10px_rgba(239,68,68,0.4)] z-10"
                                   : "border-white/10 hover:border-white/30"
@@ -4444,14 +4328,14 @@ export default function App() {
                           ))}
                         </div>
 
-                        <div className="border-t border-white/5 my-0.5" />
+                        <div className="border-t border-teal-400/15 my-0.5" />
 
                         {/* Custom Color Picker Input row */}
-                        <div className="flex items-center justify-between gap-1.5 bg-black/40 border border-white/5 rounded-lg p-1.5">
-                          <span className="text-[8px] sm:text-[9px] font-black text-gray-400 font-mono uppercase">
+                        <div className="flex items-center justify-between gap-1.5 bg-black/40 border border-white/5 rounded-lg p-1">
+                          <span className="text-[8px] font-black text-gray-400 font-mono uppercase">
                             {enemyColor.toUpperCase()}
                           </span>
-                          <div className="relative w-6 h-6 rounded-md border border-white/20 overflow-hidden cursor-pointer" style={{ backgroundColor: enemyColor }}>
+                          <div className="relative w-5.5 h-5.5 rounded-md border border-white/20 overflow-hidden cursor-pointer" style={{ backgroundColor: enemyColor }}>
                             <input
                               type="color"
                               value={enemyColor}
@@ -4459,89 +4343,25 @@ export default function App() {
                               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
                             />
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <Palette className={`w-3 h-3 ${enemyColor === "#ffffff" ? "text-slate-950" : "text-white"}`} />
+                              <Palette className={`w-2.5 h-2.5 ${enemyColor === "#ffffff" ? "text-slate-950" : "text-white"}`} />
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Team Kit Presets Quick Palette Selector */}
-                    <div className="relative group/kitpresets shrink-0 hover:z-[999]">
-                      <button
-                        type="button"
-                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0"
-                        aria-label={lang === "id" ? "Preset Warna Kostum Tim" : "Team Kit Color Presets"}
-                      >
-                        <Palette className="w-3.5 h-3.5 md:w-5 md:h-5 text-indigo-400 group-hover/kitpresets:rotate-45 transition-transform duration-300" />
-                      </button>
-
-                      {/* Floating Team Kit Presets Panel */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 opacity-0 pointer-events-none group-hover/kitpresets:opacity-100 group-hover/kitpresets:pointer-events-auto transition-all duration-200 bg-[#0e0f13]/98 border border-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-md z-[999] flex flex-col gap-2 min-w-[210px] sm:min-w-[240px]">
-                        <div className="flex flex-col gap-0.5 border-b border-white/5 pb-1.5 mb-0.5 text-right">
-                          <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-indigo-400 uppercase">
-                            {lang === "id" ? "PRESET KOSTUM TIM" : "TEAM KIT PRESETS"}
-                          </span>
-                          <span className="text-white font-extrabold text-[9px] sm:text-[10px]">
-                            {lang === "id" ? "Palet Warna Pro Klub" : "Pro Club Color Schemes"}
-                          </span>
-                        </div>
-
-                        {/* Presets List */}
-                        <div className="flex flex-col gap-1 max-h-52 overflow-y-auto pr-0.5">
-                          {[
-                            { name: "Classic Red & White", primary: "#dc2626", gk: "#eab308", num: "#ffffff", flag: "🔴" },
-                            { name: "Royal Madrid", primary: "#f8fafc", gk: "#eab308", num: "#0f172a", flag: "⚪" },
-                            { name: "FC Blaugrana", primary: "#1d4ed8", gk: "#10b981", num: "#facc15", flag: "🔵" },
-                            { name: "Sky Citizens", primary: "#38bdf8", gk: "#f97316", num: "#ffffff", flag: "🩵" },
-                            { name: "Selecao Samba", primary: "#eab308", gk: "#18181b", num: "#15803d", flag: "🟡" },
-                            { name: "Bianconeri Noir", primary: "#18181b", gk: "#eab308", num: "#ffffff", flag: "⚫" },
-                            { name: "Cyberpunk Neon", primary: "#9333ea", gk: "#06b6d4", num: "#ffffff", flag: "⚡" },
-                            { name: "Verde Celtic", primary: "#059669", gk: "#d97706", num: "#ffffff", flag: "🟢" }
-                          ].map((kit) => (
-                            <button
-                              key={kit.name}
-                              type="button"
-                              onClick={() => {
-                                setPrimaryColor(kit.primary);
-                                setGkColor(kit.gk);
-                                setNumberColor(kit.num);
-                                soundManager.playClick();
-                              }}
-                              className="w-full flex items-center justify-between p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-indigo-500/30 transition-all text-left group/kitbtn cursor-pointer"
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs">{kit.flag}</span>
-                                <span className="text-[9.5px] sm:text-[10px] font-bold text-gray-200 group-hover/kitbtn:text-white truncate">
-                                  {kit.name}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <div className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: kit.primary }} title="Primary" />
-                                <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: kit.gk }} title="GK" />
-                                <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm flex items-center justify-center text-[7px] font-black" style={{ backgroundColor: "#1e293b", color: kit.num }} title="Number">#</div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Responsive separation line (divider) */}
-                    <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
-
-                    {/* Tactical Grid Overlay Toggle Button */}
+                    {/* Row 5, Col 1: Tactical Grid Overlay Toggle Button */}
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => setShowTacticalGrid(!showTacticalGrid)}
                         aria-label={lang === "id" ? "Grid Taktis" : "Tactical Grid"}
-                        className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                        className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm border shrink-0 ${
                           showTacticalGrid
-                            ? "bg-indigo-600 text-white border-indigo-400/30 shadow-[0_0_12px_rgba(99,102,241,0.35)]"
-                            : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                            ? "bg-teal-400 text-slate-950 border-teal-300 shadow-[0_0_10px_rgba(45,212,191,0.35)]"
+                            : "bg-[#041217] text-teal-100/75 border-teal-400/20 hover:bg-teal-500/15 hover:text-white"
                         }`}
                       >
-                        <LayoutGrid className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
+                        <LayoutGrid className="w-3.5 h-3.5" />
                       </button>
                       <ToolHoverTooltip
                         category={t.tacticalGrid}
@@ -4551,7 +4371,7 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Magnetic Grid Snapping / Free Placement Toggle Button */}
+                    {/* Row 5, Col 2: Magnetic Grid Snapping / Free Placement Toggle Button */}
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => {
@@ -4559,13 +4379,13 @@ export default function App() {
                           soundManager.playClick();
                         }}
                         aria-label={lang === "id" ? "Magnet Grid / Bebas" : "Grid Magnet / Free"}
-                        className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                        className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm border shrink-0 ${
                           isSnapToGrid
-                            ? "bg-amber-600 text-white border-amber-400/30 shadow-[0_0_12px_rgba(217,119,6,0.35)]"
-                            : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                            ? "bg-amber-400 text-slate-950 border-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.35)]"
+                            : "bg-[#041217] text-teal-100/75 border-teal-400/20 hover:bg-teal-500/15 hover:text-white"
                         }`}
                       >
-                        <Magnet className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
+                        <Magnet className="w-3.5 h-3.5" />
                       </button>
                       <ToolHoverTooltip
                         category={lang === "id" ? "KONTROL PRESISI" : "PRECISION CONTROL"}
@@ -4579,18 +4399,18 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Tactical Heatmap Overlay Toggle Button */}
+                    {/* Row 6, Col 1: Tactical Heatmap Overlay Toggle Button */}
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => setShowHeatmap(!showHeatmap)}
                         aria-label={lang === "id" ? "Peta Panas (Heatmap)" : "Heatmap Analysis"}
-                        className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
+                        className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm border shrink-0 ${
                           showHeatmap
-                            ? "bg-red-600 text-white border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.45)]"
-                            : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                            ? "bg-red-600 text-white border-red-400/50 shadow-[0_0_10px_rgba(239,68,68,0.45)]"
+                            : "bg-[#041217] text-teal-100/75 border-teal-400/20 hover:bg-teal-500/15 hover:text-white"
                         }`}
                       >
-                        <Flame className={`w-3.5 h-3.5 md:w-4.5 md:h-4.5 ${showHeatmap ? 'animate-pulse text-orange-200' : ''}`} />
+                        <Flame className={`w-3.5 h-3.5 ${showHeatmap ? "animate-pulse text-orange-200" : ""}`} />
                       </button>
                       <ToolHoverTooltip
                         category={t.heatmapTitle}
@@ -4600,10 +4420,33 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Responsive separation line (divider) */}
-                    <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
+                    {/* Row 6, Col 2: Clear Canvas Drawings Button (Pairs symmetrically with Heatmap) */}
+                    <div className="relative group shrink-0">
+                      <button
+                        onClick={() => {
+                          if (drawHistory.length > 0) {
+                            setDrawHistory([]);
+                            soundManager.playClick();
+                          }
+                        }}
+                        aria-label={lang === "id" ? "Bersihkan Coretan Kanvas" : "Clear Sketch Canvas"}
+                        className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm border shrink-0 ${
+                          drawHistory.length > 0
+                            ? "bg-rose-500/20 text-rose-200 border-rose-400/45 hover:bg-rose-500/35 hover:text-white"
+                            : "bg-[#041217] text-teal-100/50 border-teal-400/20 hover:bg-teal-500/15 hover:text-teal-100"
+                        }`}
+                      >
+                        <Eraser className="w-3.5 h-3.5" />
+                      </button>
+                      <ToolHoverTooltip
+                        category={lang === "id" ? "KANVAS CORET" : "SKETCH CANVAS"}
+                        title={lang === "id" ? "Bersihkan Semua Coretan Taktik" : "Clear All Tactical Drawings"}
+                        badge={drawHistory.length > 0 ? `${drawHistory.length}` : undefined}
+                        placement="left"
+                      />
+                    </div>
 
-                    {/* Save Playbook Button */}
+                    {/* Row 7, Col 1: Save Playbook Button */}
                     <div className="relative group shrink-0" id="btn-save-playbook-wrapper">
                       <button
                         id="btn-save-playbook-trigger"
@@ -4612,9 +4455,9 @@ export default function App() {
                           setSaveLoadModalOpen(true);
                         }}
                         aria-label={lang === "id" ? "Simpan Formasi & Skuad" : "Save Pitch & Squad"}
-                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-emerald-600/20 hover:text-emerald-400 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
+                        className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-[#041217] text-teal-100/80 border border-teal-400/20 hover:bg-emerald-600/25 hover:text-emerald-300 hover:border-emerald-400/45 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm shrink-0"
                       >
-                        <Save className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
+                        <Save className="w-3.5 h-3.5" />
                       </button>
                       <ToolHoverTooltip
                         category={lang === "id" ? "PENYIMPANAN" : "SAVE STATE"}
@@ -4623,7 +4466,7 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Load Setup Button */}
+                    {/* Row 7, Col 2: Load Setup Button (Paired Symmetrically Next to Save) */}
                     <div className="relative group shrink-0" id="btn-load-playbook-wrapper">
                       <button
                         id="btn-load-playbook-trigger"
@@ -4632,9 +4475,9 @@ export default function App() {
                           setSaveLoadModalOpen(true);
                         }}
                         aria-label={lang === "id" ? "Muat Formasi Tersimpan" : "Load Saved Playbook"}
-                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-blue-600/20 hover:text-blue-400 hover:border-blue-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
+                        className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-[#041217] text-teal-100/80 border border-teal-400/20 hover:bg-cyan-600/25 hover:text-cyan-300 hover:border-cyan-400/45 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-sm shrink-0"
                       >
-                        <FolderOpen className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
+                        <FolderOpen className="w-3.5 h-3.5" />
                       </button>
                       <ToolHoverTooltip
                         category={lang === "id" ? "MEMORI" : "LOAD BOARD"}
@@ -4716,115 +4559,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Compact HP & Tablet Quick Action Dock directly below pitch (no duplicate stacked formation studio) */}
-          {deviceMode === "android" && (
-            <div className="w-full max-w-[var(--pitch-max-w,580px)] grid grid-cols-5 gap-1.5 pt-1 shrink-0">
-              <div className="relative group">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAndroidActiveTab("squad");
-                    setPcLeftTab("formation");
-                    soundManager.playClick();
-                  }}
-                  aria-label={lang === "id" ? "Tab Formasi & Lini" : "Formation Tab"}
-                  className="w-full h-8.5 rounded-xl bg-teal-400 hover:bg-teal-300 text-slate-950 flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95"
-                >
-                  <NanoBananaLogo tool="studio" size="sm" active={true} />
-                </button>
-                <ToolHoverTooltip
-                  category={lang === "id" ? "TAB FORMASI" : "FORMATION"}
-                  title={lang === "id" ? "Buka Tab Formasi & Lini" : "Open Formation & Lines Tab"}
-                  align="left"
-                />
-              </div>
-
-              <div className="relative group">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPitchZoneMode((prev) => (prev === "poster" ? "pitch" : "poster"));
-                    soundManager.playClick();
-                  }}
-                  aria-label={lang === "id" ? "Switch ke Poster HD" : "Switch to HD Poster"}
-                  className={`w-full h-8.5 rounded-xl border flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95 ${
-                    pitchZoneMode === "poster"
-                      ? "bg-teal-400 text-slate-950 border-teal-300"
-                      : "bg-teal-500/20 hover:bg-teal-500/30 border-teal-400/40"
-                  }`}
-                >
-                  <NanoBananaLogo tool="poster" size="sm" active={pitchZoneMode === "poster"} />
-                </button>
-                <ToolHoverTooltip
-                  category="POSTER HD"
-                  title={
-                    pitchZoneMode === "poster"
-                      ? lang === "id"
-                        ? "Kembali ke Lapangan Taktis"
-                        : "Back to Tactical Pitch"
-                      : lang === "id"
-                      ? "Switch ke Studio Poster HD"
-                      : "Switch to HD Poster Studio"
-                  }
-                />
-              </div>
-
-              <div className="relative group">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAndroidActiveTab("corner");
-                    soundManager.playClick();
-                  }}
-                  aria-label={lang === "id" ? "Studio Corner" : "Corner Studio"}
-                  className="w-full h-8.5 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/35 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                >
-                  <NanoBananaLogo tool="corner_sim" size="sm" />
-                </button>
-                <ToolHoverTooltip
-                  category="SET-PIECE"
-                  title={lang === "id" ? "Simulasi Corner Kick" : "Corner Kick Simulator"}
-                />
-              </div>
-
-              <div className="relative group">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSquadManagementOpen(true);
-                    soundManager.playClick();
-                  }}
-                  aria-label={lang === "id" ? "Kelola Skuad" : "Squad"}
-                  className="w-full h-8.5 rounded-xl bg-[#082229] hover:bg-[#0b2d36] border border-teal-400/20 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                >
-                  <NanoBananaLogo tool="squad" size="sm" />
-                </button>
-                <ToolHoverTooltip
-                  category={lang === "id" ? "SKUAD" : "SQUAD"}
-                  title={lang === "id" ? "Kelola Pemain & Nomor" : "Manage Squad"}
-                />
-              </div>
-
-              <div className="relative group">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMatchSheetOpen(true);
-                    soundManager.playClick();
-                  }}
-                  aria-label={lang === "id" ? "Lembar Laga" : "Match Sheet"}
-                  className="w-full h-8.5 rounded-xl bg-[#082229] hover:bg-[#0b2d36] border border-teal-400/20 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                >
-                  <NanoBananaLogo tool="briefing" size="sm" />
-                </button>
-                <ToolHoverTooltip
-                  category="BRIEFING"
-                  title={lang === "id" ? "Lembar Taktik Pertandingan" : "Matchday Tactical Sheet"}
-                  align="right"
-                />
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -4981,10 +4715,62 @@ export default function App() {
             <div
               className={
                 isTabletDualPanel
-                  ? "col-span-6 flex flex-col gap-2.5 h-full min-h-0 overflow-hidden animate-fadeIn"
+                  ? "col-span-6 flex flex-col gap-2 h-full min-h-0 overflow-hidden animate-fadeIn"
                   : "w-full max-w-2xl mx-auto flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden animate-fadeIn"
               }
             >
+              {/* In Tablet 2-Panel Split Mode, provide a Symmetrical 4-Tab Top Command Switcher right inside the Right Dock */}
+              {isTabletDualPanel && (
+                <div className="bg-[#071c22]/95 border border-teal-400/25 rounded-2xl p-1 grid grid-cols-4 gap-1 shadow-[0_8px_24px_rgba(3,12,16,0.45)] shrink-0">
+                  {([
+                    {
+                      id: "squad" as const,
+                      tool: "squad_mgr" as const,
+                      label: lang === "id" ? "Klub & Tim" : "Club & Squad"
+                    },
+                    {
+                      id: "corner" as const,
+                      tool: "corner_sim" as const,
+                      label: "Corner"
+                    },
+                    {
+                      id: "animation" as const,
+                      tool: "animation" as const,
+                      label: lang === "id" ? "Animasi" : "Anim"
+                    },
+                    {
+                      id: "ai" as const,
+                      tool: "ai_coach" as const,
+                      label: "AI Coach"
+                    }
+                  ]).map((dockTab) => {
+                    const isTabActive =
+                      androidActiveTab === dockTab.id ||
+                      (androidActiveTab === "pitch" && dockTab.id === "squad");
+                    return (
+                      <button
+                        key={dockTab.id}
+                        type="button"
+                        onClick={() => {
+                          setAndroidActiveTab(dockTab.id);
+                          soundManager.playClick();
+                        }}
+                        className={`h-8.5 px-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 ${
+                          isTabActive
+                            ? "bg-teal-400 text-slate-950 font-black shadow-sm"
+                            : "text-teal-100/75 hover:text-white hover:bg-white/5 font-bold"
+                        }`}
+                      >
+                        <NanoBananaLogo tool={dockTab.tool} size="xs" active={isTabActive} />
+                        <span className="text-[9.5px] uppercase tracking-wider truncate">
+                          {dockTab.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* In Tablet 2-Panel Split Mode, if active tab is squad (or pitch fallback), render Club/Formation sub-tabs here */}
               {isTabletDualPanel && (androidActiveTab === "squad" || androidActiveTab === "pitch") && (
                 <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
@@ -5356,6 +5142,15 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Smart Squad Importer Modal (Triggered from Substitute Player Area next to Bench Squad button) */}
+      <SquadImport
+        hideTrigger
+        onImport={handleImportSquad}
+        lang={lang}
+        isOpen={isSquadImportModalOpen}
+        onOpenChange={setIsSquadImportModalOpen}
+      />
 
       {/* Nano Banana UI Tool Icon Studio Modal */}
       <NanoBananaIconStudioModal

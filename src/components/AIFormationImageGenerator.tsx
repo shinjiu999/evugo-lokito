@@ -1060,10 +1060,10 @@ export default function AIFormationImageGenerator({
             isPitchFullscreen
               ? "max-h-[76vh] min-h-[320px]"
               : posterFormat === "landscape"
-              ? "aspect-[4/3] max-h-[calc(100vh-265px)]"
+              ? "aspect-[4/3] max-h-[calc(100dvh-335px)] lg:max-h-[calc(100dvh-275px)]"
               : posterFormat === "square"
-              ? "aspect-square max-h-[calc(100vh-265px)]"
-              : "aspect-[3/4] sm:aspect-[9/14] max-h-[calc(100vh-265px)]"
+              ? "aspect-square max-h-[calc(100dvh-335px)] lg:max-h-[calc(100dvh-275px)]"
+              : "aspect-[3/4] sm:aspect-[9/14] max-h-[calc(100dvh-335px)] lg:max-h-[calc(100dvh-275px)]"
           }`}
         >
           {/* Subtle Stadium Grid Backdrop */}

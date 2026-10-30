@@ -8,13 +8,15 @@ interface SquadImportProps {
   lang?: "id" | "en";
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
 export default function SquadImport({
   onImport,
   lang = "id",
   isOpen: controlledIsOpen,
-  onOpenChange
+  onOpenChange,
+  hideTrigger = false
 }: SquadImportProps) {
   const [text, setText] = useState("");
   const [success, setSuccess] = useState(false);
@@ -114,24 +116,28 @@ export default function SquadImport({
   };
 
   return (
-    <div className="relative group">
-      <button
-        type="button"
-        onClick={() => setModalOpen(true)}
-        className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/30 hover:border-teal-400/60 text-teal-100 hover:text-white shadow-md active:scale-95 focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none"
-        aria-label={lang === "id" ? "Impor Skuad" : "Roster Import"}
-      >
-        <NanoBananaLogo tool="import" size="md" />
-      </button>
+    <div className={hideTrigger ? "" : "relative group shrink-0"}>
+      {!hideTrigger && (
+        <>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg flex items-center justify-center transition-all cursor-pointer border bg-[#06151a]/90 hover:bg-[#09222a] border-teal-400/30 hover:border-teal-400/60 text-teal-100 hover:text-white shadow-sm active:scale-95 focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:outline-none"
+            aria-label={lang === "id" ? "Impor Skuad" : "Roster Import"}
+          >
+            <NanoBananaLogo tool="import" size="sm" />
+          </button>
 
-      <ToolHoverTooltip
-        category={lang === "id" ? "IMPOR SKUAD" : "BULK IMPORT"}
-        title={lang === "id" ? "Impor Daftar Pemain" : "Import Squad Roster"}
-        align="right"
-      />
+          <ToolHoverTooltip
+            category={lang === "id" ? "IMPOR SKUAD" : "BULK IMPORT"}
+            title={lang === "id" ? "Impor Daftar Pemain" : "Import Squad Roster"}
+            align="right"
+          />
+        </>
+      )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn" onClick={() => setModalOpen(false)}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn" onClick={() => setModalOpen(false)}>
           <div 
             className="w-full max-w-md bg-[#071912]/98 border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-3xl p-5 shadow-[0_24px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl relative text-left"
             onClick={(e) => e.stopPropagation()}

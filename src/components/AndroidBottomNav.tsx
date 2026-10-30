@@ -57,9 +57,9 @@ export default function AndroidBottomNav({
   return (
     <nav
       aria-label={lang === "id" ? "Navigasi Bawah HP & Tablet" : "Mobile & Tablet Bottom Navigation"}
-      className="shrink-0 w-full z-50 bg-[#051419]/95 backdrop-blur-xl border-t border-teal-400/20 px-2 py-1.5 shadow-[0_-8px_30px_rgba(2,10,14,0.75)] select-none"
+      className="shrink-0 w-full z-50 bg-[#051419]/95 backdrop-blur-xl border-t border-teal-400/20 px-2 sm:px-4 py-1 sm:py-1.5 shadow-[0_-8px_30px_rgba(2,10,14,0.75)] select-none"
     >
-      <div className="grid grid-cols-6 items-center max-w-2xl mx-auto gap-1.5">
+      <div className="grid grid-cols-6 items-center max-w-3xl mx-auto gap-1.5 sm:gap-2">
         {navItems.map((item, idx) => {
           const isActive = activeTab === item.key;
           const shortLabel =
@@ -80,7 +80,7 @@ export default function AndroidBottomNav({
                   onChangeTab(item.key);
                   soundManager.playClick();
                 }}
-                className={`w-full h-10 sm:h-11 px-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 rounded-xl transition-all duration-150 cursor-pointer relative ${
+                className={`w-full h-9.5 sm:h-10 px-1 sm:px-2 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 rounded-xl transition-all duration-150 cursor-pointer relative ${
                   isActive
                     ? "bg-teal-400 text-slate-950 shadow-[0_0_12px_rgba(45,212,191,0.35)] font-black"
                     : "bg-[#071c22]/80 hover:bg-white/10 text-teal-100/80 border border-teal-400/15"
@@ -114,7 +114,7 @@ export default function AndroidBottomNav({
               onOpenSettings();
               soundManager.playClick();
             }}
-            className="w-full h-10 sm:h-11 px-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 rounded-xl transition-all duration-150 cursor-pointer bg-[#071c22]/80 hover:bg-white/10 text-teal-100/80 border border-teal-400/15"
+            className="w-full h-9.5 sm:h-10 px-1 sm:px-2 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 rounded-xl transition-all duration-150 cursor-pointer bg-[#071c22]/80 hover:bg-white/10 text-teal-100/80 border border-teal-400/15"
             aria-label={lang === "id" ? "Pengaturan" : "Settings"}
           >
             <NanoBananaLogo tool="settings" size="sm" />

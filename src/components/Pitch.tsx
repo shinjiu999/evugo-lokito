@@ -67,6 +67,8 @@ interface PitchProps {
     order?: "asc" | "desc",
     target?: "all" | "starters" | "bench"
   ) => void;
+  onOpenSquadImport?: () => void;
+  onOpenSquadManager?: () => void;
   bottomControls?: ReactNode;
 }
 
@@ -185,6 +187,8 @@ export default function Pitch({
   isFullscreen = false,
   onToggleFullscreen,
   onSortPlayers,
+  onOpenSquadImport,
+  onOpenSquadManager,
   bottomControls
 }: PitchProps) {
   const pitchRef = useRef<HTMLDivElement>(null);
@@ -561,11 +565,14 @@ export default function Pitch({
   const [clickStartInfo, setClickStartInfo] = useState<{ id: string; time: number; x: number; y: number } | null>(null);
 
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-      setIsMobileOrTablet(window.innerWidth < 1024);
+      const w = window.innerWidth;
+      setIsMobile(w < 600);
+      setIsTablet(w >= 600 && w <= 1024);
+      setIsMobileOrTablet(w <= 1024);
     };
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -1933,13 +1940,13 @@ export default function Pitch({
   }
 
   const wrapperClass = isMobileDrawActive
-    ? `fixed top-[82px] bottom-[20px] left-3 right-3 m-auto max-w-[580px] max-h-[calc(100vh-112px)] aspect-[4/5.2] sm:aspect-[4/4.3] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
+    ? `fixed top-[82px] bottom-[20px] left-3 right-3 m-auto max-w-[var(--pitch-max-w,580px)] max-h-[calc(100vh-112px)] aspect-[var(--pitch-aspect,4/4.3)] rounded-3xl overflow-hidden border-4 transition-all select-none z-[150] ${pitchWrapperClass}`
     : (isFullscreen && !isMobileOrTablet)
       ? `relative w-[50vh] sm:w-[68vh] aspect-[4/5.2] sm:aspect-[4/4.3] rounded-3xl overflow-hidden border-4 transition-all select-none rotate-90 origin-center ${pitchWrapperClass}`
-      : `relative w-full ${isFullscreen ? "max-w-[720px] md:max-w-[850px] max-h-[82vh]" : "max-w-[var(--pitch-max-w,580px)]"} aspect-[4/5.2] sm:aspect-[4/4.3] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
+      : `relative w-full ${isFullscreen ? "max-w-[720px] md:max-w-[850px] max-h-[82vh]" : "max-w-[var(--pitch-max-w,580px)]"} aspect-[var(--pitch-aspect,4/4.3)] rounded-3xl overflow-hidden border-4 transition-all select-none ${pitchWrapperClass}`;
 
   return (
-    <div className="w-full flex flex-col md:flex-row items-start justify-center gap-2.5 relative">
+    <div className="w-full flex flex-col md:flex-row items-start justify-center gap-2 relative">
       <div className="w-full flex flex-col items-center gap-1.5 min-w-0">
       
       {/* Mobile drawing fullscreen backdrop & controls overlay */}
@@ -1955,7 +1962,7 @@ export default function Pitch({
         const selPlayer = players.find((p) => p.id === selectedSubPlayerId);
         if (!selPlayer) return null;
         return (
-          <div className="w-full max-w-[580px] z-50 flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl border bg-[#071c22]/95 border-amber-400/45 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          <div className="w-full max-w-[var(--pitch-max-w,580px)] z-50 flex items-center justify-between gap-3 px-3.5 py-2 rounded-2xl border bg-[#071c22]/95 border-amber-400/45 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="relative flex items-center justify-center w-7 h-7 rounded-xl bg-amber-500/15 border border-amber-400/35 text-amber-300 shrink-0 animate-pulse">
                 <span className="text-[10px] font-black uppercase">🔄</span>
@@ -1988,7 +1995,7 @@ export default function Pitch({
       })()}
 
       {isMeasureMode && (
-        <div className="w-full max-w-[580px] z-45 flex items-center justify-between p-2.5 rounded-2xl bg-[#071c22]/95 backdrop-blur-xl border border-amber-400/40 shadow-[0_8px_24px_rgba(0,0,0,0.45)] animate-fadeIn">
+        <div className="w-full max-w-[var(--pitch-max-w,580px)] z-45 flex items-center justify-between p-2 rounded-2xl bg-[#071c22]/95 backdrop-blur-xl border border-amber-400/40 shadow-[0_8px_24px_rgba(0,0,0,0.45)] animate-fadeIn">
           <div className="flex items-center gap-2 text-xs">
             <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
               <Ruler className="w-3.5 h-3.5" />
@@ -2152,8 +2159,6 @@ export default function Pitch({
                   transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
                   className="absolute left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_rgba(34,211,238,0.7)] opacity-40"
                 />
-                <div className="absolute top-2.5 left-3.5 font-mono text-[7px] text-cyan-400/30 uppercase tracking-widest">SYS: ONLINE</div>
-                <div className="absolute bottom-2.5 right-3.5 font-mono text-[7px] text-cyan-400/30">HOLO // SENSORS OK</div>
               </div>
             )}
 
@@ -3810,32 +3815,67 @@ export default function Pitch({
 
       {/* EXTERNAL DETACHED SQUAD BENCH (DUGOUT) PANEL OUTSIDE THE PITCH */}
       {!isMobileDrawActive && !isFullscreen && (
-        <div className="relative w-full max-w-[var(--pitch-max-w,580px)] bg-[#06181f]/95 backdrop-blur-xl border border-teal-400/25 rounded-2xl flex flex-col justify-start px-2.5 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.45)] z-40 hover:z-[115]">
-          <div className="flex flex-wrap gap-1.5 overflow-visible w-full items-center">
-            {/* Inline Compact Bench Emblem + Sort Controls */}
-            <div className="flex items-center gap-1 mr-0.5 select-none shrink-0">
-              <div className="relative group">
-                <div className="h-7 px-1.5 rounded-xl bg-[#041217] border border-teal-400/25 flex items-center gap-1 cursor-default">
-                  <NanoBananaLogo tool="squad" size="xs" />
-                  <span className="px-1 py-0.2 rounded bg-teal-500/20 text-teal-200 text-[9px] font-extrabold font-mono">
-                    {players.filter((p) => !p.isStarting).length}
-                  </span>
+        <div
+          id="pitch-dugout-bench"
+          className="relative w-full max-w-[var(--pitch-max-w,580px)] bg-[#06181f]/95 backdrop-blur-xl border border-teal-400/25 rounded-xl sm:rounded-2xl flex flex-col justify-start px-2 py-1 sm:px-2.5 sm:py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.45)] z-35 hover:z-[115] mb-0.5 shrink-0"
+        >
+          <div className="flex flex-wrap gap-1 sm:gap-1.5 max-h-[54px] lg:max-h-none overflow-y-auto lg:overflow-visible scrollbar-none w-full items-center">
+            {/* Grouped Bench Actions: [Skuad Cadangan + Impor Daftar Pemain] & [Sort Controls] */}
+            <div className="flex items-center gap-1 pr-1 mr-0.5 border-r border-teal-400/20 select-none shrink-0">
+              <div className="flex items-center gap-0.5 bg-[#041115] border border-teal-400/25 rounded-lg p-0.5">
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenSquadManager) onOpenSquadManager();
+                      soundManager.playClick();
+                    }}
+                    aria-label={lang === "id" ? "Skuad Cadangan" : "Bench Squad"}
+                    className="h-5.5 sm:h-6 px-1.5 rounded-md bg-[#06181f] hover:bg-teal-500/20 text-teal-100 hover:text-white flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                  >
+                    <NanoBananaLogo tool="squad" size="xs" />
+                    <span className="px-1 py-0.2 rounded bg-teal-500/25 text-teal-200 text-[8.5px] sm:text-[9px] font-extrabold font-mono tabular-nums">
+                      {players.filter((p) => !p.isStarting).length}
+                    </span>
+                  </button>
+                  <ToolHoverTooltip
+                    category={lang === "id" ? "SKUAD CADANGAN" : "BENCH SQUAD"}
+                    title={lang === "id" ? "Bangku Cadangan (Klik Kelola / Seret ke Lapangan)" : "Squad Bench (Click to Manage / Drag to Pitch)"}
+                    align="left"
+                  />
                 </div>
-                <ToolHoverTooltip
-                  category={lang === "id" ? "DUGOUT TIM" : "TEAM DUGOUT"}
-                  title={lang === "id" ? "Bangku Cadangan (Klik / Seret ke Lapangan)" : "Squad Bench (Click / Drag to Pitch)"}
-                  align="left"
-                />
+
+                {/* Tombol Import Daftar Pemain (Sebelah Tombol Squad Cadangan) */}
+                {onOpenSquadImport && (
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenSquadImport();
+                        soundManager.playClick();
+                      }}
+                      aria-label={lang === "id" ? "Impor Daftar Pemain" : "Import Squad Roster"}
+                      className="w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-md bg-[#06181f] hover:bg-teal-500/20 flex items-center justify-center cursor-pointer transition-all active:scale-95 text-teal-200 hover:text-white"
+                    >
+                      <NanoBananaLogo tool="import" size="xs" />
+                    </button>
+                    <ToolHoverTooltip
+                      category={lang === "id" ? "IMPOR SKUAD" : "BULK IMPORT"}
+                      title={lang === "id" ? "Impor Daftar Pemain" : "Import Squad Roster"}
+                      align="left"
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-0.5 bg-[#041115] border border-teal-400/20 rounded-xl p-0.5">
+              <div className="flex items-center gap-0.5 bg-[#041115] border border-teal-400/20 rounded-lg p-0.5">
                 {/* Sort by Role */}
                 <div className="relative group">
                   <button
                     type="button"
                     onClick={() => handleBenchSort("role")}
                     aria-label={lang === "id" ? "Urutkan Posisi" : "Sort by Role"}
-                    className={`w-6 h-6 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+                    className={`w-5 h-5 sm:w-5.5 sm:h-5.5 rounded-md transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
                       benchSortBy === "role"
                         ? "bg-teal-400 text-slate-950 shadow-sm"
                         : "text-teal-300 hover:bg-white/10"
@@ -3856,7 +3896,7 @@ export default function Pitch({
                     type="button"
                     onClick={() => handleBenchSort("number")}
                     aria-label={lang === "id" ? "Urutkan Nomor Punggung" : "Sort by Shirt Number"}
-                    className={`w-6 h-6 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+                    className={`w-5 h-5 sm:w-5.5 sm:h-5.5 rounded-md transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
                       benchSortBy === "number"
                         ? "bg-teal-400 text-slate-950 shadow-sm"
                         : "text-teal-300 hover:bg-white/10"
@@ -3877,7 +3917,7 @@ export default function Pitch({
                     type="button"
                     onClick={() => handleBenchSort("name")}
                     aria-label={lang === "id" ? "Urutkan Nama A-Z" : "Sort Alphabetically A-Z"}
-                    className={`w-6 h-6 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+                    className={`w-5 h-5 sm:w-5.5 sm:h-5.5 rounded-md transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
                       benchSortBy === "name"
                         ? "bg-teal-400 text-slate-950 shadow-sm"
                         : "text-teal-300 hover:bg-white/10"
@@ -3917,16 +3957,22 @@ export default function Pitch({
 
                 const numSubs = subs.length;
 
-                // Continuously scale substitute indicators based on active headcount to make them fit perfectly
-                const scale = Math.max(0.55, Math.min(1.0, 8 / Math.max(8, numSubs)));
+                // Compact scaling on HP/Mobile & Tablet so substitute pills stay sleek and never stack into tall rows
+                const scale = isMobile
+                  ? Math.max(0.76, Math.min(0.95, 6 / Math.max(6, numSubs)))
+                  : isTablet
+                  ? Math.max(0.78, Math.min(0.95, 7 / Math.max(7, numSubs)))
+                  : Math.max(0.62, Math.min(0.95, 8 / Math.max(8, numSubs)));
 
-                const btnHeight = Math.round(38 * scale);
-                const avatarSize = Math.round(26 * scale);
-                const padX = Math.round(10 * scale);
-                const padY = Math.round(5 * scale);
-                const itemGap = Math.round(7 * scale);
-                const fontNameSize = Math.max(7, Math.round(10 * scale));
-                const fontRoleSize = Math.max(6, Math.round(7.5 * scale));
+                const baseBtnH = isMobile ? 24 : isTablet ? 26 : 32;
+                const baseAvatar = isMobile ? 16 : isTablet ? 18 : 22;
+                const btnHeight = Math.round(baseBtnH * scale);
+                const avatarSize = Math.round(baseAvatar * scale);
+                const padX = Math.max(4, Math.round((isMobile ? 6 : isTablet ? 7 : 8) * scale));
+                const padY = Math.max(2, Math.round((isMobile ? 2 : isTablet ? 2.5 : 4) * scale));
+                const itemGap = Math.max(3, Math.round((isMobile ? 4 : isTablet ? 4.5 : 6) * scale));
+                const fontNameSize = Math.max(7, Math.round((isMobile ? 8.5 : isTablet ? 9 : 9.5) * scale));
+                const fontRoleSize = Math.max(6, Math.round(7 * scale));
 
                 const managerBadge = (
                   <div
@@ -3938,9 +3984,9 @@ export default function Pitch({
                       paddingTop: `${padY}px`,
                       paddingBottom: `${padY}px`,
                       gap: `${itemGap}px`,
-                      borderRadius: `${scale > 0.82 ? 12 : 8}px`,
+                      borderRadius: `${isMobile || isTablet ? 8 : scale > 0.82 ? 10 : 8}px`,
                     }}
-                    className="flex items-center shrink-0 transition-all select-none bg-emerald-950/60 hover:bg-emerald-950/80 border border-emerald-500/30 hover:border-emerald-400/50 shadow-[0_4px_12px_rgba(16,185,129,0.15)] mr-1"
+                    className="flex items-center shrink-0 transition-all select-none bg-emerald-950/60 hover:bg-emerald-950/80 border border-emerald-500/30 hover:border-emerald-400/50 shadow-[0_4px_12px_rgba(16,185,129,0.15)] mr-0.5"
                   >
                     {managerPhoto ? (
                       <img
@@ -3958,7 +4004,7 @@ export default function Pitch({
                           width: `${avatarSize}px`,
                           height: `${avatarSize}px`
                         }}
-                        className="rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center font-bold text-white text-[10px] pointer-events-none border border-emerald-400/35"
+                        className="rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center font-bold text-white text-[9px] pointer-events-none border border-emerald-400/35"
                       >
                         👔
                       </div>
@@ -3966,16 +4012,18 @@ export default function Pitch({
                     <div className="flex flex-col select-none leading-none">
                       <span
                         style={{ fontSize: `${fontNameSize}px` }}
-                        className="font-black text-white uppercase tracking-wide truncate max-w-[85px]"
+                        className="font-black text-white uppercase tracking-wide truncate max-w-[54px] sm:max-w-[78px]"
                       >
                         {managerName}
                       </span>
-                      <span
-                        style={{ fontSize: `${fontRoleSize}px` }}
-                        className="font-bold text-emerald-400 uppercase tracking-widest mt-0.5"
-                      >
-                        {lang === "id" ? "PELATIH" : "COACH"}
-                      </span>
+                      {!isMobile && (
+                        <span
+                          style={{ fontSize: `${fontRoleSize}px` }}
+                          className="font-bold text-emerald-400 uppercase tracking-widest mt-0.5"
+                        >
+                          {lang === "id" ? "PELATIH" : "COACH"}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -4001,7 +4049,7 @@ export default function Pitch({
                         paddingTop: `${padY}px`,
                         paddingBottom: `${padY}px`,
                         gap: `${itemGap}px`,
-                        borderRadius: `${scale > 0.82 ? 12 : 8}px`,
+                        borderRadius: `${isMobile ? 8 : scale > 0.82 ? 10 : 8}px`,
                       }}
                       className={`group relative flex items-center shrink-0 cursor-grab active:cursor-grabbing transition-all select-none hover:z-[120] ${
                         selectedSubPlayerId === sub.id
@@ -4010,7 +4058,7 @@ export default function Pitch({
                       }`}
                     >
                       {/* Floating Mini Stats HUD for Bench on Hover */}
-                      <div className="absolute bottom-[115%] left-[50%] -translate-x-[50%] z-[130] bg-[#06140e]/98 border border-emerald-500/40 p-2 rounded-xl shadow-[0_14px_34px_rgba(0,0,0,0.9)] opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex flex-col gap-1 select-none backdrop-blur-xl">
+                      <div className="hidden sm:flex absolute bottom-[115%] left-[50%] -translate-x-[50%] z-[130] bg-[#06140e]/98 border border-emerald-500/40 p-2 rounded-xl shadow-[0_14px_34px_rgba(0,0,0,0.9)] opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex-col gap-1 select-none backdrop-blur-xl">
                         <div className="text-[8px] font-black uppercase text-emerald-400 tracking-wider mb-1 text-center border-b border-emerald-500/20 pb-1 flex justify-between items-center px-1">
                           <span>Kemampuan</span>
                           <span className="text-emerald-300 font-extrabold font-mono">
@@ -4062,9 +4110,9 @@ export default function Pitch({
                             height: `${avatarSize}px`,
                             backgroundColor: currentBg,
                             color: numberColor,
-                            fontSize: `${Math.max(6.5, Math.round(9.5 * scale))}px`
+                            fontSize: `${Math.max(6.5, Math.round((isMobile ? 8 : 9) * scale))}px`
                           }}
-                          className="rounded-full flex items-center justify-center font-extrabold pointer-events-none shadow-sm"
+                          className="rounded-full flex items-center justify-center font-extrabold pointer-events-none shadow-sm tabular-nums"
                         >
                           {sub.number}
                         </div>
@@ -4073,11 +4121,11 @@ export default function Pitch({
                       <div className="flex flex-col justify-center select-none pointer-events-none">
                         <span
                           style={{ fontSize: `${fontNameSize}px` }}
-                          className="font-black text-white whitespace-nowrap leading-tight"
+                          className="font-black text-white whitespace-nowrap leading-tight max-w-[60px] sm:max-w-[85px] truncate"
                         >
                           {sub.name}
                         </span>
-                        {scale > 0.65 && (
+                        {!isMobile && scale > 0.65 && (
                           <span
                             style={{ fontSize: `${fontRoleSize}px` }}
                             className="font-extrabold text-emerald-400/80 uppercase tracking-widest leading-none mt-0.5"
@@ -4105,9 +4153,9 @@ export default function Pitch({
                 type="button"
                 onClick={() => setIsAddSubOpen(true)}
                 aria-label={lang === "id" ? "Tambah Pemain Cadangan" : "Add Bench Player"}
-                className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-300 text-emerald-400 border border-dashed border-emerald-500/30 hover:border-emerald-400/60 font-black cursor-pointer transition-all hover:scale-110 active:scale-95 shadow-sm ml-1"
+                className="flex items-center justify-center w-6 h-6 sm:w-6.5 sm:h-6.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-300 text-emerald-400 border border-dashed border-emerald-500/30 hover:border-emerald-400/60 font-black cursor-pointer transition-all hover:scale-110 active:scale-95 shadow-sm ml-0.5"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </button>
               <ToolHoverTooltip
                 category={lang === "id" ? "SKUAD CADANGAN" : "BENCH SQUAD"}
@@ -4116,7 +4164,9 @@ export default function Pitch({
             </div>
 
             {players.filter((p) => !p.isStarting).length === 0 && (
-              <span className="text-[10px] text-gray-400 italic font-medium">Bangku cadangan kosong. Tarik pemain ke bawah untuk mencadangkan.</span>
+              <span className="text-[9.5px] sm:text-[10px] text-gray-400 italic font-medium">
+                {lang === "id" ? "Cadangan kosong. Tarik pemain ke bawah untuk mencadangkan." : "Bench empty. Drag player down to demote."}
+              </span>
             )}
           </div>
         </div>
@@ -4222,16 +4272,16 @@ export default function Pitch({
 
       </div>
 
-      {/* SLEEK FLOATING SIDEBAR FOR DRAWING CONTROLS (DOCKED ON THE SIDE OF THE FIELD) */}
+      {/* SLEEK FLOATING SIDEBAR FOR DRAWING CONTROLS (DOCKED ON THE SIDE OF THE FIELD, COMPACT SO IT NEVER OVERFLOWS DOWNWARDS ON PC) */}
       {activeTool === "draw" && (
         <div 
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           className={`${
             isMobileDrawActive
-              ? "fixed top-3 left-1/2 -translate-x-1/2 flex-row w-[96%] max-w-[500px] h-14 px-2.5 py-1 justify-between gap-1 overflow-x-auto scrollbar-none"
-              : "relative flex flex-col w-11 sm:w-14 h-auto p-1.5 gap-1.5"
-          } z-[160] flex items-center bg-[#071912]/92 border border-emerald-500/30 rounded-2xl shadow-[0_16px_45px_rgba(0,0,0,0.65)] ring-1 ring-emerald-400/20 backdrop-blur-2xl animate-fade-in shrink-0`}
+              ? "fixed top-3 left-1/2 -translate-x-1/2 flex-row w-[96%] max-w-[500px] h-12 px-2 py-1 justify-between gap-1 overflow-x-auto scrollbar-none"
+              : "relative flex flex-col w-9 sm:w-10 h-auto p-1 gap-1 self-start"
+          } z-[160] flex items-center bg-[#071912]/95 border border-emerald-500/30 rounded-xl shadow-[0_12px_35px_rgba(0,0,0,0.65)] ring-1 ring-emerald-400/20 backdrop-blur-2xl animate-fade-in shrink-0`}
         >
           {/* CLOSE DRAW BUTTON */}
           <button
@@ -4239,33 +4289,13 @@ export default function Pitch({
               if (onChangeTool) onChangeTool("select");
               soundManager.playClick();
             }}
-            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-red-500/15 hover:bg-red-500/25 active:scale-90 text-red-400 border border-red-500/30 flex items-center justify-center transition-all cursor-pointer shrink-0"
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 active:scale-90 text-red-400 border border-red-500/30 flex items-center justify-center transition-all cursor-pointer shrink-0"
             title={lang === "id" ? "Tutup Coret" : "Close Draw"}
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
 
-          {onToggleFullscreen && (
-            <>
-              {!isMobileDrawActive && <div className="w-full h-px bg-emerald-500/15 my-0.5" />}
-              <button
-                onClick={() => {
-                  onToggleFullscreen();
-                  soundManager.playClick();
-                }}
-                className={`w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
-                  isFullscreen
-                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border border-emerald-400/40 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
-                    : "bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 hover:text-white"
-                }`}
-                title={isFullscreen ? (lang === "id" ? "Keluar Layar Penuh" : "Exit Fullscreen") : (lang === "id" ? "Layar Penuh" : "Fullscreen")}
-              >
-                {isFullscreen ? <Minimize2 className="w-4 h-4 shrink-0" /> : <Maximize2 className="w-4 h-4 shrink-0" />}
-              </button>
-            </>
-          )}
-
-          {!isMobileDrawActive && <div className="w-full h-px bg-emerald-500/15 my-0.5" />}
+          {!isMobileDrawActive && <div className="w-full h-px bg-emerald-500/15" />}
 
           {/* UNDO BUTTON */}
           <button
@@ -4278,10 +4308,10 @@ export default function Pitch({
               soundManager.playClick();
             }}
             disabled={drawHistory.length === 0}
-            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-emerald-500/15 hover:text-emerald-300 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5 shrink-0"
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-white/5 hover:bg-emerald-500/15 hover:text-emerald-300 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5 shrink-0"
             title={lang === "id" ? "Batal (Undo)" : "Undo"}
           >
-            <Undo className="w-4 h-4" />
+            <Undo className="w-3.5 h-3.5" />
           </button>
 
           {/* REDO BUTTON */}
@@ -4295,10 +4325,10 @@ export default function Pitch({
               soundManager.playClick();
             }}
             disabled={redoHistory.length === 0}
-            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-emerald-500/15 hover:text-emerald-300 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5 shrink-0"
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-white/5 hover:bg-emerald-500/15 hover:text-emerald-300 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-white cursor-pointer border border-white/5 shrink-0"
             title={lang === "id" ? "Ulangi (Redo)" : "Redo"}
           >
-            <Redo className="w-4 h-4" />
+            <Redo className="w-3.5 h-3.5" />
           </button>
 
           {/* CLEAR ALL BUTTON */}
@@ -4308,64 +4338,64 @@ export default function Pitch({
               soundManager.playClick();
             }}
             disabled={drawHistory.length === 0}
-            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-red-950/35 hover:bg-red-900/45 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-red-400 cursor-pointer border border-red-500/20 shrink-0"
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-red-950/35 hover:bg-red-900/45 active:scale-90 flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none text-red-400 cursor-pointer border border-red-500/20 shrink-0"
             title={lang === "id" ? "Hapus" : "Clear"}
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
 
-          {!isMobileDrawActive && <div className="w-full h-px bg-emerald-500/15 my-0.5" />}
+          {!isMobileDrawActive && <div className="w-full h-px bg-emerald-500/15" />}
 
           {/* BRUSH STYLE TOGGLE (Solid, Arrow, or Eraser) */}
-          <div className={`flex ${isMobileDrawActive ? "flex-row gap-0.5" : "flex-col gap-1.5"} items-center shrink-0`}>
+          <div className={`flex ${isMobileDrawActive ? "flex-row gap-0.5" : "flex-col gap-1"} items-center shrink-0`}>
             <button
               onClick={() => {
                 if (setBrushStyle) setBrushStyle("solid");
                 soundManager.playClick();
               }}
-              className={`w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+              className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                 brushStyle === "solid" 
-                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-[0_0_14px_rgba(16,185,129,0.45)] border border-emerald-400/30" 
+                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.4)] border border-emerald-400/30" 
                   : "bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 hover:text-white"
               }`}
               title={lang === "id" ? "Garis Solid" : "Solid Line"}
             >
-              <Slash className="w-4 h-4 shrink-0" />
+              <Slash className="w-3.5 h-3.5 shrink-0" />
             </button>
             <button
               onClick={() => {
                 if (setBrushStyle) setBrushStyle("arrow");
                 soundManager.playClick();
               }}
-              className={`w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+              className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                 brushStyle === "arrow" 
-                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-[0_0_14px_rgba(16,185,129,0.45)] border border-emerald-400/30" 
+                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.4)] border border-emerald-400/30" 
                   : "bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 hover:text-white"
               }`}
               title={lang === "id" ? "Garis Panah" : "Arrow Line"}
             >
-              <ArrowUpRight className="w-4.5 h-4.5 shrink-0" />
+              <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
             </button>
             <button
               onClick={() => {
                 if (setBrushStyle) setBrushStyle("eraser");
                 soundManager.playClick();
               }}
-              className={`w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+              className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                 brushStyle === "eraser" 
-                  ? "bg-gradient-to-r from-pink-600 to-rose-600 text-white shadow-[0_0_14px_rgba(236,72,153,0.45)] border border-pink-400/30" 
+                  ? "bg-gradient-to-r from-pink-600 to-rose-600 text-white shadow-[0_0_10px_rgba(236,72,153,0.4)] border border-pink-400/30" 
                   : "bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 hover:text-white"
               }`}
               title={lang === "id" ? "Penghapus" : "Eraser"}
             >
-              <Eraser className="w-4 h-4 shrink-0" />
+              <Eraser className="w-3.5 h-3.5 shrink-0" />
             </button>
           </div>
 
-          {!isMobileDrawActive && <div className="w-full h-px bg-emerald-500/15 my-0.5" />}
+          {!isMobileDrawActive && <div className="w-full h-px bg-emerald-500/15" />}
 
-          {/* COLOR PALETTE */}
-          <div className={`flex ${isMobileDrawActive ? "flex-row gap-0.5 sm:gap-1" : "flex-col gap-1"} items-center py-0.5 shrink-0`}>
+          {/* COLOR PALETTE (Compact 2-col grid on PC so it stays short vertically) */}
+          <div className={`${isMobileDrawActive ? "flex flex-row gap-1 items-center" : "grid grid-cols-2 gap-1 justify-items-center"} py-0.5 shrink-0`}>
             {["#ffffff", "#f59e0b", "#22d3ee", "#ef4444", "#10b981"].map((colorHex) => {
               const isSelected = brushColor.toLowerCase() === colorHex.toLowerCase();
               return (
@@ -4375,19 +4405,19 @@ export default function Pitch({
                     if (setBrushColor) setBrushColor(colorHex);
                     soundManager.playClick();
                   }}
-                  className="relative w-4.5 h-4.5 sm:w-6.5 sm:h-6.5 rounded-full border border-white/20 flex items-center justify-center shadow-inner transition-transform active:scale-90 cursor-pointer"
+                  className="relative w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border border-white/25 flex items-center justify-center shadow-inner transition-transform active:scale-90 cursor-pointer"
                   style={{ backgroundColor: colorHex }}
                   title={colorHex}
                 >
                   {isSelected && (
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-slate-900 ring-1 ring-white" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-900 ring-1 ring-white" />
                   )}
                 </button>
               );
             })}
           </div>
 
-          {!isMobileDrawActive && <div className="w-full h-px bg-white/5 my-0.5" />}
+          {!isMobileDrawActive && <div className="w-full h-px bg-white/5" />}
 
           {/* BRUSH SIZE MULTI-CYCLE */}
           <button
@@ -4400,10 +4430,10 @@ export default function Pitch({
               }
               soundManager.playClick();
             }}
-            className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-emerald-500/15 active:scale-90 flex flex-col items-center justify-center transition-all text-white border border-white/5 cursor-pointer shrink-0"
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-white/5 hover:bg-emerald-500/15 active:scale-90 flex flex-col items-center justify-center transition-all text-white border border-white/5 cursor-pointer shrink-0"
             title={lang === "id" ? "Ukuran Coret" : "Brush Size"}
           >
-            <div className="flex items-center justify-center h-4 w-4">
+            <div className="flex items-center justify-center h-3.5 w-3.5">
               <span 
                 className="rounded-full bg-emerald-400 transition-all shadow-[0_0_8px_rgba(52,211,153,0.6)]" 
                 style={{ width: `${Math.max(2, brushSize)}px`, height: `${Math.max(2, brushSize)}px` }}
@@ -4411,22 +4441,20 @@ export default function Pitch({
             </div>
           </button>
 
-          {!isMobileDrawActive && <div className="w-full h-px bg-emerald-500/15 my-0.5" />}
-
           {/* LAYER MANAGER TOGGLE BUTTON */}
           <button
             onClick={() => {
               setShowLayersPanel(!showLayersPanel);
               soundManager.playClick();
             }}
-            className={`w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl active:scale-90 flex flex-col items-center justify-center transition-all border cursor-pointer shrink-0 ${
+            className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg active:scale-90 flex flex-col items-center justify-center transition-all border cursor-pointer shrink-0 ${
               showLayersPanel
-                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-400/40 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
+                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-400/40 shadow-[0_0_10px_rgba(16,185,129,0.4)]"
                 : "bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 hover:text-white"
             }`}
             title={lang === "id" ? "Pengelola Lapisan" : "Layer Manager"}
           >
-            <Layers className="w-4 h-4" />
+            <Layers className="w-3.5 h-3.5" />
           </button>
 
           {/* LAYERS FLOATING PANEL */}
@@ -4440,9 +4468,9 @@ export default function Pitch({
                 onTouchStart={(e) => e.stopPropagation()}
                 className={`${
                   isMobileDrawActive
-                    ? "fixed top-18 left-1/2 -translate-x-1/2 w-[95%] max-w-[340px]"
-                    : "absolute right-14 sm:right-16 top-0 w-72"
-                } z-[170] bg-[#071912]/95 border border-emerald-500/30 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] p-4 text-white ring-1 ring-emerald-400/20 backdrop-blur-2xl flex flex-col gap-3 text-left`}
+                    ? "fixed top-16 left-1/2 -translate-x-1/2 w-[95%] max-w-[340px]"
+                    : "absolute right-11 sm:right-12 top-0 w-68"
+                } z-[170] bg-[#071912]/95 border border-emerald-500/30 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] p-3.5 text-white ring-1 ring-emerald-400/20 backdrop-blur-2xl flex flex-col gap-2.5 text-left`}
               >
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
@@ -4471,7 +4499,7 @@ export default function Pitch({
                 </p>
 
                 {/* Layer Items */}
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1.5">
                   {[...layerOrder].reverse().map((layerId) => {
                     const isLayerActive = activeLayer === layerId;
                     const isLayerVisible = visibleLayers.includes(layerId);
@@ -4482,7 +4510,7 @@ export default function Pitch({
                     return (
                       <div
                         key={layerId}
-                        className={`flex items-center justify-between p-2 rounded-xl transition-all border ${
+                        className={`flex items-center justify-between p-1.5 rounded-xl transition-all border ${
                           isLayerActive
                             ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-100 shadow-sm"
                             : "bg-white/[0.03] border-white/5 hover:bg-white/5 text-gray-300"
@@ -4511,7 +4539,7 @@ export default function Pitch({
                           {/* Toggle Visibility */}
                           <button
                             onClick={() => toggleLayerVisibility(layerId)}
-                            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                            className={`p-1 rounded-lg border transition-all cursor-pointer ${
                               isLayerVisible
                                 ? "bg-white/5 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/15"
                                 : "bg-red-950/25 text-red-400 border-red-500/20 hover:bg-red-950/40"
@@ -4525,7 +4553,7 @@ export default function Pitch({
                           <button
                             disabled={idx === layerOrder.length - 1}
                             onClick={() => moveLayer(layerId, "up")}
-                            className="p-1.5 rounded-lg bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition-all animate-none"
+                            className="p-1 rounded-lg bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition-all animate-none"
                             title={lang === "id" ? "Pindahkan ke Depan" : "Move Up / Front"}
                           >
                             <ChevronUp className="w-3.5 h-3.5" />
@@ -4535,7 +4563,7 @@ export default function Pitch({
                           <button
                             disabled={idx === 0}
                             onClick={() => moveLayer(layerId, "down")}
-                            className="p-1.5 rounded-lg bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition-all animate-none"
+                            className="p-1 rounded-lg bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition-all animate-none"
                             title={lang === "id" ? "Pindahkan ke Belakang" : "Move Down / Back"}
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
@@ -4545,7 +4573,7 @@ export default function Pitch({
                           <button
                             disabled={strokeCount === 0}
                             onClick={() => clearLayerStrokes(layerId)}
-                            className="p-1.5 rounded-lg bg-red-950/30 text-red-400 border border-red-500/20 hover:bg-red-900/40 disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition-all"
+                            className="p-1 rounded-lg bg-red-950/30 text-red-400 border border-red-500/20 hover:bg-red-900/40 disabled:opacity-20 disabled:pointer-events-none cursor-pointer transition-all"
                             title={lang === "id" ? "Hapus Coretan Lapisan" : "Clear Layer Lines"}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
