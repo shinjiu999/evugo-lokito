@@ -3037,7 +3037,7 @@ export default function Pitch({
                         handleDragStart(e, player.id, "player");
                       }}
                       onDoubleClick={() => onDblClickPlayer(player.id)}
-                      className={`absolute flex flex-col items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center group transition-transform ${
+                      className={`absolute flex flex-col items-center justify-center -translate-x-[50%] -translate-y-[50%] origin-center group transition-transform hover:!z-[95] ${
                         isFullscreen && !isMobileOrTablet ? "rotate-[-90deg]" : ""
                       } ${
                         activeTool === "select"
@@ -3146,7 +3146,7 @@ export default function Pitch({
                         )}
 
                         {/* Floating Mini Stats HUD on Hover */}
-                        <div className="absolute top-[108%] z-50 bg-[#0f0f12]/95 border border-white/10 p-2 rounded-xl shadow-2xl opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex flex-col gap-1 select-none backdrop-blur-md">
+                        <div className="absolute top-[108%] z-[110] bg-[#0f0f12]/98 border border-white/15 p-2 rounded-xl shadow-[0_14px_34px_rgba(0,0,0,0.9)] opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex flex-col gap-1 select-none backdrop-blur-md">
                           <div className="text-[8px] font-black uppercase text-indigo-400 tracking-wider mb-1 text-center border-b border-white/5 pb-1 flex justify-between items-center px-1">
                             <span>Kemampuan</span>
                             <span className="text-emerald-400 font-extrabold font-mono tabular-nums">
@@ -3803,14 +3803,14 @@ export default function Pitch({
 
       {/* EXTERNAL BOTTOM TACTICAL CONTROL BAR SLOT (JUST OUTSIDE THE PITCH) */}
       {!isMobileDrawActive && bottomControls && (
-        <div className="w-full max-w-[580px] z-45">
+        <div className="relative w-full max-w-[580px] z-45 hover:z-[110] focus-within:z-[110]">
           {bottomControls}
         </div>
       )}
 
       {/* EXTERNAL DETACHED SQUAD BENCH (DUGOUT) PANEL OUTSIDE THE PITCH */}
       {!isMobileDrawActive && !isFullscreen && (
-        <div className="w-full max-w-[580px] bg-[#06181f]/95 backdrop-blur-xl border border-teal-400/25 rounded-2xl flex flex-col justify-start p-2.5 sm:p-3 shadow-[0_12px_32px_rgba(0,0,0,0.45)] z-40">
+        <div className="relative w-full max-w-[580px] bg-[#06181f]/95 backdrop-blur-xl border border-teal-400/25 rounded-2xl flex flex-col justify-start p-2.5 sm:p-3 shadow-[0_12px_32px_rgba(0,0,0,0.45)] z-40 hover:z-[115]">
           <div className="flex items-center justify-between gap-2 mb-2 select-none shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
               {/* Compact Bench Emblem + Count Badge (Hover reveals full title above) */}
@@ -3896,7 +3896,7 @@ export default function Pitch({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 overflow-y-auto max-h-[85%] w-full items-center scrollbar-none pb-0.5">
+          <div className="flex flex-wrap gap-1.5 overflow-visible w-full items-center pb-0.5">
             <AnimatePresence>
               {(() => {
                 let subs = players.filter((p) => !p.isStarting);
@@ -4007,14 +4007,14 @@ export default function Pitch({
                         gap: `${itemGap}px`,
                         borderRadius: `${scale > 0.82 ? 12 : 8}px`,
                       }}
-                      className={`group relative flex items-center shrink-0 cursor-grab active:cursor-grabbing transition-all select-none ${
+                      className={`group relative flex items-center shrink-0 cursor-grab active:cursor-grabbing transition-all select-none hover:z-[120] ${
                         selectedSubPlayerId === sub.id
                           ? "bg-amber-500/20 border-amber-400 ring-2 ring-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.35)] font-black text-amber-200"
                           : "bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-500/20 hover:border-emerald-400/50 text-white shadow-sm"
                       }`}
                     >
                       {/* Floating Mini Stats HUD for Bench on Hover */}
-                      <div className="absolute bottom-[115%] left-[50%] -translate-x-[50%] z-50 bg-[#06140e]/95 border border-emerald-500/30 p-2 rounded-xl shadow-2xl opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex flex-col gap-1 select-none backdrop-blur-xl">
+                      <div className="absolute bottom-[115%] left-[50%] -translate-x-[50%] z-[130] bg-[#06140e]/98 border border-emerald-500/40 p-2 rounded-xl shadow-[0_14px_34px_rgba(0,0,0,0.9)] opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 w-36 flex flex-col gap-1 select-none backdrop-blur-xl">
                         <div className="text-[8px] font-black uppercase text-emerald-400 tracking-wider mb-1 text-center border-b border-emerald-500/20 pb-1 flex justify-between items-center px-1">
                           <span>Kemampuan</span>
                           <span className="text-emerald-300 font-extrabold font-mono">
@@ -4103,20 +4103,20 @@ export default function Pitch({
               })()}
             </AnimatePresence>
 
-            {/* Simple logo plus button with animated hover tooltip */}
+            {/* Simple logo plus button with portal hover tooltip */}
             <div className="relative group shrink-0">
-               <button
-                 onClick={() => setIsAddSubOpen(true)}
-                 className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-300 text-emerald-400 border border-dashed border-emerald-500/30 hover:border-emerald-400/60 font-black cursor-pointer transition-all hover:scale-110 active:scale-95 shadow-sm ml-1"
-               >
-                 <Plus className="w-3.5 h-3.5" />
-               </button>
-               
-               {/* Tooltip on hover */}
-               <div className="absolute bottom-9 left-1/2 -translate-x-1/2 bg-[#06140e] border border-emerald-500/30 text-emerald-300 font-extrabold text-[9px] py-1 px-2.5 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:bottom-10 transition-all duration-200 shadow-xl whitespace-nowrap z-[90] tracking-wider">
-                 Tambah Pemain Cadangan
-                 <div className="absolute top-full left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#06140e] rotate-45 border-r border-b border-emerald-500/30 -mt-0.5"></div>
-               </div>
+              <button
+                type="button"
+                onClick={() => setIsAddSubOpen(true)}
+                aria-label={lang === "id" ? "Tambah Pemain Cadangan" : "Add Bench Player"}
+                className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-300 text-emerald-400 border border-dashed border-emerald-500/30 hover:border-emerald-400/60 font-black cursor-pointer transition-all hover:scale-110 active:scale-95 shadow-sm ml-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+              <ToolHoverTooltip
+                category={lang === "id" ? "SKUAD CADANGAN" : "BENCH SQUAD"}
+                title={lang === "id" ? "Tambah Pemain Cadangan" : "Add Bench Player"}
+              />
             </div>
 
             {players.filter((p) => !p.isStarting).length === 0 && (

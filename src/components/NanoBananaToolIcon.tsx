@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Check, X, Palette } from "lucide-react";
 
 export type NanoToolId =
@@ -74,8 +75,9 @@ interface ToolHoverTooltipProps {
 }
 
 /**
- * Floating tooltip that appears when hovering over a logo-only tool button.
- * Default placement is "top" (directly above the tool).
+ * Portal-rendered floating tooltip that appears when hovering over any tool button.
+ * Rendered directly in document.body with position: fixed and z-index: 999999
+ * so it NEVER gets stacked behind or clipped by any button, bar, or container.
  */
 export function ToolHoverTooltip({
   title,
@@ -84,49 +86,96 @@ export function ToolHoverTooltip({
   align = "center",
   placement = "top"
 }: ToolHoverTooltipProps) {
-  if (placement === "left") {
-    return (
-      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 bg-[#05161c]/98 border border-teal-400/40 px-2.5 py-1.5 rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.85)] text-[10px] whitespace-nowrap z-[110] flex flex-col items-end gap-0.5 backdrop-blur-xl">
-        {category && (
-          <span className="text-[7.5px] font-black tracking-widest text-teal-300 uppercase leading-none">
-            {category}
-          </span>
-        )}
-        <div className="flex items-center gap-1.5">
-          <span className="text-white font-extrabold tracking-tight">{title}</span>
-          {badge && (
-            <span className="px-1.5 py-0.2 rounded bg-teal-400/20 border border-teal-400/40 text-teal-200 font-mono text-[8.5px] font-black">
-              {badge}
-            </span>
-          )}
-        </div>
-        <div className="absolute left-full top-1/2 -translate-y-1/2 -ml-1 w-2 h-2 bg-[#05161c] rotate-45 border-t border-r border-teal-400/40" />
-      </div>
-    );
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  const updateRect = useCallback(() => {
+    const parent = anchorRef.current?.parentElement;
+    if (!parent) return;
+    setRect(parent.getBoundingClientRect());
+  }, []);
+
+  useEffect(() => {
+    const parent = anchorRef.current?.parentElement;
+    if (!parent) return;
+
+    const handleEnter = () => {
+      setRect(parent.getBoundingClientRect());
+      setIsVisible(true);
+    };
+    const handleLeave = () => {
+      setIsVisible(false);
+    };
+    const handlePointerDown = () => {
+      setIsVisible(false);
+    };
+
+    parent.addEventListener("mouseenter", handleEnter);
+    parent.addEventListener("mouseleave", handleLeave);
+    parent.addEventListener("focusin", handleEnter);
+    parent.addEventListener("focusout", handleLeave);
+    parent.addEventListener("mousedown", handlePointerDown);
+    parent.addEventListener("touchstart", handleLeave, { passive: true });
+
+    return () => {
+      parent.removeEventListener("mouseenter", handleEnter);
+      parent.removeEventListener("mouseleave", handleLeave);
+      parent.removeEventListener("focusin", handleEnter);
+      parent.removeEventListener("focusout", handleLeave);
+      parent.removeEventListener("mousedown", handlePointerDown);
+      parent.removeEventListener("touchstart", handleLeave);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    const handleScrollOrResize = () => {
+      updateRect();
+    };
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
+    };
+  }, [isVisible, updateRect]);
+
+  if (!isVisible || !rect || typeof document === "undefined") {
+    return <span ref={anchorRef} className="hidden" aria-hidden="true" />;
   }
 
-  const alignClass =
-    align === "left"
-      ? "left-0"
-      : align === "right"
-      ? "right-0"
-      : "left-1/2 -translate-x-1/2";
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
 
-  const arrowAlignClass =
-    align === "left"
-      ? "left-3.5"
-      : align === "right"
-      ? "right-3.5"
-      : "left-1/2 -translate-x-1/2";
+  // Smart placement flip if too close to viewport edges
+  let resolvedPlacement = placement;
+  if (placement === "left" && rect.left < 190) {
+    resolvedPlacement = rect.top > 64 ? "top" : "bottom";
+  } else if (placement === "top" && rect.top < 56) {
+    resolvedPlacement = "bottom";
+  } else if (placement === "bottom" && vh - rect.bottom < 56) {
+    resolvedPlacement = "top";
+  }
 
-  if (placement === "bottom") {
-    return (
+  let portalNode: React.ReactNode = null;
+
+  if (resolvedPlacement === "left") {
+    const topPx = Math.max(16, Math.min(vh - 16, rect.top + rect.height / 2));
+    const rightPx = Math.max(8, vw - rect.left + 10);
+
+    portalNode = (
       <div
-        className={`absolute top-full mt-2 ${alignClass} opacity-0 translate-y-1 scale-95 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 bg-[#05161c]/98 border border-teal-400/45 px-2.5 py-1.5 rounded-xl shadow-[0_14px_30px_rgba(0,0,0,0.85)] text-[10px] whitespace-nowrap z-[110] flex flex-col items-center gap-0.5 backdrop-blur-xl`}
+        style={{
+          position: "fixed",
+          top: `${topPx}px`,
+          right: `${rightPx}px`,
+          transform: "translateY(-50%)",
+          zIndex: 999999,
+          pointerEvents: "none"
+        }}
+        className="bg-[#041318] border border-teal-400/60 px-2.5 py-1.5 rounded-xl shadow-[0_14px_34px_rgba(0,0,0,0.95)] text-[10px] whitespace-nowrap flex flex-col items-end gap-0.5 ring-1 ring-black/80 animate-fadeIn"
       >
-        <div
-          className={`absolute bottom-full ${arrowAlignClass} -mb-1 w-2 h-2 bg-[#05161c] rotate-45 border-l border-t border-teal-400/45`}
-        />
         {category && (
           <span className="text-[7.5px] font-black tracking-widest text-teal-300 uppercase leading-none">
             {category}
@@ -135,37 +184,83 @@ export function ToolHoverTooltip({
         <div className="flex items-center gap-1.5">
           <span className="text-white font-extrabold tracking-tight">{title}</span>
           {badge && (
-            <span className="px-1.5 py-0.2 rounded bg-teal-400/20 border border-teal-400/40 text-teal-200 font-mono text-[8.5px] font-black">
+            <span className="px-1.5 py-0.2 rounded bg-teal-400/20 border border-teal-400/45 text-teal-200 font-mono tabular-nums text-[8.5px] font-black">
               {badge}
             </span>
           )}
         </div>
+        <div className="absolute left-full top-1/2 -translate-y-1/2 -ml-1 w-2 h-2 bg-[#041318] rotate-45 border-t border-r border-teal-400/60" />
+      </div>
+    );
+  } else {
+    // Resolved horizontal alignment with automatic viewport edge protection
+    let resolvedAlign = align;
+    const centerX = rect.left + rect.width / 2;
+    if (centerX < 110) resolvedAlign = "left";
+    else if (vw - centerX < 110) resolvedAlign = "right";
+
+    const posStyle: React.CSSProperties = {
+      position: "fixed",
+      zIndex: 999999,
+      pointerEvents: "none"
+    };
+
+    if (resolvedPlacement === "bottom") {
+      posStyle.top = `${Math.min(vh - 38, rect.bottom + 9)}px`;
+    } else {
+      posStyle.bottom = `${Math.min(vh - 10, vh - rect.top + 9)}px`;
+    }
+
+    let arrowAlignClass = "left-1/2 -translate-x-1/2";
+    if (resolvedAlign === "left") {
+      posStyle.left = `${Math.max(8, rect.left)}px`;
+      arrowAlignClass = "left-3.5";
+    } else if (resolvedAlign === "right") {
+      posStyle.right = `${Math.max(8, vw - rect.right)}px`;
+      arrowAlignClass = "right-3.5";
+    } else {
+      posStyle.left = `${centerX}px`;
+      posStyle.transform = "translateX(-50%)";
+      arrowAlignClass = "left-1/2 -translate-x-1/2";
+    }
+
+    portalNode = (
+      <div
+        style={posStyle}
+        className="bg-[#041318] border border-teal-400/60 px-2.5 py-1.5 rounded-xl shadow-[0_14px_34px_rgba(0,0,0,0.95)] text-[10px] whitespace-nowrap flex flex-col items-center gap-0.5 ring-1 ring-black/80 animate-fadeIn"
+      >
+        {resolvedPlacement === "bottom" && (
+          <div
+            className={`absolute bottom-full ${arrowAlignClass} -mb-1 w-2 h-2 bg-[#041318] rotate-45 border-l border-t border-teal-400/60`}
+          />
+        )}
+        {category && (
+          <span className="text-[7.5px] font-black tracking-widest text-teal-300 uppercase leading-none">
+            {category}
+          </span>
+        )}
+        <div className="flex items-center gap-1.5">
+          <span className="text-white font-extrabold tracking-tight">{title}</span>
+          {badge && (
+            <span className="px-1.5 py-0.2 rounded bg-teal-400/20 border border-teal-400/45 text-teal-200 font-mono tabular-nums text-[8.5px] font-black">
+              {badge}
+            </span>
+          )}
+        </div>
+        {resolvedPlacement === "top" && (
+          <div
+            className={`absolute top-full ${arrowAlignClass} -mt-1 w-2 h-2 bg-[#041318] rotate-45 border-r border-b border-teal-400/60`}
+          />
+        )}
       </div>
     );
   }
 
-  // Default: placement === "top" (directly above the tool)
   return (
-    <div
-      className={`absolute bottom-full mb-2 ${alignClass} opacity-0 translate-y-1 scale-95 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 bg-[#05161c]/98 border border-teal-400/45 px-2.5 py-1.5 rounded-xl shadow-[0_14px_30px_rgba(0,0,0,0.85)] text-[10px] whitespace-nowrap z-[110] flex flex-col items-center gap-0.5 backdrop-blur-xl`}
-    >
-      {category && (
-        <span className="text-[7.5px] font-black tracking-widest text-teal-300 uppercase leading-none">
-          {category}
-        </span>
-      )}
-      <div className="flex items-center gap-1.5">
-        <span className="text-white font-extrabold tracking-tight">{title}</span>
-        {badge && (
-          <span className="px-1.5 py-0.2 rounded bg-teal-400/20 border border-teal-400/40 text-teal-200 font-mono text-[8.5px] font-black">
-            {badge}
-          </span>
-        )}
-      </div>
-      <div
-        className={`absolute top-full ${arrowAlignClass} -mt-1 w-2 h-2 bg-[#05161c] rotate-45 border-r border-b border-teal-400/45`}
-      />
-    </div>
+    <>
+      <span ref={anchorRef} className="hidden" aria-hidden="true" />
+      {createPortal(portalNode, document.body)}
+    </>
   );
 }
 

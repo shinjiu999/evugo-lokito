@@ -17,7 +17,6 @@ import BroadcastTV from "./components/BroadcastTV";
 import { AppTutorialSocialKit } from "./components/AppTutorialSocialKit";
 import { PlaybookSaveLoadModal } from "./components/PlaybookSaveLoadModal";
 import { SettingsModal } from "./components/SettingsModal";
-import AndroidStatusBar from "./components/AndroidStatusBar";
 import AndroidBottomNav from "./components/AndroidBottomNav";
 import CornerKickSimulator, { generateCornerSimulationData, CornerSide, CornerSchemeId } from "./components/CornerKickSimulator";
 import { soundManager } from "./utils/sound";
@@ -642,29 +641,24 @@ export default function App() {
   const [showTacticalGrid, setShowTacticalGrid] = useState<boolean>(false);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
 
-  // Device & Display Mode State (Android vs PC layout adaptation)
-  const [deviceMode, setDeviceMode] = useState<DeviceViewMode>(() => {
-    const saved = localStorage.getItem("tactigen_device_mode");
-    if (saved === "pc" || saved === "android") return saved;
-    // Default to Android mode per user request: "Untuk mode windows atau PC. Set tampilan nya agar menyesuaikan tampilan seperti di android dll"
-    return "android";
-  });
-  const [androidViewportSize, setAndroidViewportSize] = useState<AndroidViewportSize>(() => {
-    const saved = localStorage.getItem("tactigen_android_viewport");
-    if (saved === "phone" || saved === "tablet" || saved === "fluid") return saved;
-    return "fluid";
-  });
+  // Auto-detect Device & Display Mode (PC vs HP/Android layout adaptation without manual switch)
+  const detectAutoDeviceMode = (): DeviceViewMode => {
+    if (typeof window === "undefined") return "pc";
+    return window.innerWidth < 1024 ? "android" : "pc";
+  };
+
+  const [deviceMode, setDeviceMode] = useState<DeviceViewMode>(detectAutoDeviceMode);
   const [androidActiveTab, setAndroidActiveTab] = useState<AndroidActiveTab>("pitch");
+  const [showClubIdentityBar, setShowClubIdentityBar] = useState<boolean>(true);
 
-  const handleSetDeviceMode = (mode: DeviceViewMode) => {
-    setDeviceMode(mode);
-    localStorage.setItem("tactigen_device_mode", mode);
-  };
-
-  const handleSetAndroidViewportSize = (size: AndroidViewportSize) => {
-    setAndroidViewportSize(size);
-    localStorage.setItem("tactigen_android_viewport", size);
-  };
+  useEffect(() => {
+    const handleResize = () => {
+      setDeviceMode(detectAutoDeviceMode());
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Professional Tactical Telemetry & UEFA Matchday Sheet States
   const [tacticalOverlay, setTacticalOverlay] = useState<TacticalOverlayMode>("none");
@@ -2206,59 +2200,6 @@ export default function App() {
 
         {/* Global Toolbar controls - Logo-only with Hover Tooltips */}
         <div className="hidden md:flex items-center gap-1.5 bg-[#071c22]/90 border border-teal-400/20 rounded-2xl p-1 shadow-inner">
-          {/* Display Mode Switcher: Android vs PC (Logo-Only) */}
-          <div className="flex bg-[#041115] border border-teal-400/20 rounded-xl p-0.5 shrink-0 gap-0.5" role="group" aria-label={lang === "id" ? "Mode Tampilan" : "Display Mode"}>
-            <div className="relative group">
-              <button
-                type="button"
-                onClick={() => {
-                  handleSetDeviceMode("android");
-                  soundManager.playClick();
-                }}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                  deviceMode === "android"
-                    ? "bg-teal-400 text-slate-950 shadow-sm"
-                    : "text-teal-100/70 hover:text-white hover:bg-white/5"
-                }`}
-                aria-label="Android Mode"
-              >
-                <NanoBananaLogo tool="android" size="sm" active={deviceMode === "android"} />
-              </button>
-              <ToolHoverTooltip
-                category={lang === "id" ? "MODE TAMPILAN" : "VIEW MODE"}
-                title={lang === "id" ? "Mode Android / Tablet" : "Android / Tablet Mode"}
-                badge={deviceMode === "android" ? "AKTIF" : undefined}
-                placement="bottom"
-              />
-            </div>
-
-            <div className="relative group">
-              <button
-                type="button"
-                onClick={() => {
-                  handleSetDeviceMode("pc");
-                  soundManager.playClick();
-                }}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                  deviceMode === "pc"
-                    ? "bg-teal-400 text-slate-950 shadow-sm"
-                    : "text-teal-100/70 hover:text-white hover:bg-white/5"
-                }`}
-                aria-label="PC Mode"
-              >
-                <NanoBananaLogo tool="pc" size="sm" active={deviceMode === "pc"} />
-              </button>
-              <ToolHoverTooltip
-                category={lang === "id" ? "MODE TAMPILAN" : "VIEW MODE"}
-                title={lang === "id" ? "Mode Desktop PC (3 Kolom)" : "Desktop PC Mode (3 Columns)"}
-                badge={deviceMode === "pc" ? "AKTIF" : undefined}
-                placement="bottom"
-              />
-            </div>
-          </div>
-
-          <div className="w-px h-4 bg-teal-400/15" />
-
           {/* Language Selector */}
           <div className="flex bg-[#041115] border border-teal-400/20 rounded-xl p-0.5 shrink-0" role="group" aria-label={lang === "id" ? "Pilih Bahasa" : "Choose Language"}>
             <div className="relative group">
@@ -2296,68 +2237,6 @@ export default function App() {
               <ToolHoverTooltip
                 category="LANGUAGE"
                 title="English Interface"
-                placement="bottom"
-              />
-            </div>
-          </div>
-
-          <div className="w-px h-4 bg-teal-400/15" />
-
-          {/* Sound Control Hub */}
-          <div className="flex bg-[#041115] border border-teal-400/20 rounded-xl p-0.5 shrink-0 items-center gap-0.5" id="global-sound-controller">
-            <div className="relative group">
-              <button
-                type="button"
-                onClick={() => {
-                  const muted = soundManager.toggleMuted();
-                  setIsMuted(muted);
-                  soundManager.playClick();
-                }}
-                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                  !isMuted
-                    ? "text-teal-300 bg-teal-500/15 hover:text-teal-200"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
-                }`}
-                aria-label={isMuted ? "Unmute Sounds" : "Mute Sounds"}
-                aria-pressed={!isMuted}
-              >
-                {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-              </button>
-              <ToolHoverTooltip
-                category="AUDIO"
-                title={isMuted ? (lang === "id" ? "Bunyikan Suara Efek" : "Unmute Sound FX") : (lang === "id" ? "Bisukan Suara Efek" : "Mute Sound FX")}
-                placement="bottom"
-              />
-            </div>
-
-            <div className="relative group">
-              <button
-                type="button"
-                onClick={() => soundManager.playWhistle()}
-                className="w-7 h-7 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white flex items-center justify-center transition-all cursor-pointer active:scale-95 text-xs"
-                aria-label="Blow Whistle"
-              >
-                📢
-              </button>
-              <ToolHoverTooltip
-                category="PELUIT WASIT"
-                title={lang === "id" ? "Tiup Peluit Latihan" : "Blow Referee Whistle"}
-                placement="bottom"
-              />
-            </div>
-
-            <div className="relative group">
-              <button
-                type="button"
-                onClick={() => soundManager.playCrowdCheer()}
-                className="w-7 h-7 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white flex items-center justify-center transition-all cursor-pointer active:scale-95 text-xs"
-                aria-label="Stadium Crowd Cheer"
-              >
-                🏟️
-              </button>
-              <ToolHoverTooltip
-                category="ATMOSFER STADION"
-                title={lang === "id" ? "Suara Sorak Stadion" : "Stadium Crowd Cheer"}
                 placement="bottom"
               />
             </div>
@@ -2482,27 +2361,6 @@ export default function App() {
 
         {/* Mobile-only compact interactive toolbar (Logo-Only + Hover Tooltip) */}
         <div className="flex md:hidden items-center gap-1.5 bg-[#071c22]/90 border border-teal-400/20 rounded-2xl p-1 shadow-inner">
-          {/* Display Mode toggle logo button (mobile) */}
-          <div className="relative group">
-            <button
-              type="button"
-              onClick={() => {
-                const nextMode = deviceMode === "android" ? "pc" : "android";
-                handleSetDeviceMode(nextMode);
-                soundManager.playClick();
-              }}
-              className="w-8 h-8 rounded-xl bg-teal-400/15 border border-teal-400/40 flex items-center justify-center cursor-pointer transition-all active:scale-95"
-              aria-label={lang === "id" ? "Beralih Mode Tampilan (Android / PC)" : "Toggle View Mode (Android / PC)"}
-            >
-              <NanoBananaLogo tool={deviceMode === "android" ? "android" : "pc"} size="sm" />
-            </button>
-            <ToolHoverTooltip
-              category="MODE TAMPILAN"
-              title={deviceMode === "android" ? "Mode Android" : "Mode Desktop PC"}
-              placement="bottom"
-            />
-          </div>
-
           {/* UI Icon Studio (mobile) */}
           <div className="relative group">
             <button
@@ -2608,9 +2466,9 @@ export default function App() {
             <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
             
             <div className="flex flex-wrap items-center justify-between gap-3">
-              {/* Left group: Translation & Sound indicators */}
+              {/* Left group: Translation indicators */}
               <div className="flex items-center gap-2">
-                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{lang === "id" ? "BHS & SUARA:" : "LANG & SOUNDS:"}</span>
+                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{lang === "id" ? "BAHASA:" : "LANGUAGE:"}</span>
                 
                 {/* Language selection in drawer */}
                 <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5">
@@ -2630,23 +2488,6 @@ export default function App() {
                   >
                     EN
                   </button>
-                </div>
-
-                {/* Sound triggers in drawer */}
-                <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5 items-center gap-1">
-                  <button
-                    onClick={() => {
-                      const muted = soundManager.toggleMuted();
-                      setIsMuted(muted);
-                    }}
-                    className={`p-1 rounded transition-all ${
-                      !isMuted ? "text-cyan-400 bg-cyan-500/10" : "text-gray-500"
-                    }`}
-                  >
-                    {!isMuted ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
-                  </button>
-                  <button onClick={() => soundManager.playWhistle()} className="text-[10px] p-0.5">📢</button>
-                  <button onClick={() => soundManager.playCrowdCheer()} className="text-[10px] p-0.5">🏟️</button>
                 </div>
               </div>
 
@@ -2685,38 +2526,9 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Main viewport Workspace (Adaptive for Android Mobile / Tablet / PC Windows) */}
-      <div className={`flex-1 w-full flex flex-col items-center ${deviceMode === "android" ? "p-2 sm:p-4" : ""}`}>
-        <div
-          className={
-            deviceMode === "android"
-              ? `w-full bg-[#0a0c11]/95 backdrop-blur-md flex flex-col transition-all duration-300 relative border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.85)] ${
-                  androidViewportSize === "phone"
-                    ? "max-w-[460px] rounded-3xl my-2 overflow-hidden"
-                    : androidViewportSize === "tablet"
-                    ? "max-w-[820px] rounded-3xl my-2 overflow-hidden"
-                    : "max-w-5xl rounded-2xl my-2"
-                }`
-              : "w-full"
-          }
-        >
-          {/* Android Mode System Top Bar */}
-          {deviceMode === "android" && (
-            <AndroidStatusBar
-              viewportSize={androidViewportSize}
-              onChangeViewportSize={handleSetAndroidViewportSize}
-              deviceMode={deviceMode}
-              onChangeDeviceMode={handleSetDeviceMode}
-              isMuted={isMuted}
-              onToggleMute={() => {
-                const muted = soundManager.toggleMuted();
-                setIsMuted(muted);
-              }}
-              lang={lang}
-              onSetLang={handleSetLang}
-            />
-          )}
-
+      {/* Main viewport Workspace (Auto-adaptive for Mobile/Android & PC Desktop) */}
+      <div className="flex-1 w-full flex flex-col items-center">
+        <div className="w-full flex-1 flex flex-col">
           {/* Core Content Grid / Tab Layout */}
           <main
             className={
@@ -3050,7 +2862,9 @@ export default function App() {
                   id="pitch-top-control-bar"
                   role="toolbar"
                   aria-label={lang === "id" ? "Bar kontrol atas luar lapangan" : "Top pitch control bar"}
-                  className="w-full max-w-[580px] bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-2.5 sm:px-3.5 py-2 flex items-center justify-between gap-2 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl z-45"
+                  className={`relative w-full max-w-[580px] bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-2.5 sm:px-3.5 py-2 flex items-center justify-between gap-2 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl ${
+                    showThemeDropdown ? "z-[110]" : "z-45"
+                  }`}
                 >
                   {/* Left: Pitch Board Theme Selector + Nano Banana Icon Studio (Logo-Only + Hover Tooltip Above) */}
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -3075,7 +2889,7 @@ export default function App() {
                       )}
 
                       {showThemeDropdown && (
-                        <div className="absolute left-0 top-full mt-1.5 w-52 sm:w-56 bg-[#06181e]/98 border border-teal-400/35 rounded-2xl shadow-2xl z-55 overflow-hidden flex flex-col gap-0.5 p-1.5 animate-fadeIn backdrop-blur-2xl max-h-64 overflow-y-auto" role="menu">
+                        <div className="absolute left-0 top-full mt-1.5 w-52 sm:w-56 bg-[#06181e]/98 border border-teal-400/35 rounded-2xl shadow-2xl z-[120] overflow-hidden flex flex-col gap-0.5 p-1.5 animate-fadeIn backdrop-blur-2xl max-h-64 overflow-y-auto" role="menu">
                           {[
                             { key: "sporty-tosca", label: lang === "id" ? "Toska Lembut Sporty" : "Soft Sporty Tosca", icon: "🌊" },
                             { key: "emerald-grass", label: lang === "id" ? "Padang Hijau" : "Classic Grass", icon: "🌿" },
@@ -3191,32 +3005,62 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Center: Club Identity & Formation Status */}
-                  <div className="hidden sm:flex items-center gap-2 min-w-0 overflow-hidden px-2.5 py-1 rounded-xl bg-[#041217]/80 border border-teal-400/15">
-                    <div className="flex items-center gap-1.5 border-r border-teal-400/20 pr-2 min-w-0">
-                      {teamLogo ? (
-                        <img
-                          src={teamLogo}
-                          className="w-4.5 h-4.5 object-contain bg-black/40 p-0.5 rounded-md border border-white/10 shrink-0"
-                          alt={lang === "id" ? "Logo Tim" : "Team Logo"}
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div
-                          className="w-2.5 h-2.5 rounded-full border border-black/45 shadow-inner shrink-0"
-                          style={{ backgroundColor: primaryColor }}
-                        />
-                      )}
-                      <span className="font-extrabold tracking-wider text-white text-[11px] uppercase truncate max-w-[110px]">
-                        {teamName || "Team A"}
-                      </span>
-                    </div>
+                  {/* Center: Interactive Club Identity & Manager Trigger */}
+                  <div className="relative group flex items-center min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowClubIdentityBar(!showClubIdentityBar);
+                        soundManager.playClick();
+                      }}
+                      className={`flex items-center gap-2 min-w-0 overflow-hidden px-2.5 py-1 rounded-xl border transition-all cursor-pointer active:scale-95 ${
+                        showClubIdentityBar
+                          ? "bg-teal-500/20 border-teal-400/50 text-white"
+                          : "bg-[#041217]/80 hover:bg-[#08222b] border-teal-400/25 text-white"
+                      }`}
+                      aria-expanded={showClubIdentityBar}
+                      aria-label={lang === "id" ? "Edit Nama Tim, Logo & Manajer" : "Edit Team Name, Logo & Manager"}
+                    >
+                      <div className="flex items-center gap-1.5 border-r border-teal-400/20 pr-2 min-w-0">
+                        {teamLogo ? (
+                          <img
+                            src={teamLogo}
+                            className="w-4.5 h-4.5 object-contain bg-black/40 p-0.5 rounded-md border border-white/10 shrink-0"
+                            alt={lang === "id" ? "Logo Tim" : "Team Logo"}
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div
+                            className="w-2.5 h-2.5 rounded-full border border-black/45 shadow-inner shrink-0"
+                            style={{ backgroundColor: primaryColor }}
+                          />
+                        )}
+                        <span className="font-extrabold tracking-wider text-white text-[10.5px] sm:text-[11px] uppercase truncate max-w-[90px] sm:max-w-[115px]">
+                          {teamName || "Team A"}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[10px] text-teal-200 font-extrabold tracking-wider bg-teal-500/15 px-1.5 py-0.5 rounded-md border border-teal-400/25 font-mono tabular-nums uppercase">
-                        {formation}
-                      </span>
-                    </div>
+                      <div className="hidden xs:flex items-center gap-1.5 shrink-0">
+                        <span className="text-[9.5px] text-teal-200 font-bold truncate max-w-[75px]">
+                          👔 {managerName || "COACH"}
+                        </span>
+                        <span className="text-[9.5px] text-teal-200 font-extrabold tracking-wider bg-teal-500/15 px-1.5 py-0.5 rounded-md border border-teal-400/25 font-mono tabular-nums uppercase">
+                          {formation}
+                        </span>
+                      </div>
+                    </button>
+                    <ToolHoverTooltip
+                      category={lang === "id" ? "IDENTITAS TIM & MANAJER" : "CLUB & MANAGER"}
+                      title={
+                        showClubIdentityBar
+                          ? lang === "id"
+                            ? "Sembunyikan Bar Nama Tim, Logo & Manajer"
+                            : "Hide Team Name, Logo & Manager Bar"
+                          : lang === "id"
+                          ? "Tampilkan Input Nama Tim, Logo & Manajer"
+                          : "Show Team Name, Logo & Manager Inputs"
+                      }
+                    />
                   </div>
 
                   {/* Right: Fullscreen & Reset Board Logo-Only Buttons (Hover reveals text above) */}
@@ -3318,6 +3162,135 @@ export default function App() {
                   </div>
                 </div>
 
+                  {/* DIRECT TOOLS BAR FOR TEAM NAME, TEAM LOGO, AND MANAGER PROFILE ABOVE THE PITCH */}
+                  {!isPitchFullscreen && showClubIdentityBar && (
+                    <div
+                      id="pitch-club-identity-bar"
+                      className="w-full max-w-[580px] bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-3 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-xl flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 animate-fadeIn z-40"
+                    >
+                      {/* Team Logo + Team Name Input */}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="relative group shrink-0">
+                          {teamLogo ? (
+                            <div className="relative w-9 h-9 bg-[#041217] border border-teal-400/35 rounded-xl overflow-hidden flex items-center justify-center group/logo-top">
+                              <img src={teamLogo} className="w-full h-full object-contain p-1" alt="Team Logo" />
+                              <button
+                                type="button"
+                                onClick={() => setTeamLogo(null)}
+                                className="absolute inset-0 bg-rose-950/90 opacity-0 group-hover/logo-top:opacity-100 flex items-center justify-center transition-all text-rose-300 font-bold text-xs cursor-pointer"
+                                aria-label="Hapus Logo Tim"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#041217] hover:bg-[#08222a] border-teal-400/30 hover:border-teal-400/60 text-teal-300 hover:text-white active:scale-95">
+                              <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      if (event.target?.result) {
+                                        setTeamLogo(event.target.result as string);
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="sr-only"
+                                aria-label={t.chooseLogo}
+                              />
+                            </label>
+                          )}
+                          <ToolHoverTooltip
+                            category={lang === "id" ? "LOGO TIM" : "TEAM LOGO"}
+                            title={teamLogo ? (lang === "id" ? "Klik ✕ untuk Hapus Logo Tim" : "Remove Team Logo") : (lang === "id" ? "Unggah Logo Tim" : "Upload Team Logo")}
+                            align="left"
+                          />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <label className="text-[8.5px] font-extrabold text-teal-300/80 uppercase tracking-wider block mb-0.5">
+                            {lang === "id" ? "Nama Tim" : "Team Name"}
+                          </label>
+                          <input
+                            type="text"
+                            value={teamName}
+                            onChange={(e) => handleUpdateTeamName(e.target.value)}
+                            placeholder={lang === "id" ? "Masukkan Nama Tim..." : "Enter Team Name..."}
+                            aria-label={t.mainTeamName}
+                            className="w-full bg-[#041217] border border-teal-400/25 focus:border-teal-400 rounded-xl px-2.5 py-1.5 text-xs text-white font-bold uppercase tracking-wide focus:outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="hidden sm:block w-px h-8 bg-teal-400/15 shrink-0" />
+
+                      {/* Manager Photo + Manager Name Input */}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="relative group shrink-0">
+                          {managerPhoto ? (
+                            <div className="relative w-9 h-9 bg-[#041217] border border-teal-400/35 rounded-xl overflow-hidden flex items-center justify-center group/mgr-top">
+                              <img src={managerPhoto} className="w-full h-full object-cover" alt="Manager" />
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateManagerPhoto(null)}
+                                className="absolute inset-0 bg-rose-950/90 opacity-0 group-hover/mgr-top:opacity-100 flex items-center justify-center transition-all text-rose-300 font-bold text-xs cursor-pointer"
+                                aria-label="Hapus Foto Manajer"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border bg-[#041217] hover:bg-[#08222a] border-teal-400/30 hover:border-teal-400/60 text-teal-200 hover:text-white active:scale-95">
+                              <span className="text-sm">👔</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      if (event.target?.result) {
+                                        handleUpdateManagerPhoto(event.target.result as string);
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="sr-only"
+                                aria-label={t.uploadPhoto}
+                              />
+                            </label>
+                          )}
+                          <ToolHoverTooltip
+                            category={lang === "id" ? "FOTO MANAJER" : "MANAGER PHOTO"}
+                            title={managerPhoto ? (lang === "id" ? "Klik ✕ untuk Hapus Foto Manajer" : "Remove Manager Photo") : (lang === "id" ? "Unggah Foto Manajer / Pelatih" : "Upload Manager Photo")}
+                          />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <label className="text-[8.5px] font-extrabold text-teal-300/80 uppercase tracking-wider block mb-0.5">
+                            {lang === "id" ? "Manajer / Pelatih Tim" : "Team Manager / Coach"}
+                          </label>
+                          <input
+                            type="text"
+                            value={managerName}
+                            onChange={(e) => handleUpdateManagerName(e.target.value)}
+                            placeholder={lang === "id" ? "Nama Manajer / Pelatih..." : "Manager / Coach Name..."}
+                            aria-label={t.managerName}
+                            className="w-full bg-[#041217] border border-teal-400/25 focus:border-teal-400 rounded-xl px-2.5 py-1.5 text-xs text-white font-bold uppercase tracking-wide font-mono focus:outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {!isPitchFullscreen && pitchZoneMode === "pitch" && (
                     <TacticalTelemetryHUD
                       players={players}
@@ -3418,7 +3391,9 @@ export default function App() {
                     id="pitch-bottom-control-bar"
                     role="toolbar"
                     aria-label={lang === "id" ? "Bar kontrol bawah luar lapangan" : "Bottom pitch control bar"}
-                    className="w-full bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-2.5 sm:px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+                    className={`relative w-full bg-[#071c22]/95 border border-teal-400/25 rounded-2xl px-2.5 sm:px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl ${
+                      showFormationMenu || showSportOverlay || showEnemyDropdown ? "z-[110]" : "z-45"
+                    }`}
                   >
                     {/* Left Group: Formation Selector, Studio Formasi Trigger, & Match Sport Mode Rules (Logo-Only + Hover Tooltip Above) */}
                     <div className="flex flex-wrap items-center gap-2">
@@ -3454,7 +3429,7 @@ export default function App() {
 
                         {showFormationMenu && (
                           <div
-                            className="absolute bottom-full mb-2 left-0 w-60 bg-[#06181f]/98 backdrop-blur-2xl border border-teal-400/35 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-55 overflow-hidden flex flex-col divide-y divide-teal-400/15 animate-fadeIn"
+                            className="absolute bottom-full mb-2 left-0 w-60 bg-[#06181f]/98 backdrop-blur-2xl border border-teal-400/35 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[120] overflow-hidden flex flex-col divide-y divide-teal-400/15 animate-fadeIn"
                             role="menu"
                           >
                             <div className="px-3.5 py-2.5 bg-teal-500/15 flex justify-between items-center select-none">
@@ -3617,7 +3592,7 @@ export default function App() {
                         )}
 
                         {showSportOverlay && (
-                          <div className="absolute bottom-full mb-2 left-0 w-64 bg-[#06181f]/98 border border-teal-400/35 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-55 p-3 flex flex-col gap-2.5 animate-fadeIn backdrop-blur-2xl">
+                          <div className="absolute bottom-full mb-2 left-0 w-64 bg-[#06181f]/98 border border-teal-400/35 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[120] p-3 flex flex-col gap-2.5 animate-fadeIn backdrop-blur-2xl">
                             <div className="flex items-center justify-between border-b border-teal-400/20 pb-2">
                               <div className="flex flex-col">
                                 <span className="text-[9.5px] font-black tracking-wider text-teal-300 uppercase select-none">
@@ -3818,7 +3793,7 @@ export default function App() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.95 }}
                               transition={{ duration: 0.18, ease: "easeOut" }}
-                              className="absolute bottom-full mb-2 right-0 bg-[#06181f]/98 border border-teal-400/35 rounded-2xl p-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl flex flex-col gap-1.5 min-w-[150px] z-55"
+                              className="absolute bottom-full mb-2 right-0 bg-[#06181f]/98 border border-teal-400/35 rounded-2xl p-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl flex flex-col gap-1.5 min-w-[150px] z-[120]"
                             >
                               <span className="text-[8px] font-black text-teal-300 tracking-widest text-center uppercase border-b border-teal-400/20 pb-1 block">
                                 {lang === "id" ? "FORMASI LAWAN" : "OPP FORMATION"}
@@ -3922,13 +3897,12 @@ export default function App() {
 
             {/* Tactical Tools Sidebar (Shown when Pitch mode is active) */}
             {pitchZoneMode === "pitch" && (
-            <div className="flex flex-col gap-1.5 sm:gap-2 p-1.5 bg-[#071c22]/90 hover:bg-[#071c22] backdrop-blur-xl rounded-2xl border border-teal-400/25 shadow-[0_12px_36px_rgba(3,12,16,0.55)] select-none items-center justify-center shrink-0 transition-all duration-300 z-45">
+            <div className="flex flex-col gap-1.5 sm:gap-2 p-1.5 bg-[#071c22]/90 hover:bg-[#071c22] backdrop-blur-xl rounded-2xl border border-teal-400/25 shadow-[0_12px_36px_rgba(3,12,16,0.55)] select-none items-center justify-center shrink-0 transition-all duration-300 z-45 hover:z-[110]">
               
               {/* Active Tool select (Mode Geser/Drag) */}
               <div className="relative group shrink-0">
                 <button
                   onClick={() => setActiveTool("select")}
-                  title={lang === "id" ? "Mode Geser & Susun (Drag-Drop)" : "Drag & Drop Mode"}
                   className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                     activeTool === "select"
                       ? "bg-teal-400 text-slate-950 border-teal-300 shadow-[0_0_12px_rgba(45,212,191,0.35)]"
@@ -3939,14 +3913,15 @@ export default function App() {
                 >
                   <Move className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </button>
-                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#06181f]/98 border border-teal-400/30 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-teal-300 uppercase">{t.control}</span>
-                  <span className="text-white font-black">{lang === "id" ? "Mode Geser & Susun (Drag)" : "Drag & Drop Mode"}</span>
-                </div>
+                <ToolHoverTooltip
+                  category={t.control}
+                  title={lang === "id" ? "Mode Geser & Susun (Drag)" : "Drag & Drop Mode"}
+                  placement="left"
+                />
               </div>
 
               {/* Active Tool draw (Mode Coret/Draw) */}
-              <div className="relative group/draw shrink-0">
+              <div className="relative group shrink-0">
                 <div className="flex items-center shrink-0">
                   <button
                     onClick={() => {
@@ -3956,7 +3931,6 @@ export default function App() {
                         setActiveTool("select");
                       }
                     }}
-                    title={lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}
                     className={`relative w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                       activeTool === "draw"
                         ? "bg-teal-400 text-slate-950 border-teal-300 shadow-[0_0_12px_rgba(45,212,191,0.35)]"
@@ -3973,10 +3947,11 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover/draw:opacity-100 transition-all duration-205 bg-[#06181f]/98 border border-teal-400/30 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-teal-300 uppercase">{t.control}</span>
-                  <span className="text-white font-black">{lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}</span>
-                </div>
+                <ToolHoverTooltip
+                  category={t.control}
+                  title={lang === "id" ? "Mode Coret Taktikal (Draw)" : "Tactical Sketch Mode"}
+                  placement="left"
+                />
               </div>
 
               {/* Responsive separation line (divider) */}
@@ -3986,26 +3961,28 @@ export default function App() {
               <div className="relative group shrink-0">
                 <button
                   onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
-                  title={isToolbarExpanded 
-                    ? (lang === "id" ? "Sembunyikan Toolkit" : "Collapse Toolkit")
-                    : (lang === "id" ? "Buka Toolkit (Rollout)" : "Expand Toolkit (Rollout)")}
                   className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                     isToolbarExpanded
                       ? "bg-teal-500/25 border-teal-400/45 text-teal-200"
                       : "bg-[#041217] text-teal-100/75 border-teal-400/20 hover:bg-teal-500/15 hover:text-white"
                   }`}
+                  aria-label={
+                    isToolbarExpanded
+                      ? lang === "id" ? "Sembunyikan Toolkit" : "Collapse Toolkit"
+                      : lang === "id" ? "Buka Toolkit (Rollout)" : "Expand Toolkit (Rollout)"
+                  }
                 >
                   <Sliders className={`w-3.5 h-3.5 md:w-4 md:h-4 transition-transform duration-300 ${isToolbarExpanded ? 'rotate-90' : ''}`} />
                 </button>
-                {/* Floating Tooltip Help */}
-                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                  <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">Toolbar</span>
-                  <span className="text-white font-black">
-                    {isToolbarExpanded 
-                      ? (lang === "id" ? "Sembunyikan Toolkit" : "Collapse Toolkit")
-                      : (lang === "id" ? "Buka Toolkit (Rollout)" : "Expand Toolkit (Rollout)")}
-                  </span>
-                </div>
+                <ToolHoverTooltip
+                  category="TOOLBAR"
+                  title={
+                    isToolbarExpanded
+                      ? lang === "id" ? "Sembunyikan Toolkit" : "Collapse Toolkit"
+                      : lang === "id" ? "Buka Toolkit (Rollout)" : "Expand Toolkit (Rollout)"
+                  }
+                  placement="left"
+                />
               </div>
 
               {/* ROLL OUT ZONE */}
@@ -4030,16 +4007,16 @@ export default function App() {
                           e.dataTransfer.setData("text/plain", "ball");
                           e.dataTransfer.effectAllowed = "copy";
                         }}
-                        title={lang === "id" ? "Tambah Bola Baru (Bisa Di-drag)" : "Spawn New Ball (Draggable)"}
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-emerald-600/20 text-white hover:text-emerald-400 border border-white/10 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-md shrink-0"
+                        aria-label={lang === "id" ? "Tambah Bola Baru" : "Spawn New Ball"}
                       >
                         <span className="text-[12px] sm:text-[14px] md:text-[19px] hover:scale-110 transition-transform">⚽</span>
                       </button>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.elements}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Tambah Bola Baru (Klik / Drag)" : "Spawn New Ball (Click / Drag)"}</span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={t.elements}
+                        title={lang === "id" ? "Tambah Bola Baru (Klik / Drag)" : "Spawn New Ball (Click / Drag)"}
+                        placement="left"
+                      />
                     </div>
 
                     {/* Add Cone Button */}
@@ -4051,8 +4028,8 @@ export default function App() {
                           e.dataTransfer.setData("text/plain", "cone");
                           e.dataTransfer.effectAllowed = "copy";
                         }}
-                        title={lang === "id" ? "Tambah Cone Latihan (Bisa Di-drag)" : "Spawn Practice Cone (Draggable)"}
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-orange-650/20 text-white hover:text-orange-400 border border-white/10 hover:border-orange-500/20 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-md shrink-0"
+                        aria-label={lang === "id" ? "Tambah Cone Latihan" : "Spawn Practice Cone"}
                       >
                         <div className="relative flex flex-col items-center">
                           <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 bg-gradient-to-t from-orange-600 via-orange-500 to-amber-300 rounded-t-full border-t border-amber-200 flex items-center justify-center shadow-lg">
@@ -4061,11 +4038,11 @@ export default function App() {
                           <div className="w-3.5 h-0.5 sm:w-4 sm:h-0.5 md:w-5.5 md:h-1 bg-orange-700 rounded-full -mt-0.5 shadow-md"></div>
                         </div>
                       </button>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.elements}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Tambah Cone Latihan (Klik / Drag)" : "Spawn Practice Cone (Click / Drag)"}</span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={t.elements}
+                        title={lang === "id" ? "Tambah Cone Latihan (Klik / Drag)" : "Spawn Practice Cone (Click / Drag)"}
+                        placement="left"
+                      />
                     </div>
 
                     {/* Add Enemy Player Button */}
@@ -4077,8 +4054,8 @@ export default function App() {
                           e.dataTransfer.setData("text/plain", "enemy");
                           e.dataTransfer.effectAllowed = "copy";
                         }}
-                        title={lang === "id" ? "Tambah Pemain Lawan (Bisa Di-drag)" : "Spawn Opponent Player (Draggable)"}
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-blue-600/20 text-white hover:text-blue-400 border border-white/10 hover:border-blue-500/20 transition-all flex items-center justify-center active:scale-95 cursor-grab active:cursor-grabbing shadow-md shrink-0"
+                        aria-label={lang === "id" ? "Tambah Pemain Lawan" : "Spawn Opponent Player"}
                       >
                         <div
                           className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-white/40 flex items-center justify-center shadow-md font-black text-[9px] sm:text-[10px]"
@@ -4087,18 +4064,18 @@ export default function App() {
                           E
                         </div>
                       </button>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{lang === "id" ? "LAWAN" : "OPPONENT"}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Tambah Pemain Lawan (Klik / Drag)" : "Spawn Opponent Player (Click / Drag)"}</span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={lang === "id" ? "LAWAN" : "OPPONENT"}
+                        title={lang === "id" ? "Tambah Pemain Lawan (Klik / Drag)" : "Spawn Opponent Player (Click / Drag)"}
+                        placement="left"
+                      />
                     </div>
 
                     {/* Responsive separation line (divider) */}
                     <div className="w-5 sm:w-8 h-[1px] bg-white/[0.08] my-1 sm:my-1.5 shrink-0" />
 
                     {/* Jersey Utama */}
-                    <div className="relative group shrink-0" title={lang === "id" ? "Jersey Tim Utama" : "Primary Kit Color"}>
+                    <div className="relative group shrink-0">
                       <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
                         <div className="relative flex items-center justify-center">
                           <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: primaryColor, color: primaryColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
@@ -4107,18 +4084,19 @@ export default function App() {
                             value={primaryColor}
                             onChange={(e) => setPrimaryColor(e.target.value)}
                             className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                            aria-label={lang === "id" ? "Jersey Tim Utama" : "Primary Kit Color"}
                           />
                         </div>
                       </div>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.uniform}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Jersey Tim Utama" : "Primary Kit Color"}</span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={t.uniform}
+                        title={lang === "id" ? "Jersey Tim Utama" : "Primary Kit Color"}
+                        placement="left"
+                      />
                     </div>
 
                     {/* Jersey Keeper */}
-                    <div className="relative group shrink-0" title={lang === "id" ? "Warna Jersey Kiper (GK)" : "Goalkeeper Kit Color"}>
+                    <div className="relative group shrink-0">
                       <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
                         <div className="relative flex items-center justify-center">
                           <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover:scale-115 duration-205" style={{ fill: gkColor, color: gkColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
@@ -4127,18 +4105,19 @@ export default function App() {
                             value={gkColor}
                             onChange={(e) => setGkColor(e.target.value)}
                             className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                            aria-label={lang === "id" ? "Jersey Kiper (GK)" : "Goalkeeper Kit Color"}
                           />
                         </div>
                       </div>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.uniform}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Jersey Kiper (GK)" : "Goalkeeper Kit Color"}</span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={t.uniform}
+                        title={lang === "id" ? "Jersey Kiper (GK)" : "Goalkeeper Kit Color"}
+                        placement="left"
+                      />
                     </div>
 
                     {/* Warna Nomor Punggung */}
-                    <div className="relative group shrink-0" title={lang === "id" ? "Warna Angka/Nomor Jersey" : "Jersey Number Color"}>
+                    <div className="relative group shrink-0">
                       <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
                         <div className="relative flex items-center justify-center w-5 h-5">
                           <span className="text-[9px] md:text-[12px] font-black tracking-tighter transition-transform group-hover:scale-115 duration-205" style={{ color: numberColor }}>10</span>
@@ -4147,18 +4126,19 @@ export default function App() {
                             value={numberColor}
                             onChange={(e) => setNumberColor(e.target.value)}
                             className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                            aria-label={lang === "id" ? "Warna Nomor" : "Numbers Color"}
                           />
                         </div>
                       </div>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.uniform}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Warna Nomor" : "Numbers Color"}</span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={t.uniform}
+                        title={lang === "id" ? "Warna Nomor" : "Numbers Color"}
+                        placement="left"
+                      />
                     </div>
 
                     {/* Jersey Lawan */}
-                    <div className="relative group/opponentcolor shrink-0">
+                    <div className="relative group/opponentcolor shrink-0 hover:z-[999]">
                       <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0">
                         <div className="relative flex items-center justify-center">
                           <Shirt className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-300 transition-transform group-hover/opponentcolor:scale-115 duration-205" style={{ fill: enemyColor, color: enemyColor === "#ffffff" ? "#cbd5e1" : "transparent" }} />
@@ -4167,13 +4147,13 @@ export default function App() {
                             value={enemyColor}
                             onChange={(e) => setEnemyColor(e.target.value)}
                             className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
-                            title={lang === "id" ? "Pilih Warna Custom" : "Choose Custom Color"}
+                            aria-label={lang === "id" ? "Pilih Warna Custom Lawan" : "Choose Opponent Custom Color"}
                           />
                         </div>
                       </div>
                       
                       {/* Floating Opponent Color Picker Panel */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 opacity-0 pointer-events-none group-hover/opponentcolor:opacity-100 group-hover/opponentcolor:pointer-events-auto transition-all duration-200 bg-[#0e0f13]/98 border border-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] backdrop-blur-md z-55 flex flex-col gap-2 min-w-[160px] sm:min-w-[190px]">
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 opacity-0 pointer-events-none group-hover/opponentcolor:opacity-100 group-hover/opponentcolor:pointer-events-auto transition-all duration-200 bg-[#0e0f13]/98 border border-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-md z-[999] flex flex-col gap-2 min-w-[160px] sm:min-w-[190px]">
                         <div className="flex flex-col gap-0.5 border-b border-white/5 pb-1.5 mb-1 text-right">
                           <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">
                             {lang === "id" ? "WARNA TIM LAWAN" : "OPPONENT CLUB COLOR"}
@@ -4236,17 +4216,17 @@ export default function App() {
                     </div>
 
                     {/* Team Kit Presets Quick Palette Selector */}
-                    <div className="relative group/kitpresets shrink-0">
+                    <div className="relative group/kitpresets shrink-0 hover:z-[999]">
                       <button
                         type="button"
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md overflow-hidden shrink-0"
-                        title={lang === "id" ? "Preset Warna Kostum Tim" : "Team Kit Color Presets"}
+                        aria-label={lang === "id" ? "Preset Warna Kostum Tim" : "Team Kit Color Presets"}
                       >
                         <Palette className="w-3.5 h-3.5 md:w-5 md:h-5 text-indigo-400 group-hover/kitpresets:rotate-45 transition-transform duration-300" />
                       </button>
 
                       {/* Floating Team Kit Presets Panel */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 opacity-0 pointer-events-none group-hover/kitpresets:opacity-100 group-hover/kitpresets:pointer-events-auto transition-all duration-200 bg-[#0e0f13]/98 border border-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.7)] backdrop-blur-md z-55 flex flex-col gap-2 min-w-[210px] sm:min-w-[240px]">
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 opacity-0 pointer-events-none group-hover/kitpresets:opacity-100 group-hover/kitpresets:pointer-events-auto transition-all duration-200 bg-[#0e0f13]/98 border border-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-md z-[999] flex flex-col gap-2 min-w-[210px] sm:min-w-[240px]">
                         <div className="flex flex-col gap-0.5 border-b border-white/5 pb-1.5 mb-0.5 text-right">
                           <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-indigo-400 uppercase">
                             {lang === "id" ? "PRESET KOSTUM TIM" : "TEAM KIT PRESETS"}
@@ -4303,7 +4283,7 @@ export default function App() {
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => setShowTacticalGrid(!showTacticalGrid)}
-                        title={lang === "id" ? "Grid Taktis" : "Tactical Grid"}
+                        aria-label={lang === "id" ? "Grid Taktis" : "Tactical Grid"}
                         className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                           showTacticalGrid
                             ? "bg-indigo-600 text-white border-indigo-400/30 shadow-[0_0_12px_rgba(99,102,241,0.35)]"
@@ -4312,11 +4292,12 @@ export default function App() {
                       >
                         <LayoutGrid className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
                       </button>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.tacticalGrid}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Grid Taktis" : "Tactical Grid"}</span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={t.tacticalGrid}
+                        title={lang === "id" ? "Grid Taktis" : "Tactical Grid"}
+                        badge={showTacticalGrid ? "ON" : undefined}
+                        placement="left"
+                      />
                     </div>
 
                     {/* Magnetic Grid Snapping / Free Placement Toggle Button */}
@@ -4326,7 +4307,7 @@ export default function App() {
                           setIsSnapToGrid(!isSnapToGrid);
                           soundManager.playClick();
                         }}
-                        title={lang === "id" ? "Magnet Grid / Bebas" : "Grid Magnet / Free"}
+                        aria-label={lang === "id" ? "Magnet Grid / Bebas" : "Grid Magnet / Free"}
                         className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                           isSnapToGrid
                             ? "bg-amber-600 text-white border-amber-400/30 shadow-[0_0_12px_rgba(217,119,6,0.35)]"
@@ -4335,24 +4316,23 @@ export default function App() {
                       >
                         <Magnet className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
                       </button>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">
-                          {lang === "id" ? "KONTROL PRESISI" : "PRECISION CONTROL"}
-                        </span>
-                        <span className="text-white font-black">
-                          {isSnapToGrid
-                            ? (lang === "id" ? "Magnet Grid: Aktif" : "Grid Magnet: Active")
-                            : (lang === "id" ? "Penempatan: Bebas & Halus" : "Placement: Free & Smooth")}
-                        </span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={lang === "id" ? "KONTROL PRESISI" : "PRECISION CONTROL"}
+                        title={
+                          isSnapToGrid
+                            ? lang === "id" ? "Magnet Grid: Aktif" : "Grid Magnet: Active"
+                            : lang === "id" ? "Penempatan: Bebas & Halus" : "Placement: Free & Smooth"
+                        }
+                        badge={isSnapToGrid ? "ON" : "FREE"}
+                        placement="left"
+                      />
                     </div>
 
                     {/* Tactical Heatmap Overlay Toggle Button */}
                     <div className="relative group shrink-0">
                       <button
                         onClick={() => setShowHeatmap(!showHeatmap)}
-                        title={lang === "id" ? "Peta Panas (Heatmap)" : "Heatmap Analysis"}
+                        aria-label={lang === "id" ? "Peta Panas (Heatmap)" : "Heatmap Analysis"}
                         className={`w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md border shrink-0 ${
                           showHeatmap
                             ? "bg-red-600 text-white border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.45)]"
@@ -4361,11 +4341,12 @@ export default function App() {
                       >
                         <Flame className={`w-3.5 h-3.5 md:w-4.5 md:h-4.5 ${showHeatmap ? 'animate-pulse text-orange-200' : ''}`} />
                       </button>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-[#5e6680] uppercase">{t.heatmapTitle}</span>
-                        <span className="text-white font-black">{t.heatmapDesc}</span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={t.heatmapTitle}
+                        title={t.heatmapDesc}
+                        badge={showHeatmap ? "ON" : undefined}
+                        placement="left"
+                      />
                     </div>
 
                     {/* Responsive separation line (divider) */}
@@ -4379,16 +4360,16 @@ export default function App() {
                           setSaveLoadMode("save");
                           setSaveLoadModalOpen(true);
                         }}
-                        title={lang === "id" ? "Simpan Formasi & Skuad" : "Save Pitch & Squad"}
+                        aria-label={lang === "id" ? "Simpan Formasi & Skuad" : "Save Pitch & Squad"}
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-emerald-600/20 hover:text-emerald-400 hover:border-emerald-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
                       >
                         <Save className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
                       </button>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-emerald-400 uppercase">{lang === "id" ? "PENYIMPANAN" : "SAVE STATE"}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Simpan Formasi & Skuad" : "Save Pitch & Squad"}</span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={lang === "id" ? "PENYIMPANAN" : "SAVE STATE"}
+                        title={lang === "id" ? "Simpan Formasi & Skuad" : "Save Pitch & Squad"}
+                        placement="left"
+                      />
                     </div>
 
                     {/* Load Setup Button */}
@@ -4399,16 +4380,16 @@ export default function App() {
                           setSaveLoadMode("load");
                           setSaveLoadModalOpen(true);
                         }}
-                        title={lang === "id" ? "Muat Formasi Tersimpan" : "Load Saved Playbook"}
+                        aria-label={lang === "id" ? "Muat Formasi Tersimpan" : "Load Saved Playbook"}
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-blue-600/20 hover:text-blue-400 hover:border-blue-500/20 transition-all flex items-center justify-center active:scale-95 cursor-pointer shadow-md shrink-0"
                       >
                         <FolderOpen className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />
                       </button>
-                      {/* Floating Tooltip Help */}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2.5 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-205 bg-[#0e0f13]/95 border border-white/10 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xl text-[9.5px] sm:text-[10px] whitespace-nowrap z-50 flex flex-col items-end gap-0.5 backdrop-blur-md">
-                        <span className="text-[7.5px] sm:text-[8px] font-black tracking-widest text-blue-400 uppercase">{lang === "id" ? "MEMORI" : "LOAD BOARD"}</span>
-                        <span className="text-white font-black">{lang === "id" ? "Muat Formasi Tersimpan" : "Load Saved Playbook"}</span>
-                      </div>
+                      <ToolHoverTooltip
+                        category={lang === "id" ? "MEMORI" : "LOAD BOARD"}
+                        title={lang === "id" ? "Muat Formasi Tersimpan" : "Load Saved Playbook"}
+                        placement="left"
+                      />
                     </div>
                   </motion.div>
                 )}
@@ -4738,7 +4719,7 @@ export default function App() {
           activeTab={androidActiveTab}
           onChangeTab={setAndroidActiveTab}
           onOpenSettings={() => {
-            setSettingsInitialTab("display");
+            setSettingsInitialTab("audio");
             setIsSettingsModalOpen(true);
           }}
           lang={lang}
@@ -4847,12 +4828,16 @@ export default function App() {
         onDownloadPitchPng={handleDownloadImage}
       />
 
-      {/* GLOBAL CREDENTIALS SETTINGS MODAL */}
+      {/* GLOBAL CREDENTIALS & AUDIO SETTINGS MODAL */}
       <SettingsModal
         isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
+        onClose={() => {
+          setIsMuted(soundManager.getMuted());
+          setIsSettingsModalOpen(false);
+        }}
         onSave={() => {
           setSettingsKey((prev) => prev + 1);
+          setIsMuted(soundManager.getMuted());
           setHasConnectedAI(
             !!(
               (localStorage.getItem("tactigen_custom_key") || "").trim() ||
